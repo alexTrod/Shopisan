@@ -35,5 +35,3 @@ yarn-error.*
 *.tsbuildinfo
 *.apk
 build-1709318700257.apk
-
-assets/
