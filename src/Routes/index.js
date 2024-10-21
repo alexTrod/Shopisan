@@ -14,8 +14,7 @@ const Routes = () => {
   const isLogin = useSelector((state) => state.Auth.isLogin);
   return (
     <NavigationContainer ref={navigationRef}>
-      {/* {!isLogin ? <AuthStackNavigator /> : <AppNavigator />} */}
-      <AuthStackNavigator />
+      {!isLogin ? <AuthStackNavigator /> : <AppNavigator />}
     </NavigationContainer>
   );
 };

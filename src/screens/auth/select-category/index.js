@@ -16,8 +16,12 @@ import UKFlag from "../../../../assets/icons/Uk-flag";
 import BelgiqueFlag from "../../../../assets/icons/belgique-flag";
 import Button from "../../../components/button";
 import SelectCategoryStyles from "./SelectCategoryStyles";
+import { useDispatch } from "react-redux";
+import { login } from "../../../Redux/Actions/Auth";
 
 export default function SelectCategory({ navigation }) {
+  const dispatch = useDispatch();
+
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("fr");
   console.log(countries);
@@ -133,6 +137,9 @@ export default function SelectCategory({ navigation }) {
           textStyle={{ fontFamily: "Mulish-Bold" }}
           containerStyle={SelectCategoryStyles.button}
           // onPress={handleSubmit(loginHandler)}
+          onPress={() => {
+            dispatch(login(true));
+          }}
         >
           Register
         </Button>

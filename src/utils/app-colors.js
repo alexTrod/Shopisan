@@ -1,5 +1,7 @@
 const AppColors = {
   white: "#ffffff",
+  white_100: "#F7F7F7",
+  white_200: "#FBFBFB",
   black: "black",
   red: "#E94560",
   red_100: "rgba(224,74,93,0.1)",

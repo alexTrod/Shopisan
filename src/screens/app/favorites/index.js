@@ -8,17 +8,12 @@ import { AppColors } from "../../../utils";
 
 import Header from "../../../components/header";
 
-import { logout } from "../../../Redux/Actions/Auth";
-
-import { useDispatch } from "react-redux";
 import { commerceData } from "../../../utils/dummy-data";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { height, width } from "../../../utils/dimension";
 
-export default function HomeScreen({ navigation }) {
-  const dispatch = useDispatch();
-
+export default function FavoritesScreen() {
   return (
     <ScreenWrapper
       backgroundColor={AppColors.white_100}
@@ -28,7 +23,7 @@ export default function HomeScreen({ navigation }) {
       <Header
         showLeft={true}
         showBack
-        title="Commerce"
+        title="Favorites"
         rightIcon
         onRightPress={() => {}}
         containerStyle={{ width: width(90), alignSelf: "center" }}
@@ -41,11 +36,10 @@ export default function HomeScreen({ navigation }) {
           fontFamily: "Mulish-Bold",
           paddingHorizontal: width(8),
           marginTop: height(4),
-          marginBottom: height(2),
         }}
         size={2.2}
       >
-        Posts
+        VOS STORES PREFERES
       </CustomText>
       <FlatList
         data={commerceData ?? []}
@@ -60,7 +54,7 @@ export default function HomeScreen({ navigation }) {
               tags={item.tags}
               description={item.description}
               image={item.image}
-              fromFavorite={false}
+              fromFavorite={true}
             />
           );
         }}

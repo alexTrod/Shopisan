@@ -14,6 +14,7 @@ const AuthStackNavigator = () => {
       screenOptions={{ header: () => false }}
     >
       <Stack.Screen name={ScreenNames.LOGIN} component={Login} />
+
       <Stack.Screen
         name={ScreenNames.SELECT_COUNTRY}
         component={SelectCountryScreen}

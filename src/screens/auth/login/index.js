@@ -36,44 +36,17 @@ export default function Login({ navigation }) {
     formState: { isValid, errors },
   } = useForm({
     mode: "all",
-    resolver: yupResolver(
-      active === 0 ? LoginFormValidation : StoreRegisterValidation
-    ), // Replace with your validation schema
+    resolver: yupResolver(LoginFormValidation), // Replace with your validation schema
+  });
+  const {
+    control: storeControl,
+    handleSubmit: handleSubmitStore,
+    formState: { isValid: isValidStore, errors: storeError },
+  } = useForm({
+    mode: "all",
+    resolver: yupResolver(StoreRegisterValidation), // Replace with your validation schema
   });
 
-  // const checkUser = async (email, password) => {
-  //   console.log("checking user", email, password);
-  //   let res;
-  //   try {
-  //     const docRef = doc(firestore, "DevelopmentUsers", email.trim());
-  //     const userDoc = await getDoc(docRef);
-  //     res = userDoc.data();
-  //   } catch (err) {
-  //     console.log(err);
-  //     setLoading(false);
-  //     return;
-  //   }
-  //   if (res) {
-  //     if (res.password === password) {
-  //       dispatch(login(res));
-  //     } else {
-  //       console.log("wrong password");
-  //       Toast.show({
-  //         text1: "Wrong password",
-  //         type: "error",
-  //         text2: "Your password is incorrect",
-  //       });
-  //     }
-  //   } else {
-  //     console.log("user not found");
-  //     Toast.show({
-  //       text1: "User not found",
-  //       type: "error",
-  //       text2: "No user with this email exists",
-  //     });
-  //   }
-  //   setLoading(false);
-  // };
   const loginHandler = async (values) => {
     navigation.navigate(ScreenNames.SELECT_COUNTRY);
     // setLoading(true);
@@ -319,6 +292,9 @@ export default function Login({ navigation }) {
               </View>
               <CustomText
                 color={AppColors.pink}
+                onPress={() =>
+                  navigation?.navigate(ScreenNames.FORGOT_PASSWORD)
+                }
                 textAlign="right"
                 size={1.7}
                 textProps={{
@@ -431,7 +407,7 @@ export default function Login({ navigation }) {
             </View>
             <Spacer vertical={height(2)} />
             <InputField
-              control={control}
+              control={storeControl}
               prefix={
                 <MaterialCommunityIcons
                   name="store-outline"
@@ -458,10 +434,10 @@ export default function Login({ navigation }) {
               keytype="next"
               label=""
               placeholder="Enter Shop"
-              error={errors.shop}
+              error={storeError.shop}
             />
             <InputField
-              control={control}
+              control={storeControl}
               prefix={
                 <MaterialCommunityIcons
                   name="account-edit-outline"
@@ -484,17 +460,16 @@ export default function Login({ navigation }) {
                 borderWidth: width(0.2),
               }}
               textFieldInnerContainer={{ width: "100%" }}
-              onSubmit={() => passwordRef?.current?.focus()}
               keytype="next"
               label=""
               textInputStyle={{
                 color: AppColors.black,
               }}
               placeholder="Enter First Name"
-              error={errors.firstName}
+              error={storeError.firstName}
             />
             <InputField
-              control={control}
+              control={storeControl}
               prefix={
                 <MaterialCommunityIcons
                   name="account-edit-outline"
@@ -519,17 +494,16 @@ export default function Login({ navigation }) {
                 borderWidth: width(0.2),
               }}
               textFieldInnerContainer={{ width: "100%" }}
-              onSubmit={() => emailRef?.current?.focus()}
               keytype="next"
               label=""
               textInputStyle={{
                 color: AppColors.black,
               }}
               placeholder="Enter Last Name"
-              error={errors.lastName}
+              error={storeError.lastName}
             />
             <InputField
-              control={control}
+              control={storeControl}
               prefix={
                 <FontAwesome6
                   name="user"
@@ -555,14 +529,13 @@ export default function Login({ navigation }) {
                 borderWidth: width(0.2),
               }}
               textFieldInnerContainer={{ width: "100%" }}
-              onSubmit={() => emailRef?.current?.focus()}
               keytype="next"
               label=""
               placeholder="Enter Username"
-              error={errors.username}
+              error={storeError.username}
             />
             <InputField
-              control={control}
+              control={storeControl}
               prefix={
                 <MaterialCommunityIcons
                   name="email-outline"
@@ -588,11 +561,10 @@ export default function Login({ navigation }) {
                 borderWidth: width(0.2),
               }}
               textFieldInnerContainer={{ width: "100%" }}
-              onSubmit={() => passwordRef?.current?.focus()}
               keytype="next"
               label=""
               placeholder="Enter email"
-              error={errors.email}
+              error={storeControl.email}
             />
 
             <View
@@ -629,6 +601,9 @@ export default function Login({ navigation }) {
               </View>
               <CustomText
                 color={AppColors.pink}
+                onPress={() =>
+                  navigation?.navigate(ScreenNames.FORGOT_PASSWORD)
+                }
                 textAlign="right"
                 size={1.7}
                 textProps={{
@@ -642,11 +617,11 @@ export default function Login({ navigation }) {
 
             <Spacer vertical={height(3)} />
             <Button
-              disabled={!isValid}
+              disabled={!isValidStore}
               loading={loading}
               textStyle={{ fontFamily: "Mulish-Bold" }}
               containerStyle={styles.button}
-              onPress={handleSubmit(loginHandler)}
+              onPress={handleSubmitStore(loginHandler)}
             >
               Register
             </Button>
