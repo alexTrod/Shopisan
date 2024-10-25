@@ -1,6 +1,7 @@
 // App.js
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "../screens/app/home";
 import FavoritesScreen from "../screens/app/favorites";
 import ShopUnfilled from "../../assets/icons/shop-unfilled";
@@ -54,6 +55,7 @@ export default function BottomTabs() {
         },
         tabBarActiveTintColor: "tomato",
         tabBarInactiveTintColor: "gray",
+        header: () => false,
       })}
     >
       <Tab.Screen name={ScreenNames.HOME} component={HomeScreen} />

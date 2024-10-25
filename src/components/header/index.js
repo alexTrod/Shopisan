@@ -18,27 +18,38 @@ const Header = ({
   showLeft = true,
 }) => {
   return (
-    <View style={[styles.container, containerStyle]}>
-      {showBack && (
-        <Pressable onPress={onBackPress}>
-          <MenuIcon height={height(3)} width={height(3)} />
-        </Pressable>
-      )}
-      {title && (
-        <CustomText
-          size={2.5}
-          textStyles={{ fontFamily: "Mulish-Bold" }}
-          color={AppColors.primary}
-        >
-          {title}
-        </CustomText>
-      )}
-      {!children && (
-        <Pressable onPress={onRightPress}>
-          <SettingsIcon height={height(3)} width={height(3)} />
-        </Pressable>
-      )}
-      {children}
+    <View style={[styles.container]}>
+      <View
+        style={[
+          {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          },
+          containerStyle,
+        ]}
+      >
+        {showBack && (
+          <Pressable onPress={onBackPress}>
+            <MenuIcon height={height(3)} width={height(3)} />
+          </Pressable>
+        )}
+        {title && (
+          <CustomText
+            size={2.5}
+            textStyles={{ fontFamily: "Mulish-Bold" }}
+            color={AppColors.primary}
+          >
+            {title}
+          </CustomText>
+        )}
+        {!children && (
+          <Pressable onPress={onRightPress}>
+            <SettingsIcon height={height(3)} width={height(3)} />
+          </Pressable>
+        )}
+        {children}
+      </View>
     </View>
   );
 };
@@ -49,9 +60,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: AppColors.white,
     width: width(100),
-    flexDirection: "row",
-    justifyContent: "space-between",
-    // alignItems: "center",
+
     paddingVertical: height(1),
     paddingHorizontal: width(2),
   },
