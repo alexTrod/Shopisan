@@ -26,7 +26,6 @@ export default function BottomTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          console.log(route.name);
           if (route.name === ScreenNames.HOME) {
             if (focused) {
               return <ShopFilled height={height(3)} width={height(3)} />;

@@ -19,10 +19,12 @@ import BelgiqueFlag from "../../../../assets/icons/belgique-flag";
 import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 
-export default function SelectCountry({ navigation }) {
+export default function SelectCountry({ navigation, route }) {
+  const { userData } = route?.params;
   const [loading, setLoading] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState("fr");
-  console.log(countries);
+  const [selectedCountryName, setSelectedCountryName] = useState("France");
+  const [selectedCountry, setSelectedCountry] = useState("1");
+  console.log(userData);
 
   // const checkUser = async (email, password) => {
   //   console.log("checking user", email, password);
@@ -88,7 +90,10 @@ export default function SelectCountry({ navigation }) {
               <TouchableOpacity
                 key={item?.id}
                 style={styles.countryRow}
-                onPress={() => setSelectedCountry(item?.id)}
+                onPress={() => {
+                  setSelectedCountryName(item?.name),
+                    setSelectedCountry(item?.id);
+                }}
               >
                 <View
                   style={[
@@ -160,7 +165,13 @@ export default function SelectCountry({ navigation }) {
           textStyle={{ fontFamily: "Mulish-Bold" }}
           containerStyle={styles.button}
           onPress={() => {
-            navigation?.navigate(ScreenNames.SELECT_CATEGORY);
+            let data = {
+              ...userData,
+              country: selectedCountryName,
+            };
+            navigation?.navigate(ScreenNames.SELECT_CATEGORY, {
+              userData: data,
+            });
           }}
         >
           Register

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
@@ -6,6 +6,8 @@ import { height, width } from "../../../utils/dimension";
 import { StyleSheet, View } from "react-native";
 import Mapbox from "@rnmapbox/maps"; // Import your FloatingItem component
 import FloatingCards from "../../../components/card-Item";
+import { firestore } from "../../../../firebaseconfig";
+import { collection, getDocs } from "firebase/firestore";
 
 Mapbox.setAccessToken(
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ"
@@ -38,6 +40,23 @@ const markerCoordinates = {
   longitude: -122.6765,
 };
 export default function Carte({ navigation }) {
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    getHotelData();
+  }, []);
+
+  const getHotelData = async () => {
+    const docRef = collection(firestore, "hotels");
+    const exists = await getDocs(docRef);
+    const hotelData = exists?.docs?.map((item) => {
+      return item?.data();
+    });
+    setHotels(hotelData);
+    setLoading(false);
+  };
   return (
     <ScreenWrapper
       backgroundColor={AppColors.white_100}

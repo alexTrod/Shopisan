@@ -3,6 +3,9 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ScreenNames } from "../routes";
 import Login from "../../screens/auth/login";
+import SignUpScreen from "../../screens/auth/signup";
+import ForgotPassword from "../../screens/auth/forgot-password";
+import ResetPassword from "../../screens/auth/reset-password";
 import { SelectCategoryScreen, SelectCountryScreen } from "../../screens/auth";
 
 const Stack = createNativeStackNavigator();
@@ -33,6 +36,15 @@ const AuthStackNavigator = () => {
       screenOptions={{ header: () => false }}
     >
       <Stack.Screen name={ScreenNames.LOGIN} component={Login} />
+      <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUpScreen} />
+      <Stack.Screen
+        name={ScreenNames.FORGOT_PASSWORD}
+        component={ForgotPassword}
+      />
+      <Stack.Screen
+        name={ScreenNames.RESET_PASSWORD}
+        component={ResetPassword}
+      />
       <Stack.Screen
         name={ScreenNames.SELECT_COUNTRY}
         component={SelectCountryScreen}

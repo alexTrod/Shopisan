@@ -1,6 +1,12 @@
-import { View, Pressable, ImageBackground, FlatList } from "react-native";
+import {
+  View,
+  Pressable,
+  ImageBackground,
+  FlatList,
+  ActivityIndicator,
+} from "react-native";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import ScreenWrapper from "../../../components/screen-wrapper";
 
@@ -8,12 +14,30 @@ import { AppColors } from "../../../utils";
 
 import Header from "../../../components/header";
 
-import { commerceData } from "../../../utils/dummy-data";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { height, width } from "../../../utils/dimension";
+import { firestore } from "../../../../firebaseconfig";
+import { collection, getDocs } from "firebase/firestore";
 
 export default function FavoritesScreen() {
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    getHotelData();
+  }, []);
+
+  const getHotelData = async () => {
+    const docRef = collection(firestore, "hotels");
+    const exists = await getDocs(docRef);
+    const hotelData = exists?.docs?.map((item) => {
+      return item?.data();
+    });
+    setHotels(hotelData);
+    setLoading(false);
+  };
   return (
     <ScreenWrapper
       backgroundColor={AppColors.white_100}
@@ -41,35 +65,39 @@ export default function FavoritesScreen() {
       >
         VOS STORES PREFERES
       </CustomText>
-      <FlatList
-        data={commerceData ?? []}
-        showsVerticalScrollIndicator={false}
-        keyExtractor={(index) => index?.toString()}
-        renderItem={({ item }) => {
-          return (
-            <ItemCard
-              key={item.id}
-              title={item.title}
-              rating={item.rating}
-              tags={item.tags}
-              description={item.description}
-              image={item.image}
-              fromFavorite={true}
-            />
-          );
-        }}
-        ListEmptyComponent={() => {
-          <CustomText
-            textAlign="center"
-            color={AppColors.grey_100}
-            textProps={{ fontFamily: "Mulish-Bold" }}
-            textStyles={{ fontFamily: "Mulish-Bold" }}
-            size={2.2}
-          >
-            No items available
-          </CustomText>;
-        }}
-      />
+      {loading ? (
+        <ActivityIndicator color={"black"} size={"large"} />
+      ) : (
+        <FlatList
+          data={hotels ?? []}
+          showsVerticalScrollIndicator={false}
+          keyExtractor={(index) => index?.toString()}
+          renderItem={({ item }) => {
+            return (
+              <ItemCard
+                key={item.id}
+                title={item.title}
+                rating={item.rating}
+                tags={item.tags}
+                description={item.description}
+                image={{ uri: item.image }}
+                fromFavorite={true}
+              />
+            );
+          }}
+          ListEmptyComponent={() => {
+            <CustomText
+              textAlign="center"
+              color={AppColors.grey_100}
+              textProps={{ fontFamily: "Mulish-Bold" }}
+              textStyles={{ fontFamily: "Mulish-Bold" }}
+              size={2.2}
+            >
+              No items available
+            </CustomText>;
+          }}
+        />
+      )}
     </ScreenWrapper>
   );
 }

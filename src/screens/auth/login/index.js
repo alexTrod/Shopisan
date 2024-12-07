@@ -20,6 +20,9 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
 import Unlock_outline from "../../../../assets/icons/unlock";
 import StoreRegisterValidation from "./valdiation_Store";
+import { firestore } from "../../../../firebaseconfig";
+import { doc, getDoc } from "firebase/firestore";
+import Toast from "react-native-toast-message";
 
 export default function Login({ navigation }) {
   const [loading, setLoading] = useState(false);
@@ -48,8 +51,9 @@ export default function Login({ navigation }) {
   });
 
   const loginHandler = async (values) => {
-    navigation.navigate(ScreenNames.SELECT_COUNTRY);
-    // setLoading(true);
+    console.log(values);
+    setLoading(true);
+    navigation.navigate(ScreenNames.SELECT_COUNTRY, { userData: values });
   };
 
   const [isEnabled, setIsEnabled] = useState(false);
@@ -292,9 +296,9 @@ export default function Login({ navigation }) {
               </View>
               <CustomText
                 color={AppColors.pink}
-                onPress={() =>
-                  navigation?.navigate(ScreenNames.FORGOT_PASSWORD)
-                }
+                // onPress={() =>
+                //   navigation?.navigate(ScreenNames.FORGOT_PASSWORD)
+                // }
                 textAlign="right"
                 size={1.7}
                 textProps={{
@@ -333,9 +337,9 @@ export default function Login({ navigation }) {
               Already have an Account?
             </CustomText>
             <CustomText
-              onPress={() => {
-                navigation?.navigate(ScreenNames.LOGIN);
-              }}
+              // onPress={() => {
+              //   // navigation?.navigate(ScreenNames.LOGIN);
+              // }}
               color={AppColors.primary}
               textStyles={{
                 marginLeft: height(0.5),
@@ -601,9 +605,9 @@ export default function Login({ navigation }) {
               </View>
               <CustomText
                 color={AppColors.pink}
-                onPress={() =>
-                  navigation?.navigate(ScreenNames.FORGOT_PASSWORD)
-                }
+                // onPress={() =>
+                //   navigation?.navigate(ScreenNames.FORGOT_PASSWORD)
+                // }
                 textAlign="right"
                 size={1.7}
                 textProps={{
@@ -617,11 +621,10 @@ export default function Login({ navigation }) {
 
             <Spacer vertical={height(3)} />
             <Button
-              disabled={!isValidStore}
               loading={loading}
               textStyle={{ fontFamily: "Mulish-Bold" }}
               containerStyle={styles.button}
-              onPress={handleSubmitStore(loginHandler)}
+              // onPress={}
             >
               Register
             </Button>

@@ -1,67 +1,77 @@
-import React, { useState } from "react";
-import { FlatList, Image, Switch, TouchableOpacity, View } from "react-native";
-
+import React, { useEffect, useState } from "react";
+import { FlatList, TouchableOpacity, View } from "react-native";
 import { AppColors } from "../../../utils";
-
 import ScreenWrapper from "../../../components/screen-wrapper";
 import CustomText from "../../../components/text";
 import { height } from "../../../utils/dimension";
-import FranceFlag from "../../../../assets/icons/france-flag";
 import { categories, countries } from "../../../utils/dummy-data";
 import { AntDesign } from "@expo/vector-icons";
-import GreeceFlag from "../../../../assets/icons/greece-flag";
-import SpainFlag from "../../../../assets/icons/spain-flag";
-import ItalyFlag from "../../../../assets/icons/italy-flag";
-import UKFlag from "../../../../assets/icons/Uk-flag";
-import BelgiqueFlag from "../../../../assets/icons/belgique-flag";
 import Button from "../../../components/button";
 import SelectCategoryStyles from "./SelectCategoryStyles";
 import { useDispatch } from "react-redux";
 import { login } from "../../../Redux/Actions/Auth";
+import { firestore } from "../../../../firebaseconfig";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import Toast from "react-native-toast-message";
 
-export default function SelectCategory({ navigation }) {
+export default function SelectCategory({ navigation, route }) {
+  const { userData } = route?.params;
   const dispatch = useDispatch();
 
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("fr");
+  const [categoryName, setCategoryName] = useState("Mode femme");
   console.log(countries);
+  useEffect(() => {
+    setLoading(false);
+  }, []);
 
-  // const checkUser = async (email, password) => {
-  //   console.log("checking user", email, password);
-  //   let res;
-  //   try {
-  //     const docRef = doc(firestore, "DevelopmentUsers", email.trim());
-  //     const userDoc = await getDoc(docRef);
-  //     res = userDoc.data();
-  //   } catch (err) {
-  //     console.log(err);
-  //     setLoading(false);
-  //     return;
-  //   }
-  //   if (res) {
-  //     if (res.password === password) {
-  //       dispatch(login(res));
-  //     } else {
-  //       console.log("wrong password");
-  //       Toast.show({
-  //         text1: "Wrong password",
-  //         type: "error",
-  //         text2: "Your password is incorrect",
-  //       });
-  //     }
-  //   } else {
-  //     console.log("user not found");
-  //     Toast.show({
-  //       text1: "User not found",
-  //       type: "error",
-  //       text2: "No user with this email exists",
-  //     });
-  //   }
-  //   setLoading(false);
-  // };
-  const loginHandler = async (values) => {
-    // setLoading(true);
+  const loginHandler = async () => {
+    setLoading(true);
+    const docRef = await doc(
+      firestore,
+      "DevelopmentUsers",
+      userData.email.trim()
+    );
+    const exists = await getDoc(docRef);
+    if (typeof exists.data() != "undefined") {
+      console.log("user already exists");
+      Toast.show({
+        text1: "User already exists",
+        type: "error",
+        text2: "User with this email already exists",
+      });
+      setLoading(false);
+    } else {
+      await setDoc(doc(firestore, "DevelopmentUsers", userData.email.trim()), {
+        name: userData.username.trim(),
+        password: userData.password.trim(),
+        email: userData.email.trim(),
+        country: userData.country.trim(),
+        category: categoryName.trim(),
+      })
+        .then(async () => {
+          const docRef = await doc(
+            firestore,
+            "DevelopmentUsers",
+            userData.email.trim()
+          );
+          await getDoc(docRef).then((res) => {
+            console.log(res);
+            dispatch(login(res.data()));
+          });
+        })
+        .catch((err) => {
+          setLoading(false);
+          console.log(err);
+        });
+    }
   };
+  // const loginHandler = async (values) => {
+
+  //   // dispatch(login(true));
+  //   // setLoading(true);
+  // };
 
   return (
     <ScreenWrapper
@@ -90,7 +100,10 @@ export default function SelectCategory({ navigation }) {
               <TouchableOpacity
                 key={item?.id}
                 style={SelectCategoryStyles.countryRow}
-                onPress={() => setSelectedCategory(item?.id)}
+                onPress={() => {
+                  setCategoryName(item.name);
+                  setSelectedCategory(item?.id);
+                }}
               >
                 <View
                   style={[
@@ -138,7 +151,7 @@ export default function SelectCategory({ navigation }) {
           containerStyle={SelectCategoryStyles.button}
           // onPress={handleSubmit(loginHandler)}
           onPress={() => {
-            dispatch(login(true));
+            loginHandler();
           }}
         >
           Register
