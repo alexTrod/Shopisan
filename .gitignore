@@ -30,3 +30,5 @@ expo-env.d.ts
 yarn.lock
 android/*
 .idea/*
+
+package-lock.json
