@@ -10,8 +10,6 @@ npm-debug.*
 *.orig.*
 web-build/
 
-.idea/*
-yarn.lock
 
 # macOS
 .DS_Store
@@ -27,3 +25,8 @@ expo-env.d.ts
 
 *.ipa
 # assets/
+
+#alex
+yarn.lock
+android/*
+.idea/*
