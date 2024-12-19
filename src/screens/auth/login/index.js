@@ -20,9 +20,13 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
 import Unlock_outline from "../../../../assets/icons/unlock";
 import StoreRegisterValidation from "./valdiation_Store";
+import { useSelector } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
 import { doc, getDoc } from "firebase/firestore";
 import Toast from "react-native-toast-message";
+
+import i18n from '../../../translations/i18n';
+
 
 export default function Login({ navigation }) {
   const [loading, setLoading] = useState(false);
@@ -32,7 +36,8 @@ export default function Login({ navigation }) {
   const [passwordHide, setPasswordHide] = useState(true);
   const [ConfirmpasswordHide, setConfirmpasswordHide] = useState(true);
   const [active, setActive] = useState(0);
-
+  const locale = useSelector(state => state.locale.currentLocale);
+  i18n.locale = locale;
   const {
     control,
     handleSubmit,
@@ -54,6 +59,10 @@ export default function Login({ navigation }) {
     console.log(values);
     setLoading(true);
     navigation.navigate(ScreenNames.SELECT_COUNTRY, { userData: values });
+  };
+
+  const noLoginHandler = () => {
+    navigation.navigate(ScreenNames.HOME);
   };
 
   const [isEnabled, setIsEnabled] = useState(false);
@@ -152,7 +161,7 @@ export default function Login({ navigation }) {
               onSubmit={() => emailRef?.current?.focus()}
               keytype="next"
               label=""
-              placeholder="Enter Username"
+              placeholder={i18n.t('username_placeholder')}
               error={errors.username}
             />
             <InputField
@@ -274,11 +283,11 @@ export default function Login({ navigation }) {
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Switch
                   trackColor={{
-                    false: AppColors.primary,
+                    false: AppColors.grey_200,
                     true: AppColors.primary,
-                  }} // Set track color to match your image
-                  thumbColor={isEnabled ? AppColors.white : AppColors.white} // White thumb regardless of state
-                  ios_backgroundColor={AppColors.primary} // Default background color for iOS
+                  }} 
+                  thumbColor={isEnabled ? AppColors.white : AppColors.white}
+                  ios_backgroundColor={AppColors.primary} 
                   onValueChange={toggleSwitch}
                   value={isEnabled}
                   style={styles.switch}
@@ -319,6 +328,14 @@ export default function Login({ navigation }) {
               onPress={handleSubmit(loginHandler)}
             >
               Register
+            </Button>
+            <Spacer vertical={height(1)} />
+            <Button
+              textStyle={{ fontFamily: "Mulish-Bold" }}
+              containerStyle={styles.button}
+              onPress={noLoginHandler}
+            >
+              No Login
             </Button>
           </View>
 
@@ -583,11 +600,11 @@ export default function Login({ navigation }) {
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Switch
                   trackColor={{
-                    false: AppColors.primary,
+                    false: AppColors.grey_200,
                     true: AppColors.primary,
-                  }} // Set track color to match your image
-                  thumbColor={isEnabled ? AppColors.white : AppColors.white} // White thumb regardless of state
-                  ios_backgroundColor={AppColors.primary} // Default background color for iOS
+                  }} 
+                  thumbColor={isEnabled ? AppColors.white : AppColors.white}
+                  ios_backgroundColor={AppColors.primary} 
                   onValueChange={toggleSwitch}
                   value={isEnabled}
                   style={styles.switch}

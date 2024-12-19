@@ -7,6 +7,10 @@ import Routes from "./src/Routes";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import * as Localization from 'expo-localization';
+import { setLocale } from './src/Redux/Actions/LocaleActions';
+import { setShopperCountry } from "./src/Redux/Actions/ShopperProfileActions";
+
 
 // import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics";
@@ -34,6 +38,15 @@ export default function App() {
     "Mulish-SemiBold": require("./assets/fonts/Mulish-SemiBold.ttf"),
   });
 
+
+  useEffect(() => {
+    const deviceLanguage = Localization.getLocales()[0].languageCode;
+    const deviceCountry = Localization.getLocales()[0].regionCode;
+    store.dispatch(setShopperCountry(deviceCountry));
+    console.log("SHOPPER LOCATED AT ", deviceCountry)
+    store.dispatch(setLocale(deviceLanguage));
+  }, []);
+
   useEffect(() => {
     if (loaded || error) {
       SplashScreen.hideAsync();
@@ -42,6 +55,7 @@ export default function App() {
 
   return (
     <Provider store={store}>
+      
       <PersistGate loading={null} persistor={persistor}>
         <Routes />
         <Toast />

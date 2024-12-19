@@ -1,4 +1,4 @@
-export const countries = [
+export const countries_fr = [
   { name: "FRANCE", id: "fr" },
   { name: "BELGIQUE", id: "be" },
   { name: "ROYAUME-UNI", id: "uk" },
@@ -7,16 +7,24 @@ export const countries = [
   { name: "GRECE", id: "gr" },
 ];
 
+export const countries = [
+  { name: "FRANCE", id: "fr" },
+  { name: "BELGIUM", id: "be" },
+  { name: "UNITED KINGDOM", id: "uk" },
+  { name: "ITALY", id: "it" },
+  { name: "SPAIN", id: "es" },
+  { name: "GREECE", id: "gr" },
+];
 export const categories = [
-  { name: "Toutes les categories", id: "1" },
-  { name: "Mode homme", id: "2" },
-  { name: "Mode femme", id: "3" },
-  { name: "Mode enfant", id: "4" },
-  { name: "Accessoires de mode", id: "5" },
-  { name: "Chaussures", id: "6" },
-  { name: "Bijouteire", id: "7" },
-  { name: "Sacs", id: "8" },
-  { name: "Cosmetiquies", id: "9" },
+  { name: "All categories", id: "1" },
+  { name: "Man fashion", id: "2" },
+  { name: "Woman fashion", id: "3" },
+  { name: "Kid fashion", id: "4" },
+  { name: "Accessories", id: "5" },
+  { name: "Shoes", id: "6" },
+  { name: "Jewellery", id: "7" },
+  { name: "Bags", id: "8" },
+  { name: "Cosmetics", id: "9" },
 ];
 
 export const commerceData = [

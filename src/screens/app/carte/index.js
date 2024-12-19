@@ -66,7 +66,7 @@ export default function Carte({ navigation }) {
       <Header
         showLeft={true}
         showBack
-        title="Carte"
+        title="Map"
         rightIcon
         onRightPress={() => {}}
         containerStyle={{ width: width(90), alignSelf: "center" }}

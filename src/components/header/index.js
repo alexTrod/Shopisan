@@ -6,6 +6,10 @@ import { height, width } from "../../utils/dimension";
 import CustomText, { LargeText } from "../text";
 import MenuIcon from "../../../assets/icons/menu-icon";
 import SettingsIcon from "../../../assets/icons/settings-icon";
+import { useState } from "react";
+import { Modal, TouchableOpacity, Text } from "react-native";
+import HamburgerMenu from '../hamburger-menu';
+
 
 const Header = ({
   title = "",
@@ -17,6 +21,12 @@ const Header = ({
   onRightPress,
   showLeft = true,
 }) => {
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  const toggleMenu = () => {
+    setMenuVisible(!menuVisible);
+  };
+
   return (
     <View style={[styles.container]}>
       <View
@@ -30,7 +40,7 @@ const Header = ({
         ]}
       >
         {showBack && (
-          <Pressable onPress={onBackPress}>
+          <Pressable onPress={toggleMenu}>
             <MenuIcon height={height(3)} width={height(3)} />
           </Pressable>
         )}
@@ -50,6 +60,7 @@ const Header = ({
         )}
         {children}
       </View>
+      <HamburgerMenu visible={menuVisible} onClose={toggleMenu} />
     </View>
   );
 };

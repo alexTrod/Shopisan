@@ -23,7 +23,11 @@ import { height, width } from "../../../utils/dimension";
 import { firestore } from "../../../../firebaseconfig";
 import { collection, getDocs } from "firebase/firestore";
 
+import i18n from '../../../translations/i18n';
+
 export default function HomeScreen({ navigation }) {
+  const locale = useSelector(state => state.locale.currentLocale);
+  i18n.locale = locale;
   const user = useSelector((state) => state?.Auth?.user);
   const [loading, setLoading] = useState(false);
   console.log("user", user);
@@ -41,6 +45,7 @@ export default function HomeScreen({ navigation }) {
     });
     setHotels(hotelData);
     setLoading(false);
+    console.log(hotelData);
   };
 
   return (
@@ -52,7 +57,7 @@ export default function HomeScreen({ navigation }) {
       <Header
         showLeft={true}
         showBack
-        title="Commerce"
+        title={i18n.t('home_title')}
         rightIcon
         onRightPress={() => {}}
         containerStyle={{ width: width(90), alignSelf: "center" }}

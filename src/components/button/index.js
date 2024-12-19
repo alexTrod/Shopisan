@@ -35,27 +35,25 @@ const Button = ({
   }, [variant, withShadow, disabled]);
 
   return (
-    <View style={[getStyles.container, containerStyle]}>
-      <TouchableOpacity
-        disabled={disabled}
-        onPress={onPress}
-        {...touchableOpacityProps}
-        // style={getStyles.touchableOpacity}
-      >
+    <TouchableOpacity
+      style={[getStyles.container, containerStyle]}
+      disabled={disabled}
+      onPress={onPress}
+      {...touchableOpacityProps}
+    >
+      {loading ? (
+        <ActivityIndicator color={AppColors.white} size={"small"} />
+      ) : (
         <CustomText
           color={disabled ? AppColors.white : buttonTextColor}
           textStyles={textStyle}
           textProps={textProps}
           size={size}
         >
-          {loading ? (
-            <ActivityIndicator color={AppColors.white} size={"small"} />
-          ) : (
-            children
-          )}
+          {children}
         </CustomText>
-      </TouchableOpacity>
-    </View>
+      )}
+    </TouchableOpacity>
   );
 };
 

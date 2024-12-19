@@ -23,12 +23,18 @@ import Spacer from "../../../components/spacer";
 // import { login } from "../../../Redux/Actions/Auth";
 import { useDispatch } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
+import i18n from '../../../translations/i18n';
+import { useSelector } from "react-redux";
+
+
 // import Toast from "react-native-toast-message";
 // import { doc, getDoc } from "firebase/firestore";
 // import { firestore } from "../../../../firebaseconfig";
 
 export default function SignUp({ navigation }) {
   const [loading, setLoading] = useState(false);
+  const locale = useSelector(state => state.locale.currentLocale);
+  i18n.locale = locale;
   const dispatch = useDispatch();
 
   const passwordRef = useRef(null);
@@ -37,7 +43,6 @@ export default function SignUp({ navigation }) {
   const [passwordHide, setPasswordHide] = useState(true);
   const [ConfirmpasswordHide, setConfirmpasswordHide] = useState(true);
   const [active, setActive] = useState(1);
-
   const {
     control,
     handleSubmit,
@@ -174,7 +179,7 @@ export default function SignUp({ navigation }) {
             onSubmit={() => emailRef?.current?.focus()}
             keytype="next"
             label=""
-            placeholder="Enter Username"
+            placeholder={i18n.t('username_placeholder')}
             error={errors.username}
           />
           <InputField
@@ -204,7 +209,7 @@ export default function SignUp({ navigation }) {
             onSubmit={() => passwordRef?.current?.focus()}
             keytype="next"
             label=""
-            placeholder="Enter email"
+            placeholder={i18n.t('email_placeholder')}
             error={errors.email}
           />
           <InputField
@@ -228,7 +233,7 @@ export default function SignUp({ navigation }) {
             control={control}
             onSubmit={() => confirmPasswordRef?.current?.focus()}
             name="password"
-            placeholder="Enter Password"
+            placeholder={i18n.t('pwd_placeholder')}
             error={errors.password}
             secureTextEntry={passwordHide}
             suffix={
@@ -296,11 +301,11 @@ export default function SignUp({ navigation }) {
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Switch
                 trackColor={{
-                  false: AppColors.primary,
+                  false: AppColors.grey_200,
                   true: AppColors.primary,
-                }} // Set track color to match your image
-                thumbColor={isEnabled ? AppColors.white : AppColors.white} // White thumb regardless of state
-                ios_backgroundColor={AppColors.primary} // Default background color for iOS
+                }} 
+                thumbColor={isEnabled ? AppColors.red : AppColors.white}
+                ios_backgroundColor={AppColors.primary} 
                 onValueChange={toggleSwitch}
                 value={isEnabled}
                 style={styles.switch}
