@@ -56,7 +56,6 @@ export default function Login({ navigation }) {
   });
 
   const loginHandler = async (values) => {
-    console.log(values);
     setLoading(true);
     navigation.navigate(ScreenNames.SELECT_COUNTRY, { userData: values });
   };

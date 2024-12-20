@@ -21,7 +21,7 @@ export default function SelectCategory({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("fr");
   const [categoryName, setCategoryName] = useState("Mode femme");
-  console.log(countries);
+
   useEffect(() => {
     setLoading(false);
   }, []);

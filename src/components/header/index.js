@@ -34,16 +34,18 @@ const Header = ({
           {
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "center",
           },
           containerStyle,
         ]}
       >
-        {showBack && (
+        { /*
+        showBack && (
           <Pressable onPress={toggleMenu}>
             <MenuIcon height={height(3)} width={height(3)} />
           </Pressable>
-        )}
+        )
+          */}
         {title && (
           <CustomText
             size={2.5}
@@ -53,14 +55,24 @@ const Header = ({
             {title}
           </CustomText>
         )}
-        {!children && (
-          <Pressable onPress={onRightPress}>
-            <SettingsIcon height={height(3)} width={height(3)} />
-          </Pressable>
-        )}
-        {children}
+        <View
+          style={[
+            {
+            position:"absolute",
+            right:0,
+            }          
+          ]}
+        >
+          {!children && (
+            <Pressable onPress={onRightPress}>
+              <SettingsIcon height={height(3)} width={height(3)} />
+            </Pressable>
+          )}
+          {children}
+        </View>
+
       </View>
-      <HamburgerMenu visible={menuVisible} onClose={toggleMenu} />
+      {/*<HamburgerMenu visible={menuVisible} onClose={toggleMenu} />*/}
     </View>
   );
 };

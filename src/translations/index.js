@@ -6,7 +6,7 @@ export default {
         email_placeholder:'Enter your email'
     },
     fr: {
-        home_title: 'Commerces',
+        home_title: 'Boutiques',
         username_placeholder:'Entrez votre nom d\'utilisateur',
         pwd_placeholder:'Entre le mdp',
         email_placeholder:'Entre l email'

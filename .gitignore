@@ -27,8 +27,8 @@ expo-env.d.ts
 # assets/
 
 #alex
-yarn.lock
 android/*
 .idea/*
 
 package-lock.json
+yarn.lock

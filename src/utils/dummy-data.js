@@ -15,17 +15,31 @@ export const countries = [
   { name: "SPAIN", id: "es" },
   { name: "GREECE", id: "gr" },
 ];
-export const categories = [
-  { name: "All categories", id: "1" },
-  { name: "Man fashion", id: "2" },
-  { name: "Woman fashion", id: "3" },
-  { name: "Kid fashion", id: "4" },
-  { name: "Accessories", id: "5" },
-  { name: "Shoes", id: "6" },
-  { name: "Jewellery", id: "7" },
-  { name: "Bags", id: "8" },
-  { name: "Cosmetics", id: "9" },
-];
+export const categories =   {
+    en : 
+    [  
+      //{ name: "All categories", id: "1" },
+      { name: "Man fashion", id: "2" },
+      { name: "Woman fashion", id: "3" },
+      { name: "Kid fashion", id: "4" },
+      { name: "Accessories", id: "5" },
+      { name: "Shoes", id: "6" },
+      { name: "Jewellery", id: "7" },
+      { name: "Bags", id: "8" },
+      { name: "Cosmetics", id: "9" },
+    ],
+    fr : [
+      { name: "Toute categories", id: "1" },
+      { name: "Homme", id: "2" },
+      { name: "Femme", id: "3" },
+      { name: "Enfant ", id: "4" },
+      { name: "Accessoires", id: "5" },
+      { name: "Chaussures", id: "6" },
+      { name: "Bijoux", id: "7" },
+      { name: "Sacs", id: "8" },
+      { name: "Cosmetiques", id: "9" },
+    ]
+  };
 
 export const commerceData = [
   {
