@@ -1,23 +1,33 @@
 import i18n from '../../translations/i18n';
-import { categories } from '../../utils/dummy-data';
-import logging from '../../utils/logging';
+import { firestore } from '../../../firebaseconfig'; 
+import { collection, getDocs } from 'firebase/firestore';
 
-// selectedCategores is made of Category
-// category is {name:"", id:""}
-
-export const getCategoriesLocale = () => {
+export const getCategoryLocale = (current_doc) => {
     const locale = i18n.locale;
-    logging(locale, 'locale');
-    if (locale === 'fr') {
-        return categories['fr'];
-    } else {
-        return categories['en'];
+    switch(locale){
+        case 'fr':
+            return current_doc.fr;
+        case 'en':
+            return current_doc.en;
+        default:
+            return current_doc.en;
     }
+}
+
+export const getCategoriesLocale = async () => {
+    const all_categories = collection(firestore, 'store_categories');
+    const categoriesSnapshot = await getDocs(all_categories);
+    const fetchedCategories = categoriesSnapshot.docs.map(doc => ({
+        ref: doc.id,
+        id: doc.data().id,
+        name: getCategoryLocale(doc.data().name),           
+    }));
+    return fetchedCategories;
 }
 
 const initialState = {
     selectedCategories: [],
-    categories: getCategoriesLocale(),
+    categories: [],
 }
 
 export const categoriesReducer = (state = initialState, action) => {
@@ -26,6 +36,11 @@ export const categoriesReducer = (state = initialState, action) => {
             return {
                 ...state,
                 selectedCategories: action.payload
+            };
+        case 'SET_CATEGORIES':
+            return {
+                ...state,
+                categories: action.payload
             };
         default:
             return state;

@@ -4,11 +4,10 @@ import { height, width } from "../../../utils/dimension";
 
 const styles = StyleSheet.create({
   mainViewContainer: {
-    flexGrow: 1,
-    marginTop: height(5),
+    flex: 1,
     alignItems: "center",
-    // justifyContent: "center",
-    // paddingTop:height(4),
+    justifyContent: "space-around",
+    paddingVertical: height(5),
   },
   title: {
     color: AppColors.black,
@@ -17,13 +16,10 @@ const styles = StyleSheet.create({
     marginBottom: height(2),
   },
   inputContainer: {
-    width: width(90),
-    marginVertical: height(2),
-    backgroundColor: AppColors.transparent,
+    width: "100%",
+    backgroundColor: AppColors.white,
+    borderRadius: width(5),
     paddingVertical: height(2),
-    paddingHorizontal: width(2),
-    borderRadius: width(2),
-    marginTop: height(2),
   },
   logo: {
     marginBottom: height(4),
@@ -36,6 +32,7 @@ const styles = StyleSheet.create({
     width: "90%",
     paddingVertical: height(2),
     borderRadius: width(4),
+    alignSelf: "center",
   },
   buttonSecondary: {
     paddingVertical: height(2),
@@ -49,30 +46,29 @@ const styles = StyleSheet.create({
   switch: {
     marginRight: 5,
     transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }],
-    // height: height(3),
   },
   userTypeContainer: {
-    width: '90%',
-    alignSelf: 'center',
+    marginVertical: height(1),
+    width: "90%",
+    alignSelf: "center",
   },
   radioGroup: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: height(1),
   },
   radioButton: {
-    padding: width(3),
+    padding: height(1.5),
     borderRadius: width(2),
-    borderWidth: 1,
+    borderWidth: width(0.2),
     borderColor: AppColors.grey_100,
     flex: 1,
     marginHorizontal: width(1),
-    alignItems: 'center',
+    alignItems: "center",
   },
   radioButtonSelected: {
     backgroundColor: AppColors.primary_light,
     borderColor: AppColors.primary,
   },
 });
-
 export default styles;

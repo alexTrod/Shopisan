@@ -32,11 +32,11 @@ export default function ResetPassword({ navigation }) {
     resolver: yupResolver(ResetFormValidation), // Replace with your validation schema
   });
 
-  const loginHandler = async () => {
+  const signinHandler = async () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      navigation?.navigate(ScreenNames.LOGIN);
+      navigation?.navigate(ScreenNames.SIGN_IN);
       setModalVisible(true);
     }, 2000);
     // dispatch(setIsLoggedIn(true));
@@ -150,7 +150,7 @@ export default function ResetPassword({ navigation }) {
             disabled={!isValid}
             textStyle={{ fontWeight: "bold" }}
             containerStyle={styles.button}
-            onPress={handleSubmit(loginHandler)}
+            onPress={handleSubmit(signinHandler)}
           >
             Reset
           </Button>

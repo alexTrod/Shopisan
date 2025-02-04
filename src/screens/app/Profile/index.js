@@ -9,8 +9,9 @@ import Header from "../../../components/header";
 import { height, width } from "../../../utils/dimension";
 import ListItem from "../../../components/list-item";
 import { View } from "react-native";
-import { logout } from "../../../Redux/Actions/Auth";
+import { signOut } from "../../../Redux/Actions/UserActions";
 import { useDispatch } from "react-redux";
+import CountrySelector from "../../../components/CountrySelector";
 
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
@@ -25,29 +26,10 @@ export default function Profile({ navigation }) {
         showBack
         title="Profile"
         rightIcon
-        onRightPress={() => {}}
         containerStyle={{ width: width(90), alignSelf: "center" }}
       />
-      <View
-        style={{ width: width(90), alignSelf: "center", marginTop: height(4) }}
-      >
-        <ListItem
-          iconType="shop"
-          text="Inspection boutique"
-          onPress={() => alert("Go to Shop Inspection")}
-        />
-        <ListItem
-          iconType="post"
-          text="Publier un post"
-          onPress={() => alert("Go to Post Publishing")}
-        />
-        <ListItem
-          iconType="logout"
-          text="Se deconnecter"
-          onPress={() => {
-            dispatch(logout());
-          }}
-        />
+      <View style={{ padding: 20 }}>  
+        <CountrySelector />
       </View>
     </ScreenWrapper>
   );

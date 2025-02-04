@@ -1,6 +1,6 @@
 import * as yup from "yup";
 
-const LoginFormValidation = yup.object().shape({
+const SignInFormValidation = yup.object().shape({
   email: yup.string().required("Email is required.").email("Invalid Email"),
   password: yup
     .string()
@@ -13,4 +13,4 @@ const LoginFormValidation = yup.object().shape({
   username: yup.string().required("Username is required"),
 });
 
-export default LoginFormValidation;
+export default SignInFormValidation;

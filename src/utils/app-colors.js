@@ -7,6 +7,7 @@ const AppColors = {
   red_100: "rgba(224,74,93,0.1)",
   transparent: "transparent",
   primary: "#E04A5D",
+  primary_darker:"#A01F39",
   secondary: "#CCCCCC",
   snowWhite: "#C6C6C6",
   purple: "#533483",

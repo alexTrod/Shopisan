@@ -1,44 +1,36 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, FlatList } from "react-native";
-import { FontAwesome } from "@expo/vector-icons"; // Assuming you're using Expo
+import React, { forwardRef } from "react";
+import { View, FlatList, StyleSheet } from "react-native";
 import { height, width } from "../../utils/dimension";
+import CardItem from "./CardItem";
 
-const FloatingCards = ({ data }) => {
+const FloatingCards = forwardRef(({ data, selectedStore, onCardSelect }, ref) => {
+  const renderItem = ({ item, index }) => (
+    <CardItem 
+      key={index} 
+      item={item}
+      isSelected={selectedStore?.id === item.id}
+      onPress={() => onCardSelect(item)}
+    />
+  );
+
   return (
     <View style={styles.floatingContainer}>
       <FlatList
+        ref={ref}
         data={data ?? []}
-        keyExtractor={(index) => {
-          index.toString();
-        }}
+        keyExtractor={(item, index) => index.toString()}
         horizontal={true}
         showsHorizontalScrollIndicator={false}
-        // contentContainerStyle={{ paddingHorizontal: 10, flexGrow: 1 }}
-        renderItem={({ item, index }) => {
-          return (
-            <View key={index} style={styles.card}>
-              <Image source={item?.image} style={styles.image} />
-              <View style={styles.info}>
-                <Text style={styles.name}>{item.name}</Text>
-                <View style={styles.stars}>
-                  {/* Display 5 stars */}
-                  {[...Array(5)].map((_, i) => (
-                    <FontAwesome
-                      key={i}
-                      name="star"
-                      size={16}
-                      color={i < item.rating ? "#FFD700" : "#CCCCCC"} // Full or empty stars
-                    />
-                  ))}
-                </View>
-              </View>
-            </View>
-          );
-        }}
+        renderItem={renderItem}
+        getItemLayout={(data, index) => ({
+          length: width(70), // Approximate width of each card
+          offset: width(70) * index,
+          index,
+        })}
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   floatingContainer: {
@@ -48,40 +40,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 20, // Rounded corners
-    // padding: 10,
-    paddingRight: height(2),
-    marginHorizontal: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5, // Adjusted width to match the design
-    // height: height(15), // Adjusted height
-    flexDirection: "row", // Align image and text in a row
-    alignItems: "center",
-    // flexGrow: 1,
-  },
-  image: {
-    width: width(15),
-    height: height(8),
-    borderRadius: 15, // Rounded corners for the image
-  },
-  info: {
-    paddingLeft: 10,
-    flex: 1,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333", // Darker text color
-  },
-  stars: {
-    flexDirection: "row",
-    marginTop: 5,
   },
 });
 

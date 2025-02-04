@@ -15,7 +15,7 @@ import ProfileUnfilled from "../../assets/icons/profile-unfilled";
 import ShopFilled from "../../assets/icons/shop-filled";
 import { ScreenNames } from "./routes";
 import Profile from "../screens/app/Profile";
-import Carte from "../screens/app/carte";
+import Map from "../screens/app/map";
 
 const Tab = createBottomTabNavigator();
 
@@ -32,7 +32,7 @@ export default function BottomTabs() {
             } else {
               return <ShopUnfilled height={height(3)} width={height(3)} />;
             }
-          } else if (route.name === ScreenNames.CARTE) {
+          } else if (route.name === ScreenNames.MAP) {
             if (focused) {
               return <PinFilled height={height(3)} width={height(3)} />;
             } else {
@@ -58,7 +58,7 @@ export default function BottomTabs() {
       })}
     >
       <Tab.Screen name={ScreenNames.HOME} component={HomeScreen} />
-      <Tab.Screen name={ScreenNames.CARTE} component={Carte} />
+      <Tab.Screen name={ScreenNames.MAP} component={Map} />
       <Tab.Screen name={ScreenNames.FAVORITE} component={FavoritesScreen} />
       <Tab.Screen name={ScreenNames.PROFILE} component={Profile} />
     </Tab.Navigator>

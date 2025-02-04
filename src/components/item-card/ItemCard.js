@@ -1,5 +1,5 @@
 // components/Card.js
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,38 +8,108 @@ import {
   TouchableOpacity,
   ScrollView,
 } from "react-native";
+
+import { collection, query, getDocs, where} from 'firebase/firestore';
+import { firestore } from '../../../firebaseconfig';
 import { Ionicons } from "@expo/vector-icons";
 import { height, width } from "../../utils/dimension";
 import { AppColors } from "../../utils";
+import { toggleFavoriteStore } from "../../Redux/Actions/UserActions";
+import { useDispatch, useSelector } from 'react-redux';
+import { selectFavoriteStores } from '../../Redux/Selectors/UserSelectors';
+import ItemDetailModal from './ItemDetailModal';
 
-const ItemCard = ({
+
+const placeholderImage1 = require('../../images/placeholder_store_1.png');	
+const placeholderImage2 = require('../../images/placeholder_store_2.png');	
+const placeholderImage3 = require('../../images/placeholder_store_3.png');	
+
+const placeholders = [placeholderImage1, placeholderImage2, placeholderImage3];
+const ItemCard = React.memo(({
   title,
-  rating,
   tags,
   description,
   image,
-  fromFavorite = false,
+  address, 
+  id,
 }) => {
+
+  const dispatch = useDispatch();
+
+  const favoriteStores = useSelector(selectFavoriteStores);
+  
+  const isFavorite = useMemo(() => {
+    return favoriteStores.includes(id);
+  }, [favoriteStores, id]);
+
+  const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    const getRating = async () => {
+      const currentRating = await fetchStoreRatings(id);
+      setRating(currentRating);
+    };
+    
+    getRating();
+  }, [id]);
+
+
+  const fetchStoreRatings = async (storeId) => {
+    try {
+
+      let _totalRating = 0;
+      let _ratingCount = 0;
+
+      const ratingsCollection = collection(firestore, 'ratings');
+      const ratingsQuery = query(ratingsCollection, where('store_id', '==', storeId));
+
+      if (ratingsQuery.empty) {
+        return { averageRating: 0, ratingCount: 0 };
+      }
+
+      const ratingsSnapshot = await getDocs(ratingsQuery);
+
+
+      ratingsSnapshot.forEach(doc => {
+        const ratingData = doc.data();
+        _totalRating += ratingData.score;
+        _ratingCount += 1;
+      });
+
+      const _averageRating = _ratingCount > 0 ? _totalRating / _ratingCount : 0;
+      return { averageRating: _averageRating, ratingCount: _ratingCount };
+
+    } catch (error) {
+      logging('Error fetching store ratings', error);
+      return { averageRating: 0, ratingCount: 0 };
+    }
+  };
+
+  const handleInfoPress = () => {
+    setModalVisible(true);
+  };
+
   return (
     <View style={styles.card}>
       {/* Image Section */}
       <View>
-        <Image style={styles.image} source={image} />
+        <Image style={styles.image} source={image || placeholders[Math.floor(id % placeholders.length)]} />
         <View
           style={[
             styles.image,
             { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
           ]}
         />
-        {fromFavorite ? null : (
-          <TouchableOpacity style={styles.infoIcon}>
+        {
+          <TouchableOpacity style={styles.infoIcon} onPress={handleInfoPress}>
             <Ionicons
               name="information-circle-outline"
               size={24}
               color={AppColors.white}
             />
           </TouchableOpacity>
-        )}
+        }
       </View>
 
       {/* Content Section */}
@@ -53,13 +123,18 @@ const ItemCard = ({
               key={index}
               name="star"
               size={height(2.5)}
-              color={index < Math.round(rating) ? "gold" : "gray"}
+              color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
             />
           ))}
+          <Text style={styles.ratingText}>
+            {rating.ratingCount > 0 
+              ? rating.averageRating + ' (' + rating.ratingCount + ')'
+              : 'No ratings yet'}
+          </Text>
         </View>
 
         {/* Tags Section */}
-        {fromFavorite ? null : (
+        {
           <View style={styles.tags}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {tags.map((tag, index) => (
@@ -77,34 +152,38 @@ const ItemCard = ({
               ))}
             </ScrollView>
           </View>
-        )}
+        }
 
         {/* Description */}
-        {fromFavorite ? (
-          <Text style={styles.description}>{description}</Text>
-        ) : (
+        {
           <>
             <View style={styles.descriptionrating}>
-              <Text style={styles.descriptionHeading}>Description</Text>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
-              >
-                <Ionicons name="star" size={height(2.5)} color={"gold"} />
-                <Text style={styles.ratingText}> ({rating.toFixed(1)})</Text>
-              </View>
+
+
             </View>
-            <Text style={styles.description}>{description}</Text>
-            <TouchableOpacity style={styles.favoriteIcon}>
-              <Ionicons name="heart" size={24} color={AppColors.white} />
+            <Text style={styles.description}>
+              {description.length > 150 ? `${description.substring(0, 150)}...` : description}
+            </Text>
+            <TouchableOpacity style={styles.favoriteIcon} onPress={() => dispatch(toggleFavoriteStore(id))}>
+              <Ionicons 
+                name={isFavorite ? "heart" : "heart-outline"} 
+                size={24} 
+                color={AppColors.primary} 
+              />
             </TouchableOpacity>
           </>
-        )}
+        }
 
         {/* Posts (Optional Placeholder for now) */}
       </View>
+      <ItemDetailModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        item={{ id, title, description, tags, address }}
+      />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   card: {
@@ -127,7 +206,7 @@ const styles = StyleSheet.create({
     borderRadius: height(2),
   },
   favoriteIcon: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.white,
     borderRadius: 50,
     padding: 5,
     alignSelf: "flex-end",

@@ -9,7 +9,7 @@ import { AntDesign } from "@expo/vector-icons";
 import Button from "../../../components/button";
 import SelectCategoryStyles from "./SelectCategoryStyles";
 import { useDispatch } from "react-redux";
-import { login } from "../../../Redux/Actions/Auth";
+import { signin } from "../../../Redux/Actions/UserActions";
 import { firestore } from "../../../../firebaseconfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Toast from "react-native-toast-message";
@@ -26,7 +26,7 @@ export default function SelectCategory({ navigation, route }) {
     setLoading(false);
   }, []);
 
-  const loginHandler = async () => {
+  const signinHandler = async () => {
     setLoading(true);
     const docRef = await doc(
       firestore,
@@ -58,7 +58,7 @@ export default function SelectCategory({ navigation, route }) {
           );
           await getDoc(docRef).then((res) => {
             console.log(res);
-            dispatch(login(res.data()));
+            dispatch(signin(res.data()));
           });
         })
         .catch((err) => {
@@ -67,9 +67,9 @@ export default function SelectCategory({ navigation, route }) {
         });
     }
   };
-  // const loginHandler = async (values) => {
+  // const signinHandler = async (values) => {
 
-  //   // dispatch(login(true));
+  //   // dispatch(signin(true));
   //   // setLoading(true);
   // };
 
@@ -149,9 +149,9 @@ export default function SelectCategory({ navigation, route }) {
           loading={loading}
           textStyle={{ fontFamily: "Mulish-Bold" }}
           containerStyle={SelectCategoryStyles.button}
-          // onPress={handleSubmit(loginHandler)}
+          // onPress={handleSubmit(signinHandler)}
           onPress={() => {
-            loginHandler();
+            signinHandler();
           }}
         >
           Register

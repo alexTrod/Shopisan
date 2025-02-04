@@ -1,4 +1,4 @@
-export { default as LoginScreen } from "./login";
+export { default as SignInScreen } from "./signin";
 export { default as SingupScreen } from "./signup";
 export { default as ForgetPasswordScreeb } from "./forgot-password";
 export { default as ResetPasswordScreeb } from "./reset-password";

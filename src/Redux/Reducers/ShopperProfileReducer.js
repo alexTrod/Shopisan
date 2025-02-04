@@ -1,10 +1,27 @@
 const initialState = {
     country : null,
     savedCategories: [],
+    favoriteStores: [],
 }
+
 
 export const shopperProfileReducer = (state = initialState, action) => {
     switch (action.type) {
+      case 'SET_FAVORITE_STORES':
+        return {
+          ...state,
+          favoriteStores: action.payload
+        };
+      case 'REMOVE_FAVORITE_STORE':
+        return {
+          ...state,
+          favoriteStores: state.favoriteStores.filter(store => store.id !== action.payload)
+        };  
+      case 'ADD_FAVORITE_STORE':
+        return {
+          ...state,
+          favoriteStores: [...state.favoriteStores, action.payload]
+        };      
       case 'SET_SHOPPER_COUNTRY':
         return {
           ...state,

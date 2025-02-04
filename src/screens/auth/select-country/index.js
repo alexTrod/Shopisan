@@ -40,7 +40,7 @@ export default function SelectCountry({ navigation, route }) {
   //   }
   //   if (res) {
   //     if (res.password === password) {
-  //       dispatch(login(res));
+  //       dispatch(signin(res));
   //     } else {
   //       console.log("wrong password");
   //       Toast.show({
@@ -59,7 +59,7 @@ export default function SelectCountry({ navigation, route }) {
   //   }
   //   setLoading(false);
   // };
-  const loginHandler = async (values) => {
+  const signinHandler = async (values) => {
     // setLoading(true);
   };
 

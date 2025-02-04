@@ -1,22 +1,22 @@
-import { LOGIN, LOGOUT } from "../Types";
+import { SIGNIN, LOGOUT } from "../Types";
 const intialState = {
   user: null,
-  isLogin: false,
+  isSignin: false,
 };
 const reducer = (state = intialState, action) => {
   switch (action.type) {
-    case LOGIN: {
+    case SIGNIN: {
       return {
         ...state,
         user: action.payload,
-        isLogin: true,
+        isSignin: true,
       };
     }
     case LOGOUT: {
       return {
         ...state,
         user: null,
-        isLogin: false,
+        isSignin: false,
       };
     }
     default:

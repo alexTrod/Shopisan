@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Image, Switch, TouchableOpacity, View } from "react-native";
+import { Image, Switch, TouchableOpacity, View, StyleSheet } from "react-native";
 import { useForm } from "react-hook-form";
 
-import LoginFormValidation from "./valdiation"; // Correct the import path as needed
+import SignUpFormValidation from "./validation"; // Correct the import path as needed
 import styles from "./styles";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { height, width } from "../../../utils/dimension";
@@ -20,12 +20,15 @@ import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
-// import { login } from "../../../Redux/Actions/Auth";
 import { useDispatch } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
-import i18n from '../../../translations/i18n';
+import StoreRegisterValidation from "./validation_Store";
 import { useSelector } from "react-redux";
-
+import { firestore } from "../../../../firebaseconfig";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import Toast from "react-native-toast-message";
+import i18n from '../../../translations/i18n';
+import { signUp, setNoAuthenticationWanted} from "../../../Redux/Actions/UserActions";
 
 // import Toast from "react-native-toast-message";
 // import { doc, getDoc } from "firebase/firestore";
@@ -49,8 +52,8 @@ export default function SignUp({ navigation }) {
     formState: { isValid, errors },
   } = useForm({
     mode: "all",
-    resolver: yupResolver(LoginFormValidation), // Replace with your validation schema
-  });
+    resolver: yupResolver(SignUpFormValidation), 
+});
 
   // const checkUser = async (email, password) => {
   //   console.log("checking user", email, password);
@@ -66,7 +69,7 @@ export default function SignUp({ navigation }) {
   //   }
   //   if (res) {
   //     if (res.password === password) {
-  //       dispatch(login(res));
+  //       dispatch(signin(res));
   //     } else {
   //       console.log("wrong password");
   //       Toast.show({
@@ -85,13 +88,63 @@ export default function SignUp({ navigation }) {
   //   }
   //   setLoading(false);
   // };
-  const loginHandler = async (values) => {
+  const signupHandler = async (values) => {
     setLoading(true);
+    dispatch(signUp(values.email, values.username, values.password, userType));
+
     // checkUser(values.email, values.password);
   };
 
   const [isEnabled, setIsEnabled] = useState(false);
   const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  const { isAuthenticated, noAuthenticationWanted } = useSelector(state => state.user);
+
+  const [userType, setUserType] = useState('shopper');
+
+  const handleSignup = async (values) => {
+    setLoading(true);
+    try {
+      const userRef = doc(firestore, "users", values.email.trim());
+      await setDoc(userRef, { //todo : modify with collection values
+        email: values.email,
+        username: values.username,
+        userType: userType,
+        createdAt: serverTimestamp(),
+      }); 
+
+      if (userType === 'merchant') {
+        const merchantRef = doc(firestore, "users", values.email.trim());
+        await setDoc(merchantRef, { //todo : modify with collection values
+          email: values.email, 
+          stores: [],
+          status: 'active',
+          createdAt: serverTimestamp(),
+        });
+
+        navigation.replace('MerchantHome'); // create merchant home screen
+      } else {
+
+        navigation.replace('Home');
+      }
+
+      Toast.show({
+        text1: "Success",
+        text2: "Account created successfully",
+        type: "success",
+      });
+    } catch (error) {
+      Toast.show({
+        text1: "Error",
+        text2: error.message,
+        type: "error",
+      });
+    }
+    setLoading(false);
+  };
+
+  const goToSignIn = () => {
+    navigation.navigate(ScreenNames.SIGN_IN);
+  };
 
   return (
     <ScreenWrapper
@@ -106,52 +159,12 @@ export default function SignUp({ navigation }) {
         {/* <LogoIcon height={height(20)} width={height(20)} /> */}
         <Image
           source={require("../../../../assets/LogoIcon.png")}
-          style={{ height: height(10), width: height(10) }}
+          style={{ height: height(5), width: height(5) }}
         />
 
         <View style={styles.inputContainer}>
-          <View style={{ width: "90%", alignSelf: "center" }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                width: "100%",
-              }}
-            >
-              <CustomText
-                onPress={() => {
-                  // navigation.navigate(ScreenNames.LOGIN);
-                }}
-                textAlign="center"
-                color={active === 0 ? AppColors.primary : AppColors.grey_100}
-                textProps={{ fontFamily: "Mulish-Bold" }}
-                textStyles={{ fontFamily: "Mulish-Bold" }}
-                size={2.2}
-              >
-                Register
-              </CustomText>
-              <CustomText
-                textAlign="center"
-                color={active === 1 ? AppColors.primary : AppColors.grey_100}
-                textProps={{ fontFamily: "Mulish-Bold" }}
-                textStyles={{ fontFamily: "Mulish-Bold" }}
-                size={2.2}
-              >
-                Store Register
-              </CustomText>
-            </View>
-            <CustomText
-              textAlign="left"
-              color={AppColors.grey_200}
-              textProps={{ fontFamily: "Mulish-Regular", marginTop: height(1) }}
-              textStyles={{ fontFamily: "Mulish-Regular" }}
-              size={1.7}
-            >
-              Enter your details below
-            </CustomText>
-          </View>
-          <Spacer vertical={height(2)} />
+  
+          <Spacer vertical={height(1)} />
           <InputField
             control={control}
             prefix={
@@ -286,9 +299,51 @@ export default function SignUp({ navigation }) {
             }
             control={control}
             name="confirmPassword"
-            placeholder="Enter Confirm Password"
+            placeholder="Enter your password again"
             error={errors.confirmPassword}
           />
+          <View style={styles.userTypeContainer}>
+            <CustomText
+              color={AppColors.grey_200}
+              textProps={{ fontFamily: "Mulish-Regular" }}
+              size={1.7}
+            >
+              I want to:
+            </CustomText>
+            <View style={styles.radioGroup}>
+              <TouchableOpacity 
+                style={[
+                  styles.radioButton,
+                  userType === 'shopper' && styles.radioButtonSelected
+                ]}
+                onPress={() => setUserType('shopper')}
+              >
+                <CustomText
+                  color={userType === 'shopper' ? AppColors.primary : AppColors.grey_200}
+                  textProps={{ fontFamily: "Mulish-Bold" }}
+                  size={1.7}
+                >
+                  Shop at stores
+                </CustomText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.radioButton,
+                  userType === 'merchant' && styles.radioButtonSelected
+                ]}
+                onPress={() => setUserType('merchant')}
+              >
+                <CustomText
+                  color={userType === 'merchant' ? AppColors.primary : AppColors.grey_200}
+                  textProps={{ fontFamily: "Mulish-Bold" }}
+                  size={1.7}
+                >
+                  Manage my store
+                </CustomText>
+              </TouchableOpacity>
+            </View>
+          </View>
           <View
             style={{
               flexDirection: "row",
@@ -298,55 +353,20 @@ export default function SignUp({ navigation }) {
               alignSelf: "center",
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Switch
-                trackColor={{
-                  false: AppColors.grey_200,
-                  true: AppColors.primary,
-                }} 
-                thumbColor={isEnabled ? AppColors.red : AppColors.white}
-                ios_backgroundColor={AppColors.primary} 
-                onValueChange={toggleSwitch}
-                value={isEnabled}
-                style={styles.switch}
-              />
-              <CustomText
-                color={AppColors.black}
-                textProps={{
-                  fontFamily: "Mulish-SemiBold",
-                }}
-                textStyles={{ fontFamily: "Mulish-SemiBold" }}
-                size={1.7}
-              >
-                Remember
-              </CustomText>
-            </View>
-            <CustomText
-              color={AppColors.pink}
-              // onPress={() => navigation?.navigate(ScreenNames.FORGOT_PASSWORD)}
-              textAlign="right"
-              size={1.7}
-              textProps={{
-                fontFamily: "Mulish-Bold",
-              }}
-              textStyles={{ fontFamily: "Mulish-Bold" }}
-            >
-              Forgot Password!
-            </CustomText>
+      
           </View>
-
-          <Spacer vertical={height(5)} />
+          <Spacer vertical={height(3)} />
           <Button
             disabled={!isValid}
             loading={loading}
             textStyle={{ fontFamily: "Mulish-Bold" }}
             containerStyle={styles.button}
-            onPress={handleSubmit(loginHandler)}
+            onPress={handleSubmit(signupHandler)}
           >
             Register
           </Button>
         </View>
-
+        <View style={{ alignItems: 'center', flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
         <View
           style={{
             flexDirection: "row",
@@ -362,9 +382,7 @@ export default function SignUp({ navigation }) {
             Already have an Account?
           </CustomText>
           <CustomText
-            onPress={() => {
-              // navigation?.navigate(ScreenNames.LOGIN);
-            }}
+            onPress={goToSignIn}
             color={AppColors.primary}
             textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
             textDecorationLine="underline"
@@ -374,7 +392,19 @@ export default function SignUp({ navigation }) {
             Log in
           </CustomText>
         </View>
+        <View style={{ alignItems: 'center', marginTop: height(5)}}>
+          <Button
+              textStyle={{ fontFamily: "Mulish-Bold", color:AppColors.primary_darker  }}
+              containerStyle={styles.buttonSecondary}
+              onPress={async () => {
+                await dispatch(setNoAuthenticationWanted(true));
+              }}
+            >
+              Create an account later
+          </Button>
+        </View>
+        </View>
       </View>
     </ScreenWrapper>
   );
-}
+} 

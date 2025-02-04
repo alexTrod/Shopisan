@@ -1,65 +1,76 @@
-import React from "react";
-import Toast from "react-native-toast-message";
-import { Provider } from "react-redux";
-import { PersistGate } from "redux-persist/integration/react";
-import { persistor, store } from "./src/Redux";
-import Routes from "./src/Routes";
-import { useFonts } from "expo-font";
-import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
-import * as Localization from 'expo-localization';
-import { setLocale } from './src/Redux/Actions/LocaleActions';
-import { setShopperCountry } from "./src/Redux/Actions/ShopperProfileActions";
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { NavigationContainer } from '@react-navigation/native';
+import { Provider } from 'react-redux';
+import { store } from './src/Redux/index';
+import { checkAuthStatus } from './src/Redux/Actions/UserActions';
+import logging from './src/utils/logging';
+import BottomTabs from "./src/Routes/bottom-tab";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { ScreenNames } from './src/Routes/routes';
+import HomeScreen from './src/screens/app/home';
+import SignUp from './src/screens/auth/signup';
+import SignIn from './src/screens/auth/signin';
+import ShopperProfileScreen from './src/screens/app/Profile';
+import FavoritesScreen from './src/screens/app/favorites';
+import StoreManagementScreen from './src/screens/app/Profile';
+import MerchantProfileScreen from './src/screens/app/Profile';
+import CustomText from './src/components/text';
 
-
-// import { initializeApp } from "firebase/app";
-// import { getAnalytics } from "firebase/analytics";
-
-// Import the functions you need from the SDKs you need
-
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-
-export default function App() {
-  const [loaded, error] = useFonts({
-    "Mulish-Black": require("./assets/fonts/Mulish-Black.ttf"),
-    "Mulish-BlackItalic": require("./assets/fonts/Mulish-BlackItalic.ttf"),
-    "Mulish-Bold": require("./assets/fonts/Mulish-Bold.ttf"),
-    "Mulish-BoldItalic": require("./assets/fonts/Mulish-BoldItalic.ttf"),
-    "Mulish-ExtraBold": require("./assets/fonts/Mulish-ExtraBold.ttf"),
-    "Mulish-ExtraBoldItalic": require("./assets/fonts/Mulish-ExtraBoldItalic.ttf"),
-    "Mulish-ExtraLight": require("./assets/fonts/Mulish-ExtraLight.ttf"),
-    "Mulish-Light": require("./assets/fonts/Mulish-Light.ttf"),
-    "Mulish-Medium": require("./assets/fonts/Mulish-Medium.ttf"),
-    "Mulish-Regular": require("./assets/fonts/Mulish-Regular.ttf"),
-    "Mulish-SemiBold": require("./assets/fonts/Mulish-SemiBold.ttf"),
-  });
-
+const App = () => {
+  const Stack = createNativeStackNavigator();
+  const dispatch = useDispatch();
+  const { isAuthenticated, noAuthenticationWanted, loading, userType } = useSelector(state => state.user);
 
   useEffect(() => {
-    const deviceLanguage = Localization.getLocales()[0].languageCode;
-    const deviceCountry = Localization.getLocales()[0].regionCode;
-    store.dispatch(setShopperCountry(deviceCountry));
-    console.log("SHOPPER LOCATED AT ", deviceCountry)
-    store.dispatch(setLocale(deviceLanguage));
+    dispatch(checkAuthStatus());
   }, []);
 
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
+
+  if (loading) { //todo: fill in
+    return <>
+        <CustomText>Loading...</CustomText>
+    </>;
+  }
 
   return (
-    <Provider store={store}>
-      
-      <PersistGate loading={null} persistor={persistor}>
-        <Routes />
-        <Toast />
-      </PersistGate>
-    </Provider>
+    <NavigationContainer>
+      <Stack.Navigator
+      screenOptions={{
+        headerShown: false 
+      }}
+    >
+        
+        {isAuthenticated || noAuthenticationWanted ? (
+          userType === 'shopper' ? ( // shopper
+            <Stack.Screen 
+            name="MainTabs" 
+            component={BottomTabs} 
+            options={{ headerShown: false }}
+          />
+          ) : ( //merchant
+            <Stack.Screen 
+            name="MainTabs" 
+            component={BottomTabs} 
+            options={{ headerShown: false }}
+          />
+          )
+        ) : (
+          // Non-authenticated stack
+          <>
+            <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
+            <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
-}
+};
+
+const WrappedApp = () => (
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+
+export default WrappedApp;

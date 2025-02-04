@@ -26,7 +26,7 @@ export default function ForgotPassword({ navigation }) {
     resolver: yupResolver(ForgotPasswordForm), // Replace with your validation schema
   });
 
-  const loginHandler = async () => {
+  const signinHandler = async () => {
     navigation?.navigate(ScreenNames.OTP);
     // dispatch(setIsLoggedIn(true));
   };
@@ -89,7 +89,7 @@ export default function ForgotPassword({ navigation }) {
             disabled={!isValid}
             textStyle={{ fontWeight: "bold" }}
             containerStyle={styles.button}
-            onPress={handleSubmit(loginHandler)}
+            onPress={handleSubmit(signinHandler)}
           >
             Send Code
           </Button>
