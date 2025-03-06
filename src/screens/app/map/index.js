@@ -6,7 +6,7 @@ import { height, width } from "../../../utils/dimension";
 import { StyleSheet, View, Alert, TouchableOpacity } from "react-native";
 import Mapbox from "@rnmapbox/maps";
 import FloatingCards from "../../../components/card-Item";
-import ItemDetailModal from "../../../components/item-card/ItemDetailM odal";
+import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
 import CategoryFilter from "../../../components/category-filter";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";

@@ -23,7 +23,7 @@ const FloatingCards = forwardRef(({ data, selectedStore, onCardSelect }, ref) =>
         showsHorizontalScrollIndicator={false}
         renderItem={renderItem}
         getItemLayout={(data, index) => ({
-          length: width(70), // Approximate width of each card
+          length: width(70),
           offset: width(70) * index,
           index,
         })}
