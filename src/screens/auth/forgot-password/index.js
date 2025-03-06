@@ -1,10 +1,10 @@
-import React from "react";
-import { View } from "react-native";
+import React, { useState } from "react";
+import { View, Alert } from "react-native";
 import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 
 import styles from "./styles";
-
-import ForgotPasswordForm from "./valdiation";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import { LargeText, SmallText } from "../../../components/text";
@@ -13,22 +13,53 @@ import { InputField } from "../../../components/input";
 import { AntDesign } from "@expo/vector-icons";
 import { height, width } from "../../../utils/dimension";
 import Button from "../../../components/button";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { ScreenNames } from "../../../Routes/routes";
+import Toast from "react-native-toast-message";
+import ForgotPasswordForm from "./valdiation";
 
 export default function ForgotPassword({ navigation }) {
+  const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+
   const {
     control,
     handleSubmit,
     formState: { isValid, errors },
+    watch,
   } = useForm({
-    mode: "all",
-    resolver: yupResolver(ForgotPasswordForm), // Replace with your validation schema
+    mode: "onChange",
+    resolver: yupResolver(ForgotPasswordForm),
+    defaultValues: { email: "" },
   });
 
-  const signinHandler = async () => {
-    navigation?.navigate(ScreenNames.OTP);
-    // dispatch(setIsLoggedIn(true));
+  const handleForgotPassword = async ({ email }) => {
+    if (emailSent) return;
+
+    setLoading(true);
+    const auth = getAuth();
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setEmailSent(true);
+
+      Toast.show({
+        type: "success",
+        text1: "Email Sent!",
+        text2: "Check your inbox for the password reset link.",
+      });
+
+      Alert.alert(
+        "Password Reset Email Sent",
+        "A reset link has been sent to your email.",
+        [{ text: "OK", onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.message,
+      });
+    }
+    setLoading(false);
   };
 
   return (
@@ -39,32 +70,19 @@ export default function ForgotPassword({ navigation }) {
       backgroundColor={AppColors.white}
     >
       <View style={styles.mainViewContainer}>
-        {/* <LogoIcon height={height(20)} width={height(20)} /> */}
-
         <View style={styles.inputContainer}>
-          <LargeText
-            textAlign="center"
-            textProps={{ fontFamily: "bold" }}
-            textStyles={{ fontFamily: "bold" }}
-            size={5}
-          >
-            Forget Oassword
+          <LargeText textAlign="center" size={5} textProps={{ fontFamily: "bold" }}>
+            Forgot Password
           </LargeText>
           <Spacer vertical={height(1)} />
           <SmallText textAlign="center" size={2}>
-            Enter your email for a 4-digit verification code
+            Enter your email to receive a password reset link.
           </SmallText>
           <Spacer vertical={height(2)} />
+
           <InputField
             control={control}
-            prefix={
-              <AntDesign
-                name={"mail"}
-                size={height(3)}
-                style={{ marginRight: height(1) }}
-                color={AppColors.wihte5}
-              />
-            }
+            prefix={<AntDesign name="mail" size={height(3)} style={{ marginRight: height(1) }} color={AppColors.wihte5} />}
             name="email"
             keyboardType="email-address"
             containerStyles={{
@@ -79,20 +97,23 @@ export default function ForgotPassword({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            keytype="next"
-            label=""
             placeholder="Enter email"
             error={errors.email}
           />
+
           <Spacer vertical={height(2)} />
-          <Button
-            disabled={!isValid}
-            textStyle={{ fontWeight: "bold" }}
-            containerStyle={styles.button}
-            onPress={handleSubmit(signinHandler)}
-          >
-            Send Code
-          </Button>
+
+          {!emailSent && (
+            <Button
+              loading={loading}
+              disabled={!isValid}
+              textStyle={{ fontWeight: "bold" }}
+              containerStyle={styles.button}
+              onPress={handleSubmit(handleForgotPassword)}
+            >
+              Send Reset Email
+            </Button>
+          )}
         </View>
       </View>
     </ScreenWrapper>

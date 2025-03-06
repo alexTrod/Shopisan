@@ -71,20 +71,21 @@ export const userReducer = (state = initialState, action) => {
     case 'ADD_FAVORITE_STORE':
       return {
         ...state,
-        favoriteStores: [...state.favoriteStores, action.payload.id]
+        favoriteStores: [...state.favoriteStores, action.payload]
       };
-
+    
     case 'REMOVE_FAVORITE_STORE':
       return {
         ...state,
         favoriteStores: state.favoriteStores.filter(id => id !== action.payload)
       };
-
+    
     case 'SET_FAVORITE_STORES':
       return {
         ...state,
-        favoriteStores: action.payload
+        favoriteStores: Array.isArray(action.payload) ? action.payload : []
       };
+      
     case 'SET_NO_AUTHENTICATION_WANTED':
       console.log('setting SET_NO_AUTHENTICATION_WANTED');
       return {

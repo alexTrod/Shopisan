@@ -2,64 +2,46 @@ import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider } from 'react-redux';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import { store } from './src/Redux/index';
 import { checkAuthStatus } from './src/Redux/Actions/UserActions';
-import logging from './src/utils/logging';
-import BottomTabs from "./src/Routes/bottom-tab";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import BottomTabs from './src/Routes/bottom-tab';
 import { ScreenNames } from './src/Routes/routes';
-import HomeScreen from './src/screens/app/home';
 import SignUp from './src/screens/auth/signup';
 import SignIn from './src/screens/auth/signin';
-import ShopperProfileScreen from './src/screens/app/Profile';
-import FavoritesScreen from './src/screens/app/favorites';
-import StoreManagementScreen from './src/screens/app/Profile';
-import MerchantProfileScreen from './src/screens/app/Profile';
+import ResetPassword from './src/screens/auth/reset-password';
 import CustomText from './src/components/text';
+import ForgotPassword from './src/screens/auth/forgot-password';
+
+const Stack = createNativeStackNavigator();
 
 const App = () => {
-  const Stack = createNativeStackNavigator();
   const dispatch = useDispatch();
-  const { isAuthenticated, noAuthenticationWanted, loading, userType } = useSelector(state => state.user);
+  const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
 
   useEffect(() => {
     dispatch(checkAuthStatus());
-  }, []);
+  }, [dispatch]);
 
-
-  if (loading) { //todo: fill in
-    return <>
-        <CustomText>Loading...</CustomText>
-    </>;
+  if (loading) {
+    return <CustomText>Loading...</CustomText>;
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator
-      screenOptions={{
-        headerShown: false 
-      }}
-    >
-        
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated || noAuthenticationWanted ? (
-          userType === 'shopper' ? ( // shopper
-            <Stack.Screen 
-            name="MainTabs" 
-            component={BottomTabs} 
+          <Stack.Screen
+            name="MainTabs"
+            component={BottomTabs}
             options={{ headerShown: false }}
           />
-          ) : ( //merchant
-            <Stack.Screen 
-            name="MainTabs" 
-            component={BottomTabs} 
-            options={{ headerShown: false }}
-          />
-          )
         ) : (
-          // Non-authenticated stack
           <>
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
             <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
+            <Stack.Screen name={ScreenNames.FORGOT_PASSWORD} component={ForgotPassword} />
           </>
         )}
       </Stack.Navigator>

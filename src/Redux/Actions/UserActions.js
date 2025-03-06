@@ -57,7 +57,7 @@ export const signOut = () => async (dispatch) => {
   }
 };
 
-export const toggleFavoriteStore = (storeId, storeData) => async (dispatch, getState) => {
+export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
   try {
     const state = getState();
     const isAuthenticated = selectIsAuthenticated(state);
@@ -80,36 +80,20 @@ export const toggleFavoriteStore = (storeId, storeData) => async (dispatch, getS
     
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      const favoriteStores = userData.favoriteStores || [];
+      let favoriteStores = Array.isArray(userData.favoriteStores) ? userData.favoriteStores : [];
 
+      let updatedFavorites;
       if (favoriteStores.includes(storeId)) {
-        // Remove from favorites
-        const updatedFavorites = favoriteStores.filter(id => id !== storeId);
-        await updateDoc(userDocRef, { 
-          favoriteStores: updatedFavorites 
-        });
+        updatedFavorites = favoriteStores.filter(id => id !== storeId);
         dispatch({ type: 'REMOVE_FAVORITE_STORE', payload: storeId });
       } else {
-        // Add to favorites
-        const updatedFavorites = [...favoriteStores, storeId];
-        await updateDoc(userDocRef, { 
-          favoriteStores: updatedFavorites 
-        });
-        dispatch({ 
-          type: 'ADD_FAVORITE_STORE', 
-          payload: { id: storeId, ...storeData } 
-        });
+        updatedFavorites = [...favoriteStores, storeId];
+        dispatch({ type: 'ADD_FAVORITE_STORE', payload: storeId });
       }
-    } else {
-      // Create new user document
-      await setDoc(userDocRef, { 
-        favoriteStores: [storeId],
-        updatedAt: serverTimestamp()
-      });
-      dispatch({ 
-        type: 'ADD_FAVORITE_STORE', 
-        payload: { id: storeId, ...storeData } 
-      });
+
+      await updateDoc(userDocRef, { favoriteStores: updatedFavorites });
+
+      dispatch({ type: 'SET_FAVORITE_STORES', payload: updatedFavorites });
     }
   } catch (error) {
     logError('Toggle favorite store failed', error);
@@ -198,7 +182,6 @@ const fetchUserData = (uid) => async (dispatch) => {
 
     const userData = userDoc.data();
     
-    // Set user data in redux
     dispatch({
       type: 'AUTH_SUCCESS',
       payload: {
@@ -207,7 +190,6 @@ const fetchUserData = (uid) => async (dispatch) => {
       }
     });
 
-    // Set favorite stores if they exist
     if (userData.favoriteStores) {
       dispatch({ 
         type: 'SET_FAVORITE_STORES', 
@@ -232,18 +214,18 @@ const fetchUserDataByLoginIdentifier = (loginIdentifier, password) => async (dis
     const usersRef = collection(firestore, 'users');
     const querySnapshot = await getDocs(usersRef);
 
-    if (loginIdentifier.includes('@')) { // try with firebase authentication
+    if (loginIdentifier.includes('@')) {
       userCredential = await signInWithEmailAndPassword(auth, loginIdentifier, password);
       userRef = userCredential.user.uid;
-    } else { // try with firestore
+    } else {
       logging('start to fetch user data by username');
       const userDoc = querySnapshot.docs.find(doc => doc.data().username === loginIdentifier);
 
-      if (userDoc) { // user not in firebase auth but username in firestore
+      if (userDoc) {
         userData = userDoc.data();
         const isPasswordValid = await verifyPassword(password, userData);
 
-        if (isPasswordValid) { // correct password
+        if (isPasswordValid) {
           await auth().currentUser.updatePassword(password);
           userCredential = await auth().signInWithEmailAndPassword(
             userData.email,

@@ -1,24 +1,20 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import {
-  View,
-  ActivityIndicator,
-  FlatList,
-} from "react-native";
-import { collection, query, getDocs, orderBy, limit, startAfter, where } from "firebase/firestore";
-import { firestore } from "../../../../firebaseconfig";
-import { useSelector } from "react-redux";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { View, ActivityIndicator, FlatList } from "react-native";
+import { useSelector, shallowEqual, useDispatch } from "react-redux";
+import { getStoreQuery, fetchStores } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
-import { AppColors, CommonStyles } from "../../../utils";
+import { AppColors } from "../../../utils";
 import logging from "../../../utils/logging";
 import Header from "../../../components/header";
 import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
-import i18n from '../../../translations/i18n';
+import i18n from "../../../translations/i18n";
 import StoreManagement from "../merchant/StoreManagement";
 import { width } from "../../../utils/dimension";
 import ScreenWrapper from "../../../components/screen-wrapper";
-import { getStoreQuery, fetchStores, getCategoriesNamesByIds } from "../../../utils/storeUtils";
+import { selectFavoriteStores } from '../../../Redux/Selectors/UserSelectors';
+import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
 
 export default function HomeScreen({ navigation }) {
   const [stores, setStores] = useState([]);
@@ -27,42 +23,75 @@ export default function HomeScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const favoriteStores = useSelector(state => state.user.favoriteStores);
+  console.log("Current favoriteStores in Redux:", favoriteStores);
+
+  const dispatch = useDispatch();
+
   const locale = useSelector(state => state.locale.currentLocale);
-  const user = useSelector((state) => state?.Auth?.user);
-  const selectedCategories = useSelector(state => state.categories.selectedCategories);
-  const categories = useSelector(state => state.categories.categories);
+  const user = useSelector(state => state?.Auth?.user);
+  const selectedCategories = useSelector(
+    state => state.categories.selectedCategories,
+    shallowEqual
+  );
+  const categories = useSelector(
+    state => state.categories.categories,
+    shallowEqual
+  );
+  const selectedCities = useSelector(state => state.cities.selectedCities, shallowEqual);
+
+  const loadingRef = useRef(loading);
+  const hasMoreRef = useRef(hasMore);
+  const lastVisibleRef = useRef(lastVisible);
+
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { lastVisibleRef.current = lastVisible; }, [lastVisible]);
+
   const getCategoriesNamesByIds = useCallback((ids) => {
-  
     if (!ids?.length) return [];
     return ids.map(id => {
       const category = categories.find(cat => cat.id === id);
       return category ? category.name : 'Unknown';
     });
-  }, [useSelector(state => state.categories.categories)]);
-  
-  const favoriteStores = useSelector(state => state.user.favoriteStores);
+  }, [categories]);
 
+  useEffect(() => {
+    if (favoriteStores.length === 0) {
+      dispatch(toggleFavoriteStore(null));
+    }
+  }, []);
 
   const loadStores = useCallback(async (isRefreshing = false) => {
+    if (!favoriteStores || loadingRef.current || (!hasMoreRef.current && !isRefreshing)) return;
+  
+    setLoading(true);
+    const storeQuery = getStoreQuery(
+      selectedCategories,
+      lastVisibleRef.current,
+      categories,
+      selectedCities
+    );
+  
     try {
-      if (loading || (!hasMore && !isRefreshing)) return;
-
-      setLoading(true);
-      const storeQuery = getStoreQuery(selectedCategories, lastVisible, categories);
       const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
-
+  
+      const updatedStores = newStores.map(store => ({
+        ...store,
+        isFavorite: favoriteStores.includes(store.id),
+      }));
+  
       if (isRefreshing) {
-        setStores(newStores);
-        setLastVisible(newLastVisible);
+        setStores(updatedStores);
       } else {
         setStores(prev => {
           const existingIds = new Set(prev.map(store => store.id));
-          const uniqueNewStores = newStores.filter(store => !existingIds.has(store.id));
+          const uniqueNewStores = updatedStores.filter(store => !existingIds.has(store.id));
           return [...prev, ...uniqueNewStores];
         });
-        setLastVisible(newLastVisible);
       }
-
+  
+      setLastVisible(newLastVisible);
       setHasMore(newHasMore);
     } catch (error) {
       logging('Error loading stores:', error);
@@ -70,7 +99,17 @@ export default function HomeScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [loading, hasMore, selectedCategories, lastVisible, categories]);
+  }, [selectedCategories, categories, selectedCities, favoriteStores]);  
+
+  const handleToggleFavorite = useCallback((storeId) => {
+    dispatch(toggleFavoriteStore(storeId));
+  
+    setStores(prevStores =>
+      prevStores.map(store =>
+        store.id === storeId ? { ...store, isFavorite: !store.isFavorite } : store
+      )
+    );
+  }, [dispatch]);         
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -80,8 +119,8 @@ export default function HomeScreen({ navigation }) {
   }, [loadStores]);
 
   const handleEndReached = useCallback(() => {
-    if (hasMore) loadStores();
-  }, [hasMore, loadStores]);
+    if (hasMoreRef.current) loadStores();
+  }, [loadStores]);
 
   const renderFooter = useCallback(() => {
     if (!loading) return null;
@@ -107,14 +146,14 @@ export default function HomeScreen({ navigation }) {
   const renderItem = useCallback(({ item }) => (
     <ItemCard
       title={item.name}
-      website={item.website}
-      key={item.id}
       id={item.id}
       tags={getCategoriesNamesByIds(item.category)}
       description={item.description[locale]}
       address={item.address}
+      isFavorite={item.isFavorite}
+      onPressFavorite={() => handleToggleFavorite(item.id)}
     />
-  ), [getCategoriesNamesByIds, locale, favoriteStores]);
+  ), [getCategoriesNamesByIds, locale, handleToggleFavorite]);    
 
   const flatListProps = useMemo(() => ({
     data: stores,
@@ -141,15 +180,24 @@ export default function HomeScreen({ navigation }) {
     setLastVisible(null);
     setHasMore(true);
     loadStores(true);
-  }, [selectedCategories]);
+  }, [selectedCategories, selectedCities]);
+
+  useEffect(() => {
+    if (stores.length > 0) {
+      setStores(prevStores =>
+        prevStores.map(store => ({
+          ...store,
+          isFavorite: favoriteStores.includes(store.id),
+        }))
+      );
+    }
+  }, [favoriteStores]);  
 
   useEffect(() => {
     const ids = stores.map(store => store.id);
-    const uniqueIds = new Set(ids);
-    if (ids.length !== uniqueIds.size) {
-      logging('Duplicate store IDs detected:', 
-        ids.filter((id, index) => ids.indexOf(id) !== index)
-      );
+    const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+    if (duplicates.length) {
+      logging('Duplicate store IDs detected:', duplicates);
     }
   }, [stores]);
 
@@ -168,15 +216,11 @@ export default function HomeScreen({ navigation }) {
           onRightPress={() => {}}
           containerStyle={{ width: width(90), alignSelf: "center" }}
         />
-        
         {user?.userType === 'merchant' ? (
           <StoreManagement navigation={navigation} />
         ) : (
           <>
-            <View style={{
-              zIndex: 9999,
-              elevation: 9999,
-            }}>
+            <View style={{ zIndex: 9999, elevation: 9999 }}>
               <CategoryFilter />
               <CityFilter />
             </View>

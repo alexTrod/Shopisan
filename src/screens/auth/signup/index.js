@@ -1,38 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Image, Switch, TouchableOpacity, View, StyleSheet } from "react-native";
+import { Image, Switch, TouchableOpacity, View } from "react-native";
 import { useForm } from "react-hook-form";
-
-import SignUpFormValidation from "./validation"; // Correct the import path as needed
+import SignUpFormValidation from "./validation";
 import styles from "./styles";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { height, width } from "../../../utils/dimension";
 import { AppColors } from "../../../utils";
 import { InputField } from "../../../components/input";
-import CustomText, { LargeText, SmallText } from "../../../components/text";
-import {
-  AntDesign,
-  EvilIcons,
-  Feather,
-  FontAwesome6,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import CustomText from "../../../components/text";
+import { FontAwesome6, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
-import StoreRegisterValidation from "./validation_Store";
-import { useSelector } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import Toast from "react-native-toast-message";
-import i18n from '../../../translations/i18n';
-import { signUp, setNoAuthenticationWanted} from "../../../Redux/Actions/UserActions";
-
-// import Toast from "react-native-toast-message";
-// import { doc, getDoc } from "firebase/firestore";
-// import { firestore } from "../../../../firebaseconfig";
+import i18n from "../../../translations/i18n";
+import { signUp, setNoAuthenticationWanted } from "../../../Redux/Actions/UserActions";
 
 export default function SignUp({ navigation }) {
   const [loading, setLoading] = useState(false);
@@ -44,87 +31,42 @@ export default function SignUp({ navigation }) {
   const confirmPasswordRef = useRef(null);
   const emailRef = useRef(null);
   const [passwordHide, setPasswordHide] = useState(true);
-  const [ConfirmpasswordHide, setConfirmpasswordHide] = useState(true);
-  const [active, setActive] = useState(1);
-  const {
-    control,
-    handleSubmit,
-    formState: { isValid, errors },
-  } = useForm({
-    mode: "all",
-    resolver: yupResolver(SignUpFormValidation), 
-});
+  const [confirmPasswordHide, setConfirmPasswordHide] = useState(true);
+  const [userType, setUserType] = useState("shopper");
 
-  // const checkUser = async (email, password) => {
-  //   console.log("checking user", email, password);
-  //   let res;
-  //   try {
-  //     const docRef = doc(firestore, "DevelopmentUsers", email.trim());
-  //     const userDoc = await getDoc(docRef);
-  //     res = userDoc.data();
-  //   } catch (err) {
-  //     console.log(err);
-  //     setLoading(false);
-  //     return;
-  //   }
-  //   if (res) {
-  //     if (res.password === password) {
-  //       dispatch(signin(res));
-  //     } else {
-  //       console.log("wrong password");
-  //       Toast.show({
-  //         text1: "Wrong password",
-  //         type: "error",
-  //         text2: "Your password is incorrect",
-  //       });
-  //     }
-  //   } else {
-  //     console.log("user not found");
-  //     Toast.show({
-  //       text1: "User not found",
-  //       type: "error",
-  //       text2: "No user with this email exists",
-  //     });
-  //   }
-  //   setLoading(false);
-  // };
+  const { control, handleSubmit, formState: { isValid, errors } } = useForm({
+    mode: "all",
+    resolver: yupResolver(SignUpFormValidation),
+  });
+
   const signupHandler = async (values) => {
     setLoading(true);
     dispatch(signUp(values.email, values.username, values.password, userType));
-
-    // checkUser(values.email, values.password);
+    setLoading(false);
   };
-
-  const [isEnabled, setIsEnabled] = useState(false);
-  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
-  const { isAuthenticated, noAuthenticationWanted } = useSelector(state => state.user);
-
-  const [userType, setUserType] = useState('shopper');
 
   const handleSignup = async (values) => {
     setLoading(true);
     try {
       const userRef = doc(firestore, "users", values.email.trim());
-      await setDoc(userRef, { //todo : modify with collection values
+      await setDoc(userRef, {
         email: values.email,
         username: values.username,
-        userType: userType,
+        userType,
         createdAt: serverTimestamp(),
-      }); 
+      });
 
-      if (userType === 'merchant') {
+      if (userType === "merchant") {
         const merchantRef = doc(firestore, "users", values.email.trim());
-        await setDoc(merchantRef, { //todo : modify with collection values
-          email: values.email, 
+        await setDoc(merchantRef, {
+          email: values.email,
           stores: [],
-          status: 'active',
+          status: "active",
           createdAt: serverTimestamp(),
         });
-
-        navigation.replace('MerchantHome'); // create merchant home screen
+        navigation.replace("MerchantHome");
       } else {
-
-        navigation.replace('Home');
+        navigation.replace("Home");
       }
 
       Toast.show({
@@ -146,6 +88,9 @@ export default function SignUp({ navigation }) {
     navigation.navigate(ScreenNames.SIGN_IN);
   };
 
+  const [isEnabled, setIsEnabled] = useState(false);
+  const toggleSwitch = () => setIsEnabled(prev => !prev);
+
   return (
     <ScreenWrapper
       statusBarColor={AppColors.transparent}
@@ -156,14 +101,12 @@ export default function SignUp({ navigation }) {
       backgroundColor={AppColors.white}
     >
       <View style={styles.mainViewContainer}>
-        {/* <LogoIcon height={height(20)} width={height(20)} /> */}
         <Image
           source={require("../../../../assets/LogoIcon.png")}
           style={{ height: height(5), width: height(5) }}
         />
 
         <View style={styles.inputContainer}>
-  
           <Spacer vertical={height(1)} />
           <InputField
             control={control}
@@ -189,14 +132,14 @@ export default function SignUp({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            onSubmit={() => emailRef?.current?.focus()}
+            onSubmit={() => emailRef.current?.focus()}
             keytype="next"
-            label=""
-            placeholder={i18n.t('username_placeholder')}
+            placeholder={i18n.t("username_placeholder")}
             error={errors.username}
           />
           <InputField
             control={control}
+            ref={emailRef}
             prefix={
               <MaterialCommunityIcons
                 name="email-outline"
@@ -219,14 +162,14 @@ export default function SignUp({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            onSubmit={() => passwordRef?.current?.focus()}
+            onSubmit={() => passwordRef.current?.focus()}
             keytype="next"
-            label=""
-            placeholder={i18n.t('email_placeholder')}
+            placeholder={i18n.t("email_placeholder")}
             error={errors.email}
           />
           <InputField
             ref={passwordRef}
+            control={control}
             prefix={
               <Unlock_outline
                 height={height(3)}
@@ -234,6 +177,7 @@ export default function SignUp({ navigation }) {
                 style={{ marginRight: height(1) }}
               />
             }
+            name="password"
             containerStyles={{ width: "90%", alignSelf: "center" }}
             textFieldContainer={{
               width: "100%",
@@ -242,100 +186,75 @@ export default function SignUp({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            label=""
-            control={control}
-            onSubmit={() => confirmPasswordRef?.current?.focus()}
-            name="password"
-            placeholder={i18n.t('pwd_placeholder')}
+            onSubmit={() => confirmPasswordRef.current?.focus()}
+            placeholder={i18n.t("pwd_placeholder")}
             error={errors.password}
             secureTextEntry={passwordHide}
             suffix={
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    setPasswordHide(!passwordHide);
-                  }}
-                >
-                  <Feather
-                    name={passwordHide ? "eye-off" : "eye"}
-                    color={AppColors.secondary}
-                    size={height(2)}
-                  />
-                </TouchableOpacity>
-              </>
-            }
-          />
-          <InputField
-            ref={confirmPasswordRef}
-            prefix={
-              <Unlock_outline
-                height={height(3)}
-                width={height(3)}
-                style={{ marginRight: height(1) }}
-              />
-            }
-            containerStyles={{ width: "90%", alignSelf: "center" }}
-            textFieldContainer={{
-              width: "100%",
-              backgroundColor: AppColors.white,
-              borderColor: AppColors.secondary,
-              borderWidth: width(0.2),
-            }}
-            textFieldInnerContainer={{ width: "100%" }}
-            label=""
-            secureTextEntry={ConfirmpasswordHide}
-            suffix={
-              <TouchableOpacity
-                onPress={() => {
-                  setConfirmpasswordHide(!ConfirmpasswordHide);
-                }}
-              >
+              <TouchableOpacity onPress={() => setPasswordHide(!passwordHide)}>
                 <Feather
-                  name={ConfirmpasswordHide ? "eye-off" : "eye"}
+                  name={passwordHide ? "eye-off" : "eye"}
                   color={AppColors.secondary}
                   size={height(2)}
                 />
               </TouchableOpacity>
             }
+          />
+          <InputField
+            ref={confirmPasswordRef}
             control={control}
+            prefix={
+              <Unlock_outline
+                height={height(3)}
+                width={height(3)}
+                style={{ marginRight: height(1) }}
+              />
+            }
             name="confirmPassword"
-            placeholder="Enter your password again"
+            containerStyles={{ width: "90%", alignSelf: "center" }}
+            textFieldContainer={{
+              width: "100%",
+              backgroundColor: AppColors.white,
+              borderColor: AppColors.secondary,
+              borderWidth: width(0.2),
+            }}
+            textFieldInnerContainer={{ width: "100%" }}
+            placeholder={i18n.t("confirm_pwd_placeholder") || "Enter your password again"}
             error={errors.confirmPassword}
+            secureTextEntry={confirmPasswordHide}
+            suffix={
+              <TouchableOpacity onPress={() => setConfirmPasswordHide(!confirmPasswordHide)}>
+                <Feather
+                  name={confirmPasswordHide ? "eye-off" : "eye"}
+                  color={AppColors.secondary}
+                  size={height(2)}
+                />
+              </TouchableOpacity>
+            }
           />
           <View style={styles.userTypeContainer}>
-            <CustomText
-              color={AppColors.grey_200}
-              textProps={{ fontFamily: "Mulish-Regular" }}
-              size={1.7}
-            >
+            <CustomText color={AppColors.grey_200} textProps={{ fontFamily: "Mulish-Regular" }} size={1.7}>
               I want to:
             </CustomText>
             <View style={styles.radioGroup}>
-              <TouchableOpacity 
-                style={[
-                  styles.radioButton,
-                  userType === 'shopper' && styles.radioButtonSelected
-                ]}
-                onPress={() => setUserType('shopper')}
+              <TouchableOpacity
+                style={[styles.radioButton, userType === "shopper" && styles.radioButtonSelected]}
+                onPress={() => setUserType("shopper")}
               >
                 <CustomText
-                  color={userType === 'shopper' ? AppColors.primary : AppColors.grey_200}
+                  color={userType === "shopper" ? AppColors.primary : AppColors.grey_200}
                   textProps={{ fontFamily: "Mulish-Bold" }}
                   size={1.7}
                 >
                   Shop at stores
                 </CustomText>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.radioButton,
-                  userType === 'merchant' && styles.radioButtonSelected
-                ]}
-                onPress={() => setUserType('merchant')}
+              <TouchableOpacity
+                style={[styles.radioButton, userType === "merchant" && styles.radioButtonSelected]}
+                onPress={() => setUserType("merchant")}
               >
                 <CustomText
-                  color={userType === 'merchant' ? AppColors.primary : AppColors.grey_200}
+                  color={userType === "merchant" ? AppColors.primary : AppColors.grey_200}
                   textProps={{ fontFamily: "Mulish-Bold" }}
                   size={1.7}
                 >
@@ -343,17 +262,6 @@ export default function SignUp({ navigation }) {
                 </CustomText>
               </TouchableOpacity>
             </View>
-          </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "90%",
-              alignSelf: "center",
-            }}
-          >
-      
           </View>
           <Spacer vertical={height(3)} />
           <Button
@@ -366,45 +274,35 @@ export default function SignUp({ navigation }) {
             Register
           </Button>
         </View>
-        <View style={{ alignItems: 'center', flexDirection: 'column', justifyContent: 'space-between', flex: 1}}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
-          <CustomText
-            color={AppColors.black}
-            textStyles={{ fontFamily: "Mulish-Regular" }}
-            size={1.5}
-            textAlign="center"
-          >
-            Already have an Account?
-          </CustomText>
-          <CustomText
-            onPress={goToSignIn}
-            color={AppColors.primary}
-            textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
-            textDecorationLine="underline"
-            size={2}
-            textAlign="center"
-          >
-            Log in
-          </CustomText>
-        </View>
-        <View style={{ alignItems: 'center', marginTop: height(5)}}>
-          <Button
-              textStyle={{ fontFamily: "Mulish-Bold", color:AppColors.primary_darker  }}
+        <View style={{ alignItems: "center", flexDirection: "column", justifyContent: "space-between", flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <CustomText color={AppColors.black} textStyles={{ fontFamily: "Mulish-Regular" }} size={1.5} textAlign="center">
+              Already have an Account?
+            </CustomText>
+            <CustomText
+              onPress={goToSignIn}
+              color={AppColors.primary}
+              textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
+              textDecorationLine="underline"
+              size={2}
+              textAlign="center"
+            >
+              Log in
+            </CustomText>
+          </View>
+          <View style={{ alignItems: "center", marginTop: height(5) }}>
+            <Button
+              textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary_darker }}
               containerStyle={styles.buttonSecondary}
               onPress={async () => {
                 await dispatch(setNoAuthenticationWanted(true));
               }}
             >
               Create an account later
-          </Button>
-        </View>
+            </Button>
+          </View>
         </View>
       </View>
     </ScreenWrapper>
   );
-} 
+}

@@ -1,80 +1,53 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Image, Switch, TouchableOpacity, View, StyleSheet } from "react-native";
+import { Image, Switch, TouchableOpacity, View } from "react-native";
 import { useForm } from "react-hook-form";
 import { signIn, setNoAuthenticationWanted } from "../../../Redux/Actions/UserActions";
-import SignInFormValidation from "./validation"; // Correct the import path as needed
+import SignInFormValidation from "./validation";
 import styles from "./styles";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { height, width } from "../../../utils/dimension";
 import { AppColors } from "../../../utils";
 import { InputField } from "../../../components/input";
-import CustomText, { LargeText, SmallText } from "../../../components/text";
-import {
-  Feather,
-  FontAwesome6,
-} from "@expo/vector-icons";
+import CustomText from "../../../components/text";
+import { Feather, FontAwesome6 } from "@expo/vector-icons";
 import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
-import i18n from '../../../translations/i18n';
-import { useSelector } from "react-redux";
-import logging, { logError } from "../../../utils/logging";
-
-// import Toast from "react-native-toast-message";
-// import { doc, getDoc } from "firebase/firestore";
-// import { firestore } from "../../../../firebaseconfig";
+import i18n from "../../../translations/i18n";
 
 export default function SignIn({ navigation }) {
   const [loading, setLoading] = useState(false);
   const errorMessage = useSelector(state => state.user.error);
   const locale = useSelector(state => state.locale.currentLocale);
-  i18n.locale = locale;
   const dispatch = useDispatch();
 
+  useEffect(() => {
+    i18n.locale = locale;
+  }, [locale]);
+
   const passwordRef = useRef(null);
-  const confirmPasswordRef = useRef(null);
-  const emailRef = useRef(null);
   const [passwordHide, setPasswordHide] = useState(true);
-  const [active, setActive] = useState(1);
-  const {
-    control,
-    handleSubmit,
-    formState: { isValid, errors },
-  } = useForm({
+  const { control, handleSubmit, formState: { isValid, errors } } = useForm({
     mode: "all",
-    resolver: yupResolver(SignInFormValidation), 
+    resolver: yupResolver(SignInFormValidation),
   });
 
-
-  const checkUser = async (email, password) => {
-    let message = "";
+  const signinHandler = async (values) => {
+    setLoading(true);
     try {
-      await dispatch(signIn(email, password));
+      await dispatch(signIn(values.loginIdentifier, values.password));
     } catch (error) {
-      console.log('error is', error);
-      if (error.code === 'auth/invalid-credential') {
-        message = "No user with this email exists";
-      } else if (error.code === 'auth/wrong-password') {  
-        message = "Your password is incorrect";
-      } else {
-        message = error.message;
-      }
+      console.error("Erreur lors de la connexion :", error);
     } finally {
       setLoading(false);
     }
-    setErrorMessage(message);
-  };
-  
-  const signinHandler = async (values) => {
-    setLoading(true);
-    await dispatch(signIn(values.loginIdentifier, values.password));
   };
 
   const [isEnabled, setIsEnabled] = useState(false);
-  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  const toggleSwitch = () => setIsEnabled(prevState => !prevState);
 
   return (
     <ScreenWrapper
@@ -86,7 +59,6 @@ export default function SignIn({ navigation }) {
       backgroundColor={AppColors.white}
     >
       <View style={styles.mainViewContainer}>
-        {/* <LogoIcon height={height(20)} width={height(20)} /> */}
         <Image
           source={require("../../../../assets/LogoIcon.png")}
           style={{ height: height(5), width: height(5) }}
@@ -94,19 +66,11 @@ export default function SignIn({ navigation }) {
 
         <View style={styles.inputContainer}>
           <View style={{ width: "90%", alignSelf: "center" }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                width: "100%",
-              }}
-            >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
               <CustomText
                 textAlign="center"
                 color={AppColors.grey_100}
                 textProps={{ fontFamily: "Mulish-Bold" }}
-                textStyles={{ fontFamily: "Mulish-Bold" }}
                 size={2.2}
               >
                 Log In
@@ -116,12 +80,12 @@ export default function SignIn({ navigation }) {
 
           {errorMessage && (
             <View style={{
-              backgroundColor: '#FFE8E8',
+              backgroundColor: "#FFE8E8",
               padding: 10,
               marginVertical: 10,
               borderRadius: 5,
-              width: '90%',
-              alignSelf: 'center'
+              width: "90%",
+              alignSelf: "center"
             }}>
               <CustomText color={AppColors.red} size={1.6}>
                 {errorMessage}
@@ -130,6 +94,7 @@ export default function SignIn({ navigation }) {
           )}
 
           <Spacer vertical={height(2)} />
+
           <InputField
             control={control}
             prefix={
@@ -150,18 +115,18 @@ export default function SignIn({ navigation }) {
             textFieldContainer={{
               width: "100%",
               backgroundColor: AppColors.white,
-              borderColor: errors.email || errorMessage ? AppColors.red : AppColors.secondary,
+              borderColor: errors.loginIdentifier || errorMessage ? AppColors.red : AppColors.secondary,
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            onSubmit={() => passwordRef?.current?.focus()}
+            onSubmit={() => passwordRef.current?.focus()}
             keytype="next"
-            label=""
             placeholder={i18n.t('login_placeholder')}
             error={errors.loginIdentifier}
             autoCapitalize="none"
             autoCorrect={false}
           />
+
           <InputField
             ref={passwordRef}
             prefix={
@@ -179,57 +144,35 @@ export default function SignIn({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            label=""
             control={control}
-            onSubmit={() => confirmPasswordRef?.current?.focus()}
             name="password"
             placeholder={i18n.t('pwd_placeholder')}
             error={errors.password}
             secureTextEntry={passwordHide}
             suffix={
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    setPasswordHide(!passwordHide);
-                  }}
-                >
-                  <Feather
-                    name={passwordHide ? "eye-off" : "eye"}
-                    color={AppColors.secondary}
-                    size={height(2)}
-                  />
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity onPress={() => setPasswordHide(!passwordHide)}>
+                <Feather
+                  name={passwordHide ? "eye-off" : "eye"}
+                  color={AppColors.secondary}
+                  size={height(2)}
+                />
+              </TouchableOpacity>
             }
           />
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "90%",
-              alignSelf: "center",
-            }}
-          >
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "90%", alignSelf: "center" }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Switch
-                trackColor={{
-                  false: AppColors.grey_200,
-                  true: AppColors.primary,
-                }} 
+                trackColor={{ false: AppColors.grey_200, true: AppColors.primary }}
                 thumbColor={isEnabled ? AppColors.red : AppColors.white}
-                ios_backgroundColor={AppColors.primary} 
+                ios_backgroundColor={AppColors.primary}
                 onValueChange={toggleSwitch}
                 value={isEnabled}
                 style={styles.switch}
               />
               <CustomText
                 color={AppColors.black}
-                textProps={{
-                  fontFamily: "Mulish-SemiBold",
-                }}
-                textStyles={{ fontFamily: "Mulish-SemiBold" }}
+                textProps={{ fontFamily: "Mulish-SemiBold" }}
                 size={1.7}
               >
                 Remember
@@ -240,15 +183,15 @@ export default function SignIn({ navigation }) {
               onPress={() => navigation?.navigate(ScreenNames.FORGOT_PASSWORD)}
               textAlign="right"
               size={1.7}
-              textProps={{
-                fontFamily: "Mulish-Bold",
-              }}
-              textStyles={{ fontFamily: "Mulish-Bold", color:AppColors.grey_200}}
+              textProps={{ fontFamily: "Mulish-Bold" }}
+              textStyles={{ fontFamily: "Mulish-Bold", color: AppColors.grey_200 }}
             >
               Forgot Password ?
             </CustomText>
           </View>
+
           <Spacer vertical={height(5)} />
+
           <Button
             disabled={!isValid}
             loading={loading}
@@ -260,12 +203,7 @@ export default function SignIn({ navigation }) {
           </Button>
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
           <CustomText
             color={AppColors.black}
             textStyles={{ fontFamily: "Mulish-Regular" }}
@@ -276,9 +214,8 @@ export default function SignIn({ navigation }) {
           </CustomText>
           <CustomText
             onPress={() => {
-                navigation.navigate(ScreenNames.SIGN_UP);
-                console.log('sign up');
-
+              navigation.navigate(ScreenNames.SIGN_UP);
+              console.log("sign up");
             }}
             color={AppColors.primary}
             textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
@@ -288,16 +225,15 @@ export default function SignIn({ navigation }) {
           >
             Sign up
           </CustomText>
-
         </View>
-        <View style={{ alignItems: 'center', marginTop: height(5)}}>
+
+        <View style={{ alignItems: "center", marginTop: height(5) }}>
           <Button
-            textStyle={{ fontFamily: "Mulish-Bold", color:AppColors.primary_darker}}
+            textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary_darker }}
             containerStyle={styles.buttonSecondary}
             onPress={async () => {
-              await dispatch({ type: 'SET_NO_AUTHENTICATION_WANTED' });
-              console.log('noAuthenticationWanted:', noAuthenticationWanted);
-              //navigation.navigate(ScreenNames.HOME);
+              await dispatch(setNoAuthenticationWanted());
+              console.log("noAuthenticationWanted:", errorMessage);
             }}
           >
             Create an account later

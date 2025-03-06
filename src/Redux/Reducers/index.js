@@ -11,7 +11,6 @@ const rootReducer = combineReducers({
   Auth: Auth,
   Configuration: Configuration,
   locale: localeReducer,
-  //shopperProfile: shopperProfileReducer,
   categories: categoriesReducer,
   user: userReducer,
   cities: citiesReducer,

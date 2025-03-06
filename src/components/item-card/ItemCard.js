@@ -14,7 +14,6 @@ import { firestore } from '../../../firebaseconfig';
 import { Ionicons } from "@expo/vector-icons";
 import { height, width } from "../../utils/dimension";
 import { AppColors } from "../../utils";
-import { toggleFavoriteStore } from "../../Redux/Actions/UserActions";
 import { useDispatch, useSelector } from 'react-redux';
 import { selectFavoriteStores } from '../../Redux/Selectors/UserSelectors';
 import ItemDetailModal from './ItemDetailModal';
@@ -32,15 +31,9 @@ const ItemCard = React.memo(({
   image,
   address, 
   id,
+  isFavorite,
+  onPressFavorite,
 }) => {
-
-  const dispatch = useDispatch();
-
-  const favoriteStores = useSelector(selectFavoriteStores);
-  
-  const isFavorite = useMemo(() => {
-    return favoriteStores.includes(id);
-  }, [favoriteStores, id]);
 
   const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
   const [modalVisible, setModalVisible] = useState(false);
@@ -92,7 +85,6 @@ const ItemCard = React.memo(({
 
   return (
     <View style={styles.card}>
-      {/* Image Section */}
       <View>
         <Image style={styles.image} source={image || placeholders[Math.floor(id % placeholders.length)]} />
         <View
@@ -112,11 +104,9 @@ const ItemCard = React.memo(({
         }
       </View>
 
-      {/* Content Section */}
       <View style={styles.cardContent}>
         <Text style={styles.title}>{title}</Text>
 
-        {/* Rating Section */}
         <View style={styles.rating}>
           {[...Array(5)].map((_, index) => (
             <Ionicons
@@ -133,7 +123,6 @@ const ItemCard = React.memo(({
           </Text>
         </View>
 
-        {/* Tags Section */}
         {
           <View style={styles.tags}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -154,7 +143,6 @@ const ItemCard = React.memo(({
           </View>
         }
 
-        {/* Description */}
         {
           <>
             <View style={styles.descriptionrating}>
@@ -164,7 +152,13 @@ const ItemCard = React.memo(({
             <Text style={styles.description}>
               {description.length > 150 ? `${description.substring(0, 150)}...` : description}
             </Text>
-            <TouchableOpacity style={styles.favoriteIcon} onPress={() => dispatch(toggleFavoriteStore(id))}>
+            <TouchableOpacity 
+              style={styles.favoriteIcon} 
+              onPress={() => {
+                console.log(`Toggling favorite for store ID: ${id}, new state: ${!isFavorite}`);
+                onPressFavorite();
+              }}
+            >
               <Ionicons 
                 name={isFavorite ? "heart" : "heart-outline"} 
                 size={24} 
@@ -174,7 +168,6 @@ const ItemCard = React.memo(({
           </>
         }
 
-        {/* Posts (Optional Placeholder for now) */}
       </View>
       <ItemDetailModal
         visible={modalVisible}

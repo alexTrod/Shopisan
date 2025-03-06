@@ -3,6 +3,7 @@ export default {
         home_title:'Stores',
         username_placeholder:'Enter your username',
         pwd_placeholder:'Enter your password',
+        confirm_pwd_placeholder: 'Enter your password again',
         email_placeholder:'Enter your email',
         login_placeholder: 'Enter your username or email'
     },
