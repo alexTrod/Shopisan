@@ -3,7 +3,6 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "../screens/app/home";
-import FavoritesScreen from "../screens/app/favorites";
 import ShopUnfilled from "../../assets/icons/shop-unfilled";
 import { height } from "../utils/dimension";
 import PinFilled from "../../assets/icons/pin-filled";
@@ -38,12 +37,6 @@ export default function BottomTabs() {
             } else {
               return <PinUnfilled height={height(3)} width={height(3)} />;
             }
-          } else if (route.name === ScreenNames.FAVORITE) {
-            if (focused) {
-              return <HeartFilled height={height(3)} width={height(3)} />;
-            } else {
-              return <HeartUnfilled height={height(3)} width={height(3)} />;
-            }
           } else if (route.name === ScreenNames.PROFILE) {
             if (focused) {
               return <ProfileFilled height={height(3)} width={height(3)} />;
@@ -59,7 +52,6 @@ export default function BottomTabs() {
     >
       <Tab.Screen name={ScreenNames.HOME} component={HomeScreen} />
       <Tab.Screen name={ScreenNames.MAP} component={Map} />
-      <Tab.Screen name={ScreenNames.FAVORITE} component={FavoritesScreen} />
       <Tab.Screen name={ScreenNames.PROFILE} component={Profile} />
     </Tab.Navigator>
   );

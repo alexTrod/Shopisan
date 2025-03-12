@@ -112,23 +112,23 @@ const styles = StyleSheet.create({
     marginVertical: height(2),
     zIndex: 9999,
     elevation: 9999,
-    width: '100%',
+    width: '50%',
     flexDirection:'row',
   },
   dropdown: {
     //width: '80%',
-    left:'10%',
+    left:'-25%',
     backgroundColor: AppColors.primary,
     borderRadius: 25,
     paddingLeft:15,
     paddingRight:15,
     justifyContent: 'center',
-    marginRight:5,
+    marginRight:0,
     color:AppColors.white,
     
   },
   selectedTextStyle: {
-    fontSize: 16,
+    fontSize: 14,
     color:AppColors.white,
   },
   modalContainer: {
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     flexDirection:'row',
   },
   categoryText: {
-    fontSize: 16,
+    fontSize: 14,
   },
   cancelButton: {
     marginTop: 20,

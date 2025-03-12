@@ -87,7 +87,6 @@ export const userReducer = (state = initialState, action) => {
       };
       
     case 'SET_NO_AUTHENTICATION_WANTED':
-      console.log('setting SET_NO_AUTHENTICATION_WANTED');
       return {
         ...state,
         noAuthenticationWanted: true

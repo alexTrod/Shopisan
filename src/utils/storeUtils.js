@@ -1,4 +1,4 @@
-import { collection, query, getDocs, orderBy, limit, startAfter, where } from "firebase/firestore";
+import { collection, query, doc, getDocs, getDoc, orderBy, limit, startAfter, where } from "firebase/firestore";
 import { firestore } from "../../firebaseconfig";
 import logging from "./logging";
 
@@ -92,3 +92,48 @@ export const fetchStores = async (storeQuery) => {
     throw error;
   }
 };
+
+export const getUserFavoriteStoreIds = async (userId) => {
+  try {
+    const userDocRef = doc(firestore, "users", userId);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data();
+      return userData.favoriteStores || [];
+    } else {
+      console.warn("L'utilisateur n'existe pas dans Firestore :", userId);
+      return [];
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération des favoris :", error);
+    return [];
+  }
+};
+
+export const getFavoriteStoreQuery = (favoriteStoreIds, lastVisible) => {
+  const storeCollection = collection(firestore, "stores");
+  const queryConstraints = [];
+
+  if (!favoriteStoreIds || favoriteStoreIds.length === 0) {
+    return null;
+  }
+
+  if (favoriteStoreIds.length > 10) {
+    favoriteStoreIds = favoriteStoreIds.slice(0, 10);
+  }
+
+  queryConstraints.push(where("id", "in", favoriteStoreIds));
+  queryConstraints.push(orderBy("id", "desc"));
+  queryConstraints.push(limit(STORES_PER_PAGE));
+
+  let baseQuery = query(storeCollection, ...queryConstraints);
+
+  if (lastVisible) {
+    baseQuery = query(baseQuery, startAfter(lastVisible));
+  }
+
+  return baseQuery;
+};
+
+

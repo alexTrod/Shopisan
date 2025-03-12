@@ -22,9 +22,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
 
 
   const auth = getAuth();
-  logging('passing down item', item);
   const address = (itemAddress) => {
-    logging('getting this address', itemAddress);
     const location = itemAddress.length > 0 ? itemAddress[0].location : {address: {street: ''}, city: {name:'', postal_code: ''}, geopoint: ''};
     const street = location?.address?.street || '';
     const city = location?.city?.name || '';

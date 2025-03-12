@@ -10,7 +10,6 @@ export const ScreenNames = {
   SELECT_COUNTRY: "SelectCountry",
   SELECT_CATEGORY: "SelectCategory",
   MAP: "MAP",
-  FAVORITE: "Favorite",
   PROFILE: "Profile",
   PROFILE_SHOPPER: "ProfileShopper",
   PROFILE_MERCHANT: "ProfileMerchant",

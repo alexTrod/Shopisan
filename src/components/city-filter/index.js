@@ -26,7 +26,7 @@ const CityFilter = () => {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(city => ({
-      value: city.name, // on utilise le nom pour le filtrage
+      value: city.name,
       label: city.name,
       country_id: city.country_id,
       geohash: city.geohash,
@@ -42,14 +42,12 @@ const CityFilter = () => {
     dispatch(setSelectedCities(newSelectedCities));
   };
 
-  // Ici, "All" réinitialise le filtre (aucune ville sélectionnée = pas de filtre)
   const handleSelectAll = () => {
     dispatch(setSelectedCities([]));
   };
 
   return (
     <View style={[styles.container, { zIndex: 9999 }]}>
-      {/* Bouton dropdown à gauche */}
       <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={styles.selectedTextStyle}>
@@ -58,7 +56,6 @@ const CityFilter = () => {
         </View>
       </TouchableOpacity>
       
-      {/* ScrollView à droite affichant les villes sélectionnées */}
       <ScrollView horizontal style={styles.selectedCitiesContainer}>
         {selectedCities.map((cityName) => (
           <View key={cityName} style={styles.selectedCityItem}>
@@ -110,13 +107,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dropdown: {
-    left: '10%',
+    left: '0%',
     backgroundColor: AppColors.primary,
     borderRadius: 25,
-    paddingLeft: 15,
-    paddingRight: 15,
+    paddingLeft: 5,
+    paddingRight: 5,
     justifyContent: 'center',
-    marginRight: 5,
+    marginRight: 0,
   },
   selectedTextStyle: {
     fontSize: 16,
@@ -124,7 +121,7 @@ const styles = StyleSheet.create({
   },
   selectedCitiesContainer: {
     flexDirection: 'row',
-    marginLeft: 10,
+    marginLeft: 5,
   },
   selectedCityItem: {
     flexDirection:'row',
@@ -159,7 +156,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   cityText: {
-    fontSize: 16,
+    fontSize: 16
   },
   cancelButton: {
     marginTop: 20,

@@ -39,12 +39,18 @@ export default function SignIn({ navigation }) {
     setLoading(true);
     try {
       await dispatch(signIn(values.loginIdentifier, values.password));
+
+      const errorMessage  = useSelector(state => state.user.error);
+
+      if (!errorMessage ) {
+        navigation.navigate(ScreenNames.HOME);
+      }
     } catch (error) {
       console.error("Erreur lors de la connexion :", error);
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const [isEnabled, setIsEnabled] = useState(false);
   const toggleSwitch = () => setIsEnabled(prevState => !prevState);

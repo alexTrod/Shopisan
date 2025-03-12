@@ -17,7 +17,7 @@ export const checkAuthStatus = () => async (dispatch) => {
         logging(user.uid,'trying to fetch user data');
         fetchUserData(user.uid)(dispatch);
       } else {
-        dispatch({ type: 'AUTH_LOGOUT' });
+        dispatch({ type: 'AUTH_FAILURE', payload: "Not logged in" });
       }
     });
   } catch (error) {
@@ -35,7 +35,7 @@ export const setNoAuthenticationWanted = (intention) => async (dispatch) => {
 
 export const signIn = (email, password) => async (dispatch) => {
   try {
-    dispatch({ type: 'AUTH_LOADING' });
+    //dispatch({ type: 'AUTH_LOADING' });
     logging('start to sign in');
     logging(email, 'email');
     logging(password, 'password');
@@ -245,6 +245,7 @@ const fetchUserDataByLoginIdentifier = (loginIdentifier, password) => async (dis
   } catch (error) {
     logError('Fetch user data by login identifier failed', error);
     dispatch({ type: 'AUTH_FAILURE', payload: error.message });
+    throw error; 
   }
 };
 

@@ -3,12 +3,11 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
 import { height, width } from "../../../utils/dimension";
-import { StyleSheet, View, Alert, TextInput, Text } from "react-native";
+import { StyleSheet, View, Alert, TouchableOpacity, Text } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
 import CategoryFilter from "../../../components/category-filter";
-import MapCategoryFilter from "../../../components/map-category-filter";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
@@ -26,41 +25,11 @@ export default function Map({ navigation }) {
   const [userLocation, setUserLocation] = useState(null);
   const [cameraCoordinates, setCameraCoordinates] = useState(null);
   const [lastPosition, setLastPosition] = useState(null);
-  const flatListRef = useRef(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedStoreDetails, setSelectedStoreDetails] = useState(null);
   const mapRef = useRef(null);
 
-  //const selectedCategories = useSelector((state) => state.categories.selectedCategories);
-  const [selectedCategories, setSelectedCategories] = useState([]);
-
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-
-    try {
-      const locations = await Location.geocodeAsync(searchQuery);
-      if (locations.length > 0) {
-        const { latitude, longitude } = locations[0];
-
-        setCameraCoordinates({ latitude, longitude });
-
-        if (mapRef.current) {
-          mapRef.current.animateToRegion({
-            latitude,
-            longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          }, 1000);
-        }
-      } else {
-        Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
-      }
-    } catch (error) {
-      console.error("Erreur lors de la recherche :", error);
-    }
-  };
+  const selectedCategories = useSelector((state) => state.categories.selectedCategories);
 
   useEffect(() => {
     getUserLocation();
@@ -80,11 +49,12 @@ export default function Map({ navigation }) {
   
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       if (!location || !location.coords) {
-        console.warn("Impossible d'obtenir la position de l'utilisateur.");
+        console.warn("⚠️ Impossible d'obtenir la position de l'utilisateur.");
         return;
       }
   
       const { latitude, longitude } = location.coords;
+      console.log("✅ Localisation récupérée :", { latitude, longitude });
   
       setUserLocation({ latitude, longitude });
       setCameraCoordinates({ latitude, longitude });
@@ -99,7 +69,7 @@ export default function Map({ navigation }) {
         }, 1000);
       }
     } catch (error) {
-      console.error("Erreur lors de la récupération de la localisation :", error);
+      console.error("❌ Erreur lors de la récupération de la localisation :", error);
     }
   };  
 
@@ -108,18 +78,18 @@ export default function Map({ navigation }) {
       setLoading(true);
       const storesRef = collection(firestore, "stores");
       const storesSnapshot = await getDocs(storesRef);
-  
-      const allStores = storesSnapshot.docs
+
+      const filteredStores = storesSnapshot.docs
         .map((doc) => {
           const data = doc.data();
           if (!data.address?.[0]?.location?.geopoint) return null;
-  
+
           let { latitude: storeLat, longitude: storeLng } = data.address[0].location.geopoint;
           storeLat = Number(storeLat);
           storeLng = Number(storeLng);
-  
+
           if (isNaN(storeLat) || isNaN(storeLng)) return null;
-  
+
           return {
             id: doc.id,
             ...data,
@@ -128,24 +98,14 @@ export default function Map({ navigation }) {
           };
         })
         .filter((store) => store && getDistanceInKm(latitude, longitude, store.latitude, store.longitude) <= SEARCH_RADIUS_KM);
-  
-      const filteredStores = selectedCategories.length > 0
-        ? allStores.filter(store => store.category && store.category.some(cat => selectedCategories.includes(cat)))
-        : allStores;
-  
+
       setStores(filteredStores);
     } catch (error) {
       logging("Erreur lors de la récupération des magasins :", error);
     } finally {
       setLoading(false);
     }
-  };  
-
-  useEffect(() => {
-    if (userLocation) {
-      fetchNearbyStores(userLocation.latitude, userLocation.longitude);
-    }
-  }, [selectedCategories]);  
+  };
 
   const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
@@ -168,23 +128,11 @@ export default function Map({ navigation }) {
 
   return (
     <ScreenWrapper backgroundColor={AppColors.white_100} statusBarColor={AppColors.white_100} barStyle="dark-content">
-      <View style={styles.topBar}>
-        <MapCategoryFilter 
-          stores={stores} 
-          selectedCategories={selectedCategories} 
-          setSelectedCategories={setSelectedCategories} 
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Rechercher une ville..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-      </View>
 
       <View style={styles.container}>
+        <View style={styles.filterContainer}>
+          <CategoryFilter />
+        </View>
         {cameraCoordinates ? (
           <MapView
             ref={mapRef}
@@ -223,52 +171,25 @@ export default function Map({ navigation }) {
           <View style={styles.loading}><Text>Chargement de la carte...</Text></View>
         )}
       </View>
-      <FloatingCards 
-        data={stores} 
-        ref={flatListRef}
-        selectedStore={selectedStore}
-        onCardSelect={setSelectedStore}
-      />
-      {selectedStoreDetails && (
-        <ItemDetailModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          item={selectedStoreDetails}
-        />
-      )}
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
+  container: { flex: 1 },
+  map: { flex: 1 },
+  filterContainer: {
+    position: "absolute",
+    top: 0,
+    left: 10,
+    zIndex: 10,
+    borderRadius: 10,
+    padding: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: width(4),
-    paddingVertical: height(1),
-    backgroundColor: AppColors.white_100,
-  },
-  categoryContainer: {
-    flex: 0.3,
-    marginRight: width(2),
-  },
-  searchInput: {
-    flex: 1, 
-    height: 40,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#ccc",
-  },
-  mapContainer: {
-    flex: 1,
-  },
-  map: { 
-    flex: 1 
-  },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
+

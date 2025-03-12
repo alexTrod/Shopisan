@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { View, ActivityIndicator, FlatList } from "react-native";
+import { View, ActivityIndicator, FlatList, TouchableOpacity, Text } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
-import { getStoreQuery, fetchStores } from "../../../utils/storeUtils";
+import { getUserFavoriteStoreIds, getFavoriteStoreQuery, getStoreQuery, fetchStores } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
@@ -15,6 +15,7 @@ import { width } from "../../../utils/dimension";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { selectFavoriteStores } from '../../../Redux/Selectors/UserSelectors';
 import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function HomeScreen({ navigation }) {
   const [stores, setStores] = useState([]);
@@ -22,14 +23,14 @@ export default function HomeScreen({ navigation }) {
   const [lastVisible, setLastVisible] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const favoriteStores = useSelector(state => state.user.favoriteStores);
-  console.log("Current favoriteStores in Redux:", favoriteStores);
 
   const dispatch = useDispatch();
 
   const locale = useSelector(state => state.locale.currentLocale);
-  const user = useSelector(state => state?.Auth?.user);
+  const user = useSelector(state => state.user.userData);
   const selectedCategories = useSelector(
     state => state.categories.selectedCategories,
     shallowEqual
@@ -61,6 +62,77 @@ export default function HomeScreen({ navigation }) {
       dispatch(toggleFavoriteStore(null));
     }
   }, []);
+
+  const handleToggleShowFavorites = () => {
+    setShowFavoritesOnly(prev => {
+      const newState = !prev;
+
+      if (newState) {
+        setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
+        loadFavoriteStores(true);
+      } else {
+        setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
+        loadStores(true);
+      }
+  
+      return newState;
+    });
+  };
+  
+  const loadFavoriteStores = useCallback(async (isRefreshing = false) => {
+    if (!user || !user.id) return;
+    setLoading(true);
+  
+    try {
+      const favoriteStoreIds = await getUserFavoriteStoreIds(user.id);
+      console.log("Liste des favoris  :", favoriteStoreIds);
+      if (favoriteStoreIds.length === 0) {
+        setStores([]);
+        setHasMore(false);
+        return;
+      }
+  
+      const validFavoriteStoreIds = favoriteStoreIds.filter(id => id !== null && id !== undefined);
+      console.log("Liste des favoris après nettoyage :", validFavoriteStoreIds);
+
+      const storeQuery = getFavoriteStoreQuery(validFavoriteStoreIds, lastVisibleRef.current);
+      
+      if (!storeQuery) {
+        setStores([]);
+        setHasMore(false);
+        return;
+      }
+  
+      const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
+  
+      const updatedStores = newStores.map(store => ({
+        ...store,
+        isFavorite: true,
+      }));
+  
+      if (isRefreshing) {
+        setStores(updatedStores);
+      } else {
+        setStores(prev => {
+          const existingIds = new Set(prev.map(store => store.id));
+          const uniqueNewStores = updatedStores.filter(store => !existingIds.has(store.id));
+          return [...prev, ...uniqueNewStores];
+        });
+      }
+  
+      setLastVisible(newLastVisible);
+      setHasMore(newHasMore);
+    } catch (error) {
+      logging("Erreur lors du chargement des magasins favoris :", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user, lastVisible]);   
 
   const loadStores = useCallback(async (isRefreshing = false) => {
     if (!favoriteStores || loadingRef.current || (!hasMoreRef.current && !isRefreshing)) return;
@@ -104,12 +176,16 @@ export default function HomeScreen({ navigation }) {
   const handleToggleFavorite = useCallback((storeId) => {
     dispatch(toggleFavoriteStore(storeId));
   
-    setStores(prevStores =>
-      prevStores.map(store =>
-        store.id === storeId ? { ...store, isFavorite: !store.isFavorite } : store
-      )
-    );
-  }, [dispatch]);         
+    setStores(prevStores => {
+      return prevStores.filter(store => {
+        if (showFavoritesOnly) {
+          return store.id !== storeId;
+        }
+        return store;
+      });
+    });
+  
+  }, [dispatch, showFavoritesOnly]);         
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -119,8 +195,14 @@ export default function HomeScreen({ navigation }) {
   }, [loadStores]);
 
   const handleEndReached = useCallback(() => {
-    if (hasMoreRef.current) loadStores();
-  }, [loadStores]);
+    if (hasMoreRef.current) {
+      if (showFavoritesOnly) {
+        loadFavoriteStores();
+      } else {
+        loadStores();
+      }
+    }
+  }, [showFavoritesOnly, loadFavoriteStores, loadStores]);  
 
   const renderFooter = useCallback(() => {
     if (!loading) return null;
@@ -208,14 +290,6 @@ export default function HomeScreen({ navigation }) {
       barStyle="dark-content"
     >
       <View style={{ flex: 1 }}>
-        <Header
-          showLeft={true}
-          showBack
-          title={user?.userType === 'merchant' ? 'My Stores' : i18n.t('home_title')}
-          rightIcon
-          onRightPress={() => {}}
-          containerStyle={{ width: width(90), alignSelf: "center" }}
-        />
         {user?.userType === 'merchant' ? (
           <StoreManagement navigation={navigation} />
         ) : (
@@ -223,6 +297,14 @@ export default function HomeScreen({ navigation }) {
             <View style={{ zIndex: 9999, elevation: 9999 }}>
               <CategoryFilter />
               <CityFilter />
+              <TouchableOpacity onPress={handleToggleShowFavorites} style={styles.switchButton}>
+                <MaterialIcons 
+                  name={showFavoritesOnly ? "favorite" : "favorite-border"} 
+                  size={24} 
+                  color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200} 
+                />
+                <Text style={styles.switchText}>{showFavoritesOnly ? "Favoris" : "Tous"}</Text>
+              </TouchableOpacity>
             </View>
             <FlatList {...flatListProps} />
           </>
@@ -231,3 +313,36 @@ export default function HomeScreen({ navigation }) {
     </ScreenWrapper>
   );
 }
+
+const styles = {
+  filtersContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: width(4),
+    paddingVertical: 10,
+    backgroundColor: AppColors.white_100,
+  },
+  filterItem: {
+    flex: 0.4,
+  },
+  switchButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "30%",
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: AppColors.white_100,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+    marginLeft: 5,
+    marginBottom: 5
+  },
+  switchText: {
+    marginLeft: 5,
+    fontSize: 14,
+    color: AppColors.black,
+  },
+};
+
