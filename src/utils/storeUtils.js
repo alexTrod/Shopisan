@@ -136,4 +136,26 @@ export const getFavoriteStoreQuery = (favoriteStoreIds, lastVisible) => {
   return baseQuery;
 };
 
+export const getMerchantStoreQuery = (ownerId, lastVisible) => {
+  if (!ownerId) {
+    console.error("Erreur : ownerId est null ou indéfini.");
+    return null;
+  }
+
+  const storeCollection = collection(firestore, "stores");
+  const queryConstraints = [
+    where("owner_id", "==", ownerId),
+    orderBy("id", "desc"),
+    limit(STORES_PER_PAGE)
+  ];
+
+  let baseQuery = query(storeCollection, ...queryConstraints);
+
+  if (lastVisible) {
+    baseQuery = query(baseQuery, startAfter(lastVisible));
+  }
+
+  console.log("Requête générée pour les magasins du marchand :", baseQuery);
+  return baseQuery;
+};
 

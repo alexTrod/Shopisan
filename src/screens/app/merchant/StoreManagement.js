@@ -74,7 +74,7 @@ const StoreManagement = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: width(5),
+    padding: width(0),
   },
   addButton: {
     marginBottom: height(2),

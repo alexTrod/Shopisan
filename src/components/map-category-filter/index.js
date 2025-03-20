@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginVertical: height(2),
     zIndex: 9999,
     elevation: 9999,
-    width: '55%',
+    width: '100%',
     flexDirection: "row",
   },
   dropdown: {

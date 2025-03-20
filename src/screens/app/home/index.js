@@ -1,21 +1,22 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { View, ActivityIndicator, FlatList, TouchableOpacity, Text } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
-import { getUserFavoriteStoreIds, getFavoriteStoreQuery, getStoreQuery, fetchStores } from "../../../utils/storeUtils";
+import { getUserFavoriteStoreIds, getFavoriteStoreQuery, getStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
 import logging from "../../../utils/logging";
-import Header from "../../../components/header";
 import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
 import i18n from "../../../translations/i18n";
-import StoreManagement from "../merchant/StoreManagement";
 import { width } from "../../../utils/dimension";
 import ScreenWrapper from "../../../components/screen-wrapper";
-import { selectFavoriteStores } from '../../../Redux/Selectors/UserSelectors';
 import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
 import { MaterialIcons } from "@expo/vector-icons";
+import Button from '../../../components/button';
+import { ScreenNames } from "../../../Routes/routes";
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../../../../firebaseconfig';
 
 export default function HomeScreen({ navigation }) {
   const [stores, setStores] = useState([]);
@@ -26,6 +27,7 @@ export default function HomeScreen({ navigation }) {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const favoriteStores = useSelector(state => state.user.favoriteStores);
+  const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -68,6 +70,7 @@ export default function HomeScreen({ navigation }) {
       const newState = !prev;
 
       if (newState) {
+        setShowMyStoresOnly(false);
         setStores([]);
         setLastVisible(null);
         setHasMore(true);
@@ -134,25 +137,114 @@ export default function HomeScreen({ navigation }) {
     }
   }, [user, lastVisible]);   
 
+  const handleToggleShowMyStores = () => {
+    setShowMyStoresOnly(prev => {
+      const newState = !prev;
+  
+      if (newState) {
+        setShowFavoritesOnly(false);
+        setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
+        loadMyStores(true);
+      } else {
+        setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
+        loadStores(true);
+      }
+  
+      return newState;
+    });
+  };
+
+  const loadMyStores = useCallback(async (isRefreshing = false) => {
+    if (!user || !user.id) return;
+    setLoading(true);
+  
+    try {
+      const ownerId = await getOwnerId(user.id);
+      if (!ownerId) {
+        console.error("Impossible de récupérer l'owner_id.");
+        setStores([]);
+        setHasMore(false);
+        return;
+      }
+  
+      const storeQuery = getMerchantStoreQuery(ownerId, isRefreshing ? null : lastVisibleRef.current);
+  
+      if (!storeQuery) {
+        console.error("storeQuery invalide :", storeQuery);
+        setStores([]);
+        setHasMore(false);
+        return;
+      }
+  
+      console.log("Requête finale pour les magasins du marchand :", storeQuery);
+  
+      const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
+  
+      if (isRefreshing) {
+        setStores(newStores);
+      } else {
+        setStores(prev => {
+          const existingIds = new Set(prev.map(store => store.id));
+          const uniqueNewStores = newStores.filter(store => !existingIds.has(store.id));
+          return [...prev, ...uniqueNewStores];
+        });
+      }
+  
+      setLastVisible(newLastVisible);
+      setHasMore(newHasMore);
+    } catch (error) {
+      console.error("Erreur lors du chargement des magasins du marchand :", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user, lastVisible, selectedCategories, categories, selectedCities]);  
+
+  const getOwnerId = async (userId) => {
+    try {
+      const userRef = doc(firestore, "users", userId);
+      const userSnap = await getDoc(userRef);
+  
+      if (userSnap.exists()) {
+        const ownerId = userSnap.data().id;
+        console.log("Owner ID récupéré :", ownerId);
+        return ownerId;
+      } else {
+        console.error("Utilisateur introuvable dans Firestore.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération de l'owner_id :", error);
+      return null;
+    }
+  };
+
   const loadStores = useCallback(async (isRefreshing = false) => {
     if (!favoriteStores || loadingRef.current || (!hasMoreRef.current && !isRefreshing)) return;
   
     setLoading(true);
+    console.log("selectedCategories avant requête :", selectedCategories);
+    
     const storeQuery = getStoreQuery(
       selectedCategories,
       lastVisibleRef.current,
       categories,
       selectedCities
     );
-  
+    console.log("storeQuery générée :", storeQuery);
     try {
       const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
-  
+      console.log("Stores récupérés après requête :", newStores);
+
       const updatedStores = newStores.map(store => ({
         ...store,
         isFavorite: favoriteStores.includes(store.id),
       }));
-  
+
       if (isRefreshing) {
         setStores(updatedStores);
       } else {
@@ -162,7 +254,7 @@ export default function HomeScreen({ navigation }) {
           return [...prev, ...uniqueNewStores];
         });
       }
-  
+
       setLastVisible(newLastVisible);
       setHasMore(newHasMore);
     } catch (error) {
@@ -172,6 +264,7 @@ export default function HomeScreen({ navigation }) {
       setRefreshing(false);
     }
   }, [selectedCategories, categories, selectedCities, favoriteStores]);  
+
 
   const handleToggleFavorite = useCallback((storeId) => {
     dispatch(toggleFavoriteStore(storeId));
@@ -185,7 +278,7 @@ export default function HomeScreen({ navigation }) {
       });
     });
   
-  }, [dispatch, showFavoritesOnly]);         
+  }, [dispatch, showFavoritesOnly]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -229,11 +322,12 @@ export default function HomeScreen({ navigation }) {
     <ItemCard
       title={item.name}
       id={item.id}
-      tags={getCategoriesNamesByIds(item.category)}
-      description={item.description[locale]}
+      tags={getCategoriesNamesByIds(item?.category ?? [])}
+      description={item?.description?.[locale] ?? ""}
       address={item.address}
       isFavorite={item.isFavorite}
       onPressFavorite={() => handleToggleFavorite(item.id)}
+      owner_id={item.owner_id} 
     />
   ), [getCategoriesNamesByIds, locale, handleToggleFavorite]);    
 
@@ -290,54 +384,83 @@ export default function HomeScreen({ navigation }) {
       barStyle="dark-content"
     >
       <View style={{ flex: 1 }}>
-        {user?.userType === 'merchant' ? (
-          <StoreManagement navigation={navigation} />
-        ) : (
-          <>
-            <View style={{ zIndex: 9999, elevation: 9999 }}>
-              <CategoryFilter />
-              <CityFilter />
-              <TouchableOpacity onPress={handleToggleShowFavorites} style={styles.switchButton}>
-                <MaterialIcons 
-                  name={showFavoritesOnly ? "favorite" : "favorite-border"} 
-                  size={24} 
-                  color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200} 
-                />
-                <Text style={styles.switchText}>{showFavoritesOnly ? "Favoris" : "Tous"}</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList {...flatListProps} />
-          </>
-        )}
+        
+        <View style={styles.filterRow}>
+          <CategoryFilter />
+        </View>
+
+        <View style={styles.filterRow}>
+          <CityFilter />
+        </View>
+
+        <View style={styles.rowContainer}>          
+          <TouchableOpacity onPress={handleToggleShowFavorites} style={styles.switchButton}>
+            <MaterialIcons 
+              name={showFavoritesOnly ? "favorite" : "favorite-border"} 
+              size={24} 
+              color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200} 
+            />
+            <Text style={styles.switchText}>{showFavoritesOnly ? "Favoris" : "Tous"}</Text>
+          </TouchableOpacity>
+
+          {user?.userType === 'merchant' && (
+            <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
+              <MaterialIcons 
+                name={showMyStoresOnly ? "store" : "storefront"} 
+                size={24} 
+                color={showMyStoresOnly ? AppColors.primary : AppColors.grey_200} 
+              />
+              <Text style={styles.switchText}>{showMyStoresOnly ? "Mes Magasins" : "Tous"}</Text>
+            </TouchableOpacity>
+          )}
+
+          {user?.userType === 'merchant' && (
+            <Button
+              onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
+              containerStyle={styles.addButton}
+            >
+              Add New Store
+            </Button>
+          )}
+        </View>
+
+        <FlatList {...flatListProps} />
       </View>
     </ScreenWrapper>
   );
 }
 
 const styles = {
-  filtersContainer: {
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    marginBottom: 0,
+  },
+  rowContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: width(4),
-    paddingVertical: 10,
-    backgroundColor: AppColors.white_100,
+    width: "100%",
+    paddingHorizontal: 10,
+    marginBottom: 10,
   },
-  filterItem: {
-    flex: 0.4,
+  addButton: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   switchButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    width: "30%",
     padding: 8,
     borderRadius: 20,
     backgroundColor: AppColors.white_100,
     borderWidth: 1,
     borderColor: AppColors.grey_200,
-    marginLeft: 5,
-    marginBottom: 5
+    marginLeft: 20,
   },
   switchText: {
     marginLeft: 5,
@@ -345,4 +468,5 @@ const styles = {
     color: AppColors.black,
   },
 };
+
 

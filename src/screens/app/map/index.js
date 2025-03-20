@@ -3,7 +3,7 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
 import { height, width } from "../../../utils/dimension";
-import { StyleSheet, View, Alert, TextInput, Text } from "react-native";
+import { StyleSheet, View, Alert, TextInput, Text, TouchableOpacity } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
@@ -35,6 +35,76 @@ export default function Map({ navigation }) {
   const [selectedCategories, setSelectedCategories] = useState([]);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+
+  useEffect(() => {
+    const getSuggestions = async () => {
+      if (!searchQuery.trim()) {
+        setSuggestions([]);
+        return;
+      }
+  
+      const results = await fetchCitySuggestions(searchQuery);
+      setSuggestions(results);
+    };
+  
+    getSuggestions();
+  }, [searchQuery]);  
+
+  const fetchCountryCode = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.warn("Permission refusée pour la localisation.");
+        return null;
+      }
+  
+      const location = await Location.getCurrentPositionAsync({});
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+  
+      if (reverseGeocode.length > 0) {
+        return reverseGeocode[0].isoCountryCode;
+      }
+  
+      return null;
+    } catch (error) {
+      console.error("Erreur lors de la récupération du pays :", error);
+      return null;
+    }
+  };
+
+  const fetchCitySuggestions = async (query) => {
+    if (!query.trim()) return [];
+  
+    try {
+      const username = "saitoosu";
+      const countryCode = await fetchCountryCode();
+  
+      if (!countryCode) {
+        console.warn("Impossible de récupérer le code pays.");
+        return [];
+      }
+  
+      const url = `http://api.geonames.org/searchJSON?name_startsWith=${query}&featureClass=P&maxRows=5&country=${countryCode}&username=${username}`;
+      const response = await fetch(url);
+      const data = await response.json();
+  
+      if (!data.geonames) {
+        console.error("Données incorrectes reçues :", data);
+        return [];
+      }
+  
+      const uniqueCities = [...new Set(data.geonames.map(city => city.name))];
+  
+      return uniqueCities;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des suggestions :", error);
+      return [];
+    }
+  };   
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -53,6 +123,7 @@ export default function Map({ navigation }) {
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
           }, 1000);
+          setSuggestions([]);
         }
       } else {
         Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
@@ -169,11 +240,6 @@ export default function Map({ navigation }) {
   return (
     <ScreenWrapper backgroundColor={AppColors.white_100} statusBarColor={AppColors.white_100} barStyle="dark-content">
       <View style={styles.topBar}>
-        <MapCategoryFilter 
-          stores={stores} 
-          selectedCategories={selectedCategories} 
-          setSelectedCategories={setSelectedCategories} 
-        />
         <TextInput
           style={styles.searchInput}
           placeholder="Rechercher une ville..."
@@ -184,41 +250,68 @@ export default function Map({ navigation }) {
         />
       </View>
 
+      {suggestions.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          {suggestions.map((suggestion, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.suggestionItem}
+              onPress={() => {
+                setSearchQuery(suggestion);
+                setSuggestions([]);
+                handleSearch();
+              }}
+            >
+              <Text style={styles.suggestionText}>{suggestion}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <View style={styles.container}>
         {cameraCoordinates ? (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={{
-              latitude: cameraCoordinates.latitude,
-              longitude: cameraCoordinates.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }}
-            onRegionChangeComplete={onRegionChangeComplete}
-            showsUserLocation={true}
-            provider="google"
-          >
-            {stores.map((store, index) => (
-            <Marker
-              key={`${store.id}-${index}`}
-              coordinate={{ latitude: store.latitude, longitude: store.longitude }}
-              title={store.name}
-              description={store.description?.en || "No description available"}
-              onPress={() => {
-                setSelectedStore(store);
-                setSelectedStoreDetails({
-                  id: store.id,
-                  title: store.name,
-                  description: store.description?.en || "No description available",
-                  tags: store.category || [],
-                  address: store.address || "No address available",
-                });
-                setModalVisible(true);
+          <View style={{ flex: 1 }}>
+            <View style={styles.filterContainer}>
+              <MapCategoryFilter 
+                stores={stores} 
+                selectedCategories={selectedCategories} 
+                setSelectedCategories={setSelectedCategories} 
+              />
+            </View>
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={{
+                latitude: cameraCoordinates.latitude,
+                longitude: cameraCoordinates.longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
               }}
-            />
-          ))}
-          </MapView>
+              onRegionChangeComplete={onRegionChangeComplete}
+              showsUserLocation={true}
+              provider="google"
+            >
+              {stores.map((store, index) => (
+              <Marker
+                key={`${store.id}-${index}`}
+                coordinate={{ latitude: store.latitude, longitude: store.longitude }}
+                title={store.name}
+                description={store.description?.en || "No description available"}
+                onPress={() => {
+                  setSelectedStore(store);
+                  setSelectedStoreDetails({
+                    id: store.id,
+                    title: store.name,
+                    description: store.description?.en || "No description available",
+                    tags: store.category || [],
+                    address: store.address || "No address available",
+                  });
+                  setModalVisible(true);
+                }}
+              />
+            ))}
+            </MapView>
+          </View>
         ) : (
           <View style={styles.loading}><Text>Chargement de la carte...</Text></View>
         )}
@@ -271,4 +364,31 @@ const styles = StyleSheet.create({
   map: { 
     flex: 1 
   },
+  suggestionsContainer: {
+    position: "absolute",
+    top: 75,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    zIndex: 9999,
+    borderRadius: 5,
+    elevation: 3,
+  },
+  suggestionItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  suggestionText: {
+    fontSize: 16,
+  },
+  filterContainer: {
+    position: "absolute",
+    top: -15,
+    left: 10,
+    right: 10,
+    zIndex: 10,
+    borderRadius: 10,
+    padding: 10,
+  }
 });

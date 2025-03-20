@@ -13,6 +13,8 @@ import SignIn from './src/screens/auth/signin';
 import ResetPassword from './src/screens/auth/reset-password';
 import CustomText from './src/components/text';
 import ForgotPassword from './src/screens/auth/forgot-password';
+import AddStore from "./src/screens/app/add_store";
+import HandleStore from "./src/screens/app/handle_store";
 
 const Stack = createNativeStackNavigator();
 
@@ -32,11 +34,20 @@ const App = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated || noAuthenticationWanted ? (
-          <Stack.Screen
-            name="MainTabs"
-            component={BottomTabs}
-            options={{ headerShown: false }}
-          />
+          <>
+            <Stack.Screen name="MainTabs" component={BottomTabs} />
+
+            <Stack.Screen 
+              name={ScreenNames.ADD_STORE} 
+              component={AddStore} 
+              options={{ presentation: "modal" }}
+            />
+            <Stack.Screen 
+              name={ScreenNames.HANDLE_STORE} 
+              component={HandleStore} 
+              options={{ presentation: "modal" }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />

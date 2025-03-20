@@ -35,7 +35,7 @@ const CategoryFilter = () => {
   const handleSelectCategory = (item) => {
     const newSelectedCategories = selectedCategories.includes(item.value)
       ? selectedCategories.filter(cat => cat !== item.value) 
-      : [...selectedCategories, item.value]; 
+      : [...selectedCategories, item.value];
     dispatch(setSelectedCategories(newSelectedCategories));
   };
 
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     marginVertical: height(2),
     zIndex: 9999,
     elevation: 9999,
-    width: '50%',
+    width: '100%',
     flexDirection:'row',
   },
   dropdown: {

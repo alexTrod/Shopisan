@@ -17,6 +17,8 @@ import { AppColors } from "../../utils";
 import { useDispatch, useSelector } from 'react-redux';
 import { selectFavoriteStores } from '../../Redux/Selectors/UserSelectors';
 import ItemDetailModal from './ItemDetailModal';
+import { useNavigation } from '@react-navigation/native'
+import { ScreenNames } from "../../Routes/routes";
 
 
 const placeholderImage1 = require('../../images/placeholder_store_1.png');	
@@ -33,10 +35,19 @@ const ItemCard = React.memo(({
   id,
   isFavorite,
   onPressFavorite,
+  owner_id
 }) => {
 
   const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
   const [modalVisible, setModalVisible] = useState(false);
+
+  const navigation = useNavigation();
+  const user = useSelector(state => state.user.userData);
+  const isOwner = user?.userType === 'merchant' && user.id === owner_id;
+
+  const handleEditPress = () => {
+    navigation.navigate(ScreenNames.HANDLE_STORE, { storeId: id });
+  };
 
   useEffect(() => {
     const getRating = async () => {
@@ -94,13 +105,20 @@ const ItemCard = React.memo(({
           ]}
         />
         {
-          <TouchableOpacity style={styles.infoIcon} onPress={handleInfoPress}>
-            <Ionicons
-              name="information-circle-outline"
-              size={24}
-              color={AppColors.white}
-            />
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            {isOwner && (
+              <TouchableOpacity style={styles.iconButton} onPress={handleEditPress}>
+                <Ionicons name="create-outline" size={24} color={AppColors.white} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.infoIcon} onPress={handleInfoPress}>
+              <Ionicons
+                name="information-circle-outline"
+                size={24}
+                color={AppColors.white}
+              />
+            </TouchableOpacity>
+          </View>
         }
       </View>
 
@@ -211,6 +229,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: height(1),
     right: height(1),
+  },
+  actionButtons: {
+    position: "absolute",
+    top: height(1),
+    right: height(1),
+    flexDirection: "row",
+  },
+  iconButton: {
+    marginRight: 50,
+    marginTop: 13
   },
   cardContent: {
     padding: 10,

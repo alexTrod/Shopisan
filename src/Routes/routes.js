@@ -14,4 +14,6 @@ export const ScreenNames = {
   PROFILE_SHOPPER: "ProfileShopper",
   PROFILE_MERCHANT: "ProfileMerchant",
   SETTINGS: "Settings",
+  ADD_STORE: "AddStore",
+  HANDLE_STORE: "HandleStore"
 };
