@@ -25,57 +25,12 @@ export default function AddStoreScreen({ navigation }) {
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [description, setDescription] = useState("");
   const { categories, selectedCategories } = useSelector(state => state.categories);
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
-
-  const [openingHours, setOpeningHours] = useState({
-    monday: { morning: null, afternoon: null },
-    tuesday: { morning: null, afternoon: null },
-    wednesday: { morning: null, afternoon: null },
-    thursday: { morning: null, afternoon: null },
-    friday: { morning: null, afternoon: null },
-    saturday: { morning: null, afternoon: null },
-    sunday: { morning: null, afternoon: null },
-  });  
-
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday"
-  ]; 
-  
-  const daysLabels = {
-    monday: "Lundi",
-    tuesday: "Mardi",
-    wednesday: "Mercredi",
-    thursday: "Jeudi",
-    friday: "Vendredi",
-    saturday: "Samedi",
-    sunday: "Dimanche"
-  };
-
-  const updateOpeningHour = (day, period, field, value) => {
-    if (field !== 'start' && field !== 'end') {
-      console.error('Champ non supporté:', field);
-      return;
-    }
-  
-    setOpeningHours(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [period]: prev[day][period]
-          ? { ...prev[day][period], [field]: value }
-          : { [field]: value }
-      }
-    }));
-  };      
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -130,7 +85,11 @@ export default function AddStoreScreen({ navigation }) {
       const latitude = location.lat;
       const longitude = location.lng;
   
-      const ownerId = user ? await getOwnerId(user.id) || null : null;
+      const ownerId = await getOwnerId(user.id);
+      if (!ownerId) {
+        console.error("Impossible de récupérer l'owner_id.");
+        return;
+      }
   
       const storesRef = collection(firestore, "stores");
       const storesSnapshot = await getDocs(storesRef);
@@ -170,7 +129,6 @@ export default function AddStoreScreen({ navigation }) {
         category: selectedCategories,
         storeStatus: 0,
         website: "",
-        openingHours: openingHours
       };
   
       await addDoc(storesRef, storeData);
@@ -224,50 +182,6 @@ export default function AddStoreScreen({ navigation }) {
         <Text style={styles.label}>Description</Text>
         <TextInput style={[styles.input, styles.textArea]} placeholder="Décrivez votre magasin" value={description} onChangeText={setDescription} multiline />
 
-        {days.map((day) => (
-          <View key={day} style={styles.dayContainer}>
-            <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
-
-            <View style={styles.periodContainer}>
-              <Text style={styles.periodLabel}>Matin :</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Début"
-                  value={openingHours[day].morning?.start || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'morning', 'start', text)}
-                />
-                <Text style={styles.toText}>à</Text>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Fin"
-                  value={openingHours[day].morning?.end || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'morning', 'end', text)}
-                />
-              </View>
-            </View>
-
-            <View style={styles.periodContainer}>
-              <Text style={styles.periodLabel}>Après-midi :</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Début"
-                  value={openingHours[day].afternoon?.start || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'afternoon', 'start', text)}
-                />
-                <Text style={styles.toText}>à</Text>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Fin"
-                  value={openingHours[day].afternoon?.end || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'afternoon', 'end', text)}
-                />
-              </View>
-            </View>
-          </View>
-        ))}
-
         <Text style={styles.label}>Catégories</Text>
         <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
           <Text style={styles.categoryButtonText}>
@@ -287,7 +201,7 @@ export default function AddStoreScreen({ navigation }) {
         </ScrollView>
 
         <TouchableOpacity style={styles.addButton} onPress={handleAddStore}>
-          <Text style={styles.addButtonText}>Ajouter le magasin</Text>
+          <Text style={styles.addButtonText}>Ajouter le magasinss</Text>
         </TouchableOpacity>
 
         <Modal animationType="slide" transparent={true} visible={modalVisible}>
@@ -433,46 +347,6 @@ const styles = StyleSheet.create({
   container: { 
     padding: width(4),
     backgroundColor: AppColors.white_100
-  },
-  dayContainer: {
-    marginBottom: 0,
-    padding: 5,
-    backgroundColor: "#f8f8f8",
-    borderRadius: 10,
-  },
-  dayLabel: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
-  },
-  periodContainer: {
-    marginBottom: 10,
-  },
-  periodLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 5,
-    color: "#666",
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  hourInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 14,
-    backgroundColor: "#fff",
-  },
-  toText: {
-    marginHorizontal: 8,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#444",
   },
 });
 

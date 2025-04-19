@@ -5,11 +5,6 @@ import logging from "./logging";
 const STORES_PER_PAGE = 10;
 
 export const getStoreQuery = (selectedCategories, lastVisible, categories, selectedCities) => {
-  console.log("==> getStoreQuery appelé avec :");
-  console.log("selectedCategories:", selectedCategories);
-  console.log("selectedCities:", selectedCities);
-  console.log("lastVisible:", lastVisible);
-  console.log("categories:", categories);
 
   const storeCollection = collection(firestore, 'stores');
   const queryConstraints = [];

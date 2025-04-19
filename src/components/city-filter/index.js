@@ -7,22 +7,33 @@ import { AppColors } from '../../utils';
 import { width, height } from '../../utils/dimension';
 import logging from '../../utils/logging';
 import { getCitiesLocale } from '../../Redux/Reducers/CitiesReducer';
+import { getCountriesLocale } from '../../Redux/Reducers/CountriesReducer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const CityFilter = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
   const { cities, selectedCities } = useSelector(state => state.cities);
+  const [countries, setCountries] = useState([]);
+  const [selectedCountry, setSelectedCountry] = useState("all");
 
   useEffect(() => {
-    const loadCities = async () => {
-      const cityList = await getCitiesLocale();
+    const loadCitiesAndCountries = async () => {
+      const [cityList, countryList] = await Promise.all([
+        getCitiesLocale(),
+        getCountriesLocale()
+      ]);
       dispatch(setCities(cityList));
+      setCountries([{ id: "all", name: "All" }, ...countryList]);
     };
-    loadCities();
+    loadCitiesAndCountries();
   }, []);
 
-  const data = cities
+  const filteredCities = cities.filter(city =>
+    selectedCountry === "all" || city.country_id === selectedCountry
+  );
+  
+  const data = filteredCities
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(city => ({
@@ -34,6 +45,7 @@ const CityFilter = () => {
       longitude: city.longitude,
       postal_codes: city.postal_codes,
     }));
+  
 
   const handleSelectCity = (item) => {
     const newSelectedCities = selectedCities.includes(item.value)
@@ -70,6 +82,31 @@ const CityFilter = () => {
       <Modal animationType="slide" transparent={true} visible={modalVisible}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
+            <ScrollView
+              horizontal
+              style={styles.countryScroll}
+              showsHorizontalScrollIndicator={false}
+            >
+              {countries.map(country => (
+                <TouchableOpacity
+                  key={country.id}
+                  style={[
+                    styles.countryButton,
+                    selectedCountry === country.id && styles.selectedCountryButton
+                  ]}
+                  onPress={() => setSelectedCountry(country.id)}
+                >
+                  <Text
+                    style={[
+                      styles.countryText,
+                      selectedCountry === country.id && styles.selectedCountryText
+                    ]}
+                  >
+                    {country.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
             <TouchableOpacity onPress={handleSelectAll} style={styles.cityItem}>
               <Text style={[styles.cityText, { color: selectedCities.length === 0 ? AppColors.primary : AppColors.black }]}>
                 All
@@ -143,32 +180,68 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '80%',
-    height: '80%',
+    width: '70%',
+    height: '75%',
     backgroundColor: AppColors.white,
     borderRadius: 10,
     padding: 20,
-  },
+    justifyContent: 'flex-start',
+  },  
+  countryScroll: {
+    Height: 90,
+  },  
+  countryButton: {
+    height: 40,
+    minWidth: 80,
+    paddingHorizontal: 12,
+    marginBottom: 15,
+    backgroundColor: AppColors.grey_100,
+    borderRadius: 20,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },  
+  selectedCountryButton: {
+    backgroundColor: AppColors.primary,
+  },  
+  countryText: {
+    color: AppColors.black,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 18,
+  },  
+  selectedCountryText: {
+    color: AppColors.white,
+    fontWeight: 'bold',
+    fontSize: 12,
+    textAlign: 'center',
+  },  
+  cityList: {
+    flexGrow: 0,
+    height: '50%',
+    marginBottom: 10,
+  },  
   cityItem: {
-    padding: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.grey_200,
     flexDirection: 'row',
-  },
+    alignItems: 'center',
+  },  
   cityText: {
-    fontSize: 16
-  },
+    fontSize: 14,
+  },  
   cancelButton: {
-    marginTop: 20,
+    marginTop: 10,
     padding: 10,
     backgroundColor: AppColors.red,
     borderRadius: 5,
     alignItems: 'center',
-  },
+  },  
   cancelButtonText: {
     color: AppColors.white,
     fontWeight: 'bold',
-  },
+  },  
 });
 
 export default CityFilter;

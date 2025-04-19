@@ -3,6 +3,7 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import { height, width } from "../../../utils/dimension";
 import { StyleSheet, View, Alert, TextInput, Text, TouchableOpacity } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
 import MapCategoryFilter from "../../../components/map-category-filter";
@@ -13,11 +14,6 @@ import { firestore } from "../../../../firebaseconfig";
 import { collection, getDocs } from "firebase/firestore";
 import logging from "../../../utils/logging";
 import cities from "../../../components/cities/cities.json";
-import MapboxGL from "@rnmapbox/maps";
-
-import CustomMarker from "../../../components/customMarker";
-
-MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
 const SEARCH_RADIUS_KM = 3;
 const REFRESH_DISTANCE_KM = 1;
@@ -26,7 +22,7 @@ export default function Map({ navigation, route  }) {
   const initialStore = route?.params?.initialStore;
   const [loading, setLoading] = useState(true);
   const [stores, setStores] = useState([]);
-  const [selectedStore, setSelectedStore] = useState(initialStore ? initialStore : null);
+  const [selectedStore, setSelectedStore] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [cameraCoordinates, setCameraCoordinates] = useState(null);
   const [lastPosition, setLastPosition] = useState(null);
@@ -35,11 +31,6 @@ export default function Map({ navigation, route  }) {
   const [selectedStoreDetails, setSelectedStoreDetails] = useState(null);
   const mapRef = useRef(null);
   const allCategories = useSelector(state => state.categories.categories);
-  const [mapCenter, setMapCenter] = useState(null);
-  const [currentRegion, setCurrentRegion] = useState(null);
-  const markerRefs = useRef({});
-  const [currentZoom, setCurrentZoom] = useState(14);
-  const cameraRef = useRef(null);
 
   const [selectedCategories, setSelectedCategories] = useState([]);
 
@@ -49,83 +40,6 @@ export default function Map({ navigation, route  }) {
   const getCategoryName = (id) => {
     const match = allCategories.find(cat => cat.id === id);
     return match ? match.name : `#${id}`;
-  };  
-
-  const storesWithNamedTags = stores.map(store => ({
-    ...store,
-    tags: store.category?.map(getCategoryName) || [],
-  }));
-
-  useEffect(() => {
-    if (initialStore && stores.length > 0) {
-      const matchingStore = stores.find((store) => store.id === initialStore.id);
-      if (matchingStore) {
-        setSelectedStore(matchingStore);
-      }
-    }
-  }, [stores, initialStore]);  
-
-  const findClosestStore = async () => {
-    if (!mapCenter) {
-      Alert.alert("Position inconnue", "Impossible de déterminer la position de la carte.");
-      return;
-    }
-  
-    try {
-      const storesRef = collection(firestore, "stores");
-      const storesSnapshot = await getDocs(storesRef);
-  
-      let closestStore = null;
-      let minDistance = Infinity;
-  
-      storesSnapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        if (!data.address?.[0]?.location?.geopoint) return;
-  
-        let { latitude: storeLat, longitude: storeLng } = data.address[0].location.geopoint;
-        storeLat = Number(storeLat);
-        storeLng = Number(storeLng);
-  
-        if (isNaN(storeLat) || isNaN(storeLng)) return;
-  
-        const distance = getDistanceInKm(mapCenter.latitude, mapCenter.longitude, storeLat, storeLng);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestStore = {
-            id: doc.id,
-            ...data,
-            latitude: storeLat,
-            longitude: storeLng,
-            distance: distance.toFixed(2),
-          };
-        }
-      });
-  
-      if (closestStore) {
-        const region = {
-          latitude: closestStore.latitude,
-          longitude: closestStore.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-  
-        setCameraCoordinates(region);
-        setLastPosition({ latitude: region.latitude, longitude: region.longitude });
-        fetchNearbyStores(region.latitude, region.longitude);
-  
-        if (cameraRef.current) {
-          cameraRef.current.setCamera({
-            centerCoordinate: [region.longitude, region.latitude],
-            zoomLevel: 14,
-            animationDuration: 1000,
-          });
-        }        
-      } else {
-        console.log("❌ Aucun magasin trouvé.");
-      }
-    } catch (error) {
-      console.error("Erreur lors de la recherche du magasin le plus proche :", error);
-    }
   };  
 
   useEffect(() => {
@@ -166,18 +80,19 @@ export default function Map({ navigation, route  }) {
         setCameraCoordinates({
           latitude,
           longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         });
   
-        if (cameraRef.current) {
-          cameraRef.current.setCamera({
-            centerCoordinate: [longitude, latitude],
-            zoomLevel: 14,
-            animationDuration: 1000,
-          });
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            latitude,
+            longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }, 1000);
           setSuggestions([]);
-        }        
+        }
       } else {
         Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
       }
@@ -189,30 +104,26 @@ export default function Map({ navigation, route  }) {
   useEffect(() => {
     if (
       initialStore &&
-      !isNaN(Number(initialStore?.address?.[0]?.location?.geopoint.latitude)) &&
-      !isNaN(Number(initialStore?.address?.[0]?.location?.geopoint.longitude))
+      !isNaN(Number(initialStore.latitude)) &&
+      !isNaN(Number(initialStore.longitude))
     ) {
-      const latitude = Number(initialStore?.address?.[0]?.location?.geopoint.latitude);
-      const longitude = Number(initialStore?.address?.[0]?.location?.geopoint.longitude);
+      const latitude = Number(initialStore.latitude);
+      const longitude = Number(initialStore.longitude);
   
       const region = {
         latitude,
         longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
       };
   
       setCameraCoordinates(region);
       setUserLocation({ latitude, longitude });
       setLastPosition({ latitude, longitude });
   
-      if (cameraRef.current) {
-        cameraRef.current.setCamera({
-          centerCoordinate: [region.longitude, region.latitude],
-          zoomLevel: 14,
-          animationDuration: 1000,
-        });
-      }      
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(region, 1000);
+      }
   
       fetchNearbyStores(latitude, longitude);
       //navigation.setParams({ initialStore: null });
@@ -245,18 +156,19 @@ export default function Map({ navigation, route  }) {
       setCameraCoordinates({
         latitude,
         longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
       });      
       setLastPosition({ latitude, longitude });
   
-      if (cameraRef.current) {
-        cameraRef.current.setCamera({
-          centerCoordinate: [longitude, latitude],
-          zoomLevel: 14,
-          animationDuration: 1000,
-        });
-      }      
+      if (mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }, 1000);
+      }
     } catch (error) {
       console.error("Erreur lors de la récupération de la localisation :", error);
     }
@@ -316,45 +228,14 @@ export default function Map({ navigation, route  }) {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
-  const onRegionChangeComplete = (regionFeature) => {
-    if (!regionFeature || !regionFeature.properties) return;
-  
-    const zoomLevel = regionFeature.properties.zoomLevel;
-    const center = regionFeature.geometry.coordinates;
-  
-    if (center) {
-      const region = {
-        latitude: center[1],
-        longitude: center[0],
-      };
-  
-      setMapCenter(region);
-      setCurrentRegion(region);
-      setCurrentZoom(zoomLevel);
-  
-      if (!lastPosition) return;
-  
-      const distanceMoved = getDistanceInKm(lastPosition.latitude, lastPosition.longitude, region.latitude, region.longitude);
-      if (distanceMoved >= REFRESH_DISTANCE_KM) {
-        setLastPosition({ latitude: region.latitude, longitude: region.longitude });
-        fetchNearbyStores(region.latitude, region.longitude);
-      }
+  const onRegionChangeComplete = (region) => {
+    if (!lastPosition) return;
+    const distanceMoved = getDistanceInKm(lastPosition.latitude, lastPosition.longitude, region.latitude, region.longitude);
+    if (distanceMoved >= REFRESH_DISTANCE_KM) {
+      setLastPosition({ latitude: region.latitude, longitude: region.longitude });
+      fetchNearbyStores(region.latitude, region.longitude);
     }
-  };  
-
-  const showCalloutsIfZoomed = () => {
-    if (currentRegion?.latitudeDelta < 0.01) {
-      Object.values(markerRefs.current).forEach((markerRef) => {
-        if (markerRef) {
-          markerRef.showCallout();
-        }
-      });
-    }
-  };  
-
-  useEffect(() => {
-    showCalloutsIfZoomed();
-  }, [currentRegion]);
+  };
 
   return (
     <ScreenWrapper backgroundColor={AppColors.white_100} statusBarColor={AppColors.white_100} barStyle="dark-content">
@@ -403,64 +284,42 @@ export default function Map({ navigation, route  }) {
             >
               <Ionicons name="locate" size={24} color="black" />
             </TouchableOpacity>
-            <MapboxGL.MapView
+            <MapView
               ref={mapRef}
               style={styles.map}
-              styleURL={MapboxGL.StyleURL.Street}
-              logoEnabled={false}
-              attributionEnabled={false}
-              compassEnabled={true}
-              onRegionDidChange={(regionFeature) => onRegionChangeComplete(regionFeature)}
+              region={cameraCoordinates}
+              onRegionChangeComplete={onRegionChangeComplete}
+              showsMyLocationButton={false} 
+              showsUserLocation={true}
+              provider="google"
             >
-              <MapboxGL.Camera
-                ref={cameraRef}
-                zoomLevel={cameraCoordinates?.zoom || 14}
-                centerCoordinate={[cameraCoordinates?.longitude || 2.35, cameraCoordinates?.latitude || 48.85]}
+              {stores.map((store, index) => (
+              <Marker
+                key={`${store.id}-${index}`}
+                coordinate={{ latitude: store.latitude, longitude: store.longitude }}
+                title={store.name}
+                description={store.description?.en || "No description availablee"}
+                onPress={() => {
+                  setSelectedStore(store);
+                  setSelectedStoreDetails({
+                    id: store.id,
+                    title: store.name,
+                    description: store.description?.en || "No description availablee",
+                    tags: store.category?.map(getCategoryName) || [],
+                    address: store.address || "No address available",
+                  });
+                  setModalVisible(true);
+                }}
               />
-
-              <MapboxGL.UserLocation
-                visible={true}
-                androidRenderMode="normal"
-              />
-
-              {stores.map((store) => (
-                <CustomMarker
-                  key={store.id}
-                  store={store}
-                  selected={selectedStore?.id === store.id}
-                  showLabel={currentZoom > 14}
-                  onPress={() => {
-                    setSelectedStore(store);
-                    setSelectedStoreDetails({
-                      id: store.id,
-                      title: store.name,
-                      description: store.description?.en || "No description available",
-                      tags: store.category?.map(getCategoryName) || [],
-                      address: store.address || "No address available",
-                      openingHours: store.openingHours || null,
-                    });
-                    setModalVisible(true);
-                  }}                  
-                />
-              ))}
-            </MapboxGL.MapView>
-
-            {!loading && stores.length === 0 && (
-              <View style={styles.noStoreContainer}>
-                <Text style={styles.noStoreText}>Aucun magasin trouvé dans cette zone.</Text>
-
-                <TouchableOpacity onPress={findClosestStore}>
-                  <Text style={styles.closestStoreButtonText}>Trouver le magasin le plus proche</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            ))}
+            </MapView>
           </View>
         ) : (
           <View style={styles.loading}><Text>Chargement de la carte...</Text></View>
         )}
       </View>
       <FloatingCards 
-        data={storesWithNamedTags} 
+        data={stores} 
         ref={flatListRef}
         selectedStore={selectedStore}
         onCardSelect={setSelectedStore}
@@ -543,33 +402,5 @@ const styles = StyleSheet.create({
     padding: 10,
     elevation: 5,
     zIndex: 10,
-  },
-  noStoreContainer: {
-    position: "absolute",
-    top: height(25),
-    left: width(10),
-    right: width(10),
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    elevation: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
-  
-  noStoreText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#444",
-    textAlign: "center",
-  },
-  closestStoreButtonText: {
-    marginTop: 10,
-    color: AppColors.primary,
-    fontWeight: "600",
-    fontSize: 15,
-    textAlign: "center",
-    textDecorationLine: "underline",
-  }    
+  }  
 });

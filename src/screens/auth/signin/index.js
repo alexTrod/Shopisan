@@ -238,8 +238,7 @@ export default function SignIn({ navigation }) {
             textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary_darker }}
             containerStyle={styles.buttonSecondary}
             onPress={async () => {
-              await dispatch(setNoAuthenticationWanted());
-              console.log("noAuthenticationWanted:", errorMessage);
+              await dispatch(setNoAuthenticationWanted(true));
             }}
           >
             Create an account later

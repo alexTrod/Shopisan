@@ -5,7 +5,7 @@ import { height, width } from "../../utils/dimension";
 
 const CustomText = ({
   children,
-  size = 4.5,
+  size = 3.5,
   textAlign = "auto",
   color = AppColors.black,
   textStyles,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { View, ActivityIndicator, FlatList, TouchableOpacity, Text } from "react-native";
+import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
 import { getUserFavoriteStoreIds, getFavoriteStoreQuery, getStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
@@ -8,23 +8,28 @@ import { AppColors } from "../../../utils";
 import logging from "../../../utils/logging";
 import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
-import i18n from "../../../translations/i18n";
-import { width } from "../../../utils/dimension";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
 import { MaterialIcons } from "@expo/vector-icons";
 import Button from '../../../components/button';
 import { ScreenNames } from "../../../Routes/routes";
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where  } from 'firebase/firestore';
 import { firestore } from '../../../../firebaseconfig';
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { signOut } from "../../../Redux/Actions/UserActions";
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastVisible, setLastVisible] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const SEARCH_RADIUS_KM = 1;
+  const [showNearbyModal, setShowNearbyModal] = useState(false);
+  const [isNearbyActive, setIsNearbyActive] = useState(false);
+  const initialStoreFromMap = route?.params?.initialStoreFromMap;
 
   const favoriteStores = useSelector(state => state.user.favoriteStores);
   const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
@@ -235,7 +240,7 @@ export default function HomeScreen({ navigation }) {
       categories,
       selectedCities
     );
-    console.log("storeQuery générée :", storeQuery);
+
     try {
       const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
       console.log("Stores récupérés après requête :", newStores);
@@ -265,20 +270,73 @@ export default function HomeScreen({ navigation }) {
     }
   }, [selectedCategories, categories, selectedCities, favoriteStores]);  
 
+  useEffect(() => {
+    const fetchStoreByInternalId = async (internalId) => {
+      try {  
+        const storesCollection = collection(firestore, "stores");
+        const storesQuery = query(storesCollection, where("id", "==", internalId));
+        const querySnapshot = await getDocs(storesQuery);
+  
+        if (!querySnapshot.empty) {
+          const storeDoc = querySnapshot.docs[0];
+          const storeData = storeDoc.data();
+  
+          const completeStore = {
+            id: storeDoc.id,
+            ...storeData,
+            isFavorite: favoriteStores.includes(storeDoc.id),
+          };
+  
+          setStores((prev) => {
+            const alreadyExists = prev.some(store => store.id === completeStore.id);
+            if (!alreadyExists) {
+              return [completeStore, ...prev];
+            }
+            return prev;
+          });
+  
+        } else {
+          console.warn("Aucun store trouvé avec ce internalId :", internalId);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération du store :", error);
+      }
+    };
+  
+    if (initialStoreFromMap && initialStoreFromMap.id) {
+      fetchStoreByInternalId(initialStoreFromMap.id);
+      navigation.setParams({ initialStoreFromMap: null });
+    }
+  }, [initialStoreFromMap, favoriteStores]);  
 
   const handleToggleFavorite = useCallback((storeId) => {
+    if (!user) {
+      Alert.alert(
+        "Connexion requise",
+        "Vous devez être connecté pour ajouter un favori. Voulez-vous aller à la page de connexion ?",
+        [
+          { text: "Non", style: "cancel" },
+          { text: "Oui", onPress: () => {
+              dispatch(signOut());
+              navigation.navigate(ScreenNames.SIGN_IN);
+            }
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+  
     dispatch(toggleFavoriteStore(storeId));
   
     setStores(prevStores => {
-      return prevStores.filter(store => {
-        if (showFavoritesOnly) {
-          return store.id !== storeId;
-        }
-        return store;
-      });
+      if (showFavoritesOnly) {
+        return prevStores.filter(store => store.id !== storeId);
+      }
+      return prevStores;
     });
   
-  }, [dispatch, showFavoritesOnly]);
+  }, [dispatch, navigation, user, showFavoritesOnly]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -328,8 +386,21 @@ export default function HomeScreen({ navigation }) {
       isFavorite={item.isFavorite}
       onPressFavorite={() => handleToggleFavorite(item.id)}
       owner_id={item.owner_id} 
+      onPress={() => {
+        const geo = item?.address?.[0]?.location?.geopoint;
+        const store = item;
+      
+        if (geo?.latitude && geo?.longitude) {
+          navigation.navigate(ScreenNames.MAP, {
+            initialStore: store
+          });
+        } else {
+          console.warn("Pas de coordonnées GPS valides pour cet item :", item);
+        }
+      }}  
+      openingHours={item.openingHours || null}         
     />
-  ), [getCategoriesNamesByIds, locale, handleToggleFavorite]);    
+  ), [getCategoriesNamesByIds, locale, handleToggleFavorite, navigation]);   
 
   const flatListProps = useMemo(() => ({
     data: stores,
@@ -377,6 +448,90 @@ export default function HomeScreen({ navigation }) {
     }
   }, [stores]);
 
+  const handleNearbyPress = async () => {
+    if (isNearbyActive) {
+      setIsNearbyActive(false);
+      setStores([]);
+      setLastVisible(null);
+      setHasMore(true);
+      loadStores(true);
+      return;
+    }
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission refusée", "Activez la localisation pour continuer.");
+        return;
+      }
+
+      setShowNearbyModal(true);
+  
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const userLat = location.coords.latitude;
+      const userLng = location.coords.longitude;
+  
+      setLoading(true);
+  
+      const storesRef = collection(firestore, "stores");
+      const storesSnapshot = await getDocs(storesRef);
+  
+      const allStores = storesSnapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+          if (!data.address?.[0]?.location?.geopoint) return null;
+  
+          let { latitude, longitude } = data.address[0].location.geopoint;
+          latitude = Number(latitude);
+          longitude = Number(longitude);
+  
+          if (isNaN(latitude) || isNaN(longitude)) return null;
+  
+          return {
+            id: doc.id,
+            ...data,
+            latitude,
+            longitude,
+          };
+        })
+        .filter(Boolean);
+  
+  
+      const nearbyStores = allStores.filter(store => {
+        const distance = getDistanceInKm(userLat, userLng, store.latitude, store.longitude);
+        const isNearby = distance <= SEARCH_RADIUS_KM;
+        if (isNearby)
+        return isNearby;
+      });
+  
+  
+      setStores(nearbyStores.map(store => ({
+        ...store,
+        isFavorite: favoriteStores.includes(store.id),
+      })));
+  
+      setLastVisible(null);
+      setHasMore(false);
+      setIsNearbyActive(true);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des magasins proches :", error);
+    } finally {
+      setLoading(false);
+      setShowNearbyModal(false); 
+    }
+  };
+
+  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  };  
+
   return (
     <ScreenWrapper
       backgroundColor={AppColors.white_100}
@@ -403,6 +558,26 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.switchText}>{showFavoritesOnly ? "Favoris" : "Tous"}</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            onPress={handleNearbyPress}
+            style={[
+              styles.switchButton,
+              { marginLeft: 0, marginTop: 10 },
+              isNearbyActive && { borderColor: AppColors.primary, backgroundColor: "#f0f0f0" },
+            ]}
+          >
+            <Ionicons
+              name="location-outline"
+              size={24}
+              color={isNearbyActive ? AppColors.primary : AppColors.grey_200}
+            />
+            <Text style={[styles.switchText, isNearbyActive && { color: AppColors.primary }]}>
+              Autour de moi
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.rowContainer}>          
           {user?.userType === 'merchant' && (
             <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
               <MaterialIcons 
@@ -414,18 +589,24 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           )}
 
-          {user?.userType === 'merchant' && (
-            <Button
-              onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
-              containerStyle={styles.addButton}
-            >
-              Add New Store
-            </Button>
-          )}
+          <Button
+            onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
+            containerStyle={styles.addButton}
+          >
+            Add New Store
+          </Button>
         </View>
 
         <FlatList {...flatListProps} />
       </View>
+      <Modal visible={showNearbyModal} transparent animationType="fade">
+        <View style={modalStyles.container}>
+          <View style={modalStyles.modal}>
+            <ActivityIndicator size="large" color={AppColors.primary} />
+            <Text style={modalStyles.text}>Recherche des magasins à proximité...</Text>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 }
@@ -468,5 +649,27 @@ const styles = {
     color: AppColors.black,
   },
 };
+
+const modalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modal: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 25,
+    alignItems: "center",
+  },
+  text: {
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+});
+
 
 

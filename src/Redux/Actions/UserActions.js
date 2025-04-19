@@ -1,4 +1,4 @@
-import {getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import {getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut  } from 'firebase/auth';
 import { firestore } from '../../../firebaseconfig';
 import logging, { logError } from '../../utils/logging';
 import { collection, doc, query, where, getDocs, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -49,7 +49,8 @@ export const signIn = (email, password) => async (dispatch) => {
 
 export const signOut = () => async (dispatch) => {
   try {
-    signOut(auth);
+    const auth = getAuth();
+    await firebaseSignOut(auth);
     dispatch({ type: 'AUTH_LOGOUT' });
   } catch (error) {
     logError('Sign out failed', error);
@@ -61,17 +62,10 @@ export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
   try {
     const state = getState();
     const isAuthenticated = selectIsAuthenticated(state);
-    
-    if (!isAuthenticated) {
-      logging('No authenticated user');
-      Alert.alert('Error', 'Please log in to add favorites');
-      return;
-    }
 
     const currentUser = auth.currentUser;
     if (!currentUser) {
       logging('No Firebase auth user');
-      Alert.alert('Error', 'Authentication error');
       return;
     }
 
