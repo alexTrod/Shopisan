@@ -33,17 +33,37 @@ export const setNoAuthenticationWanted = (intention) => async (dispatch) => {
   }
 };
 
+const getSignInErrorMessage = (error) => {
+  if (!error || !error.code) {
+    return "An unexpected error occurred. Please try again.";
+  }
+
+  const errorMessages = {
+    "auth/invalid-credential": "Invalid email or password.",
+    "auth/user-not-found": "No account found with this email address.",
+    "auth/wrong-password": "Incorrect password. Please try again.",
+    "auth/invalid-email": "The email address is badly formatted.",
+    "auth/too-many-requests": "Too many attempts. Please try again later.",
+  };
+
+  return errorMessages[error.code] || "An error occurred. Please try again.";
+};
+
 export const signIn = (email, password) => async (dispatch) => {
   try {
-    //dispatch({ type: 'AUTH_LOADING' });
     logging('start to sign in');
     logging(email, 'email');
     logging(password, 'password');
+    
     await fetchUserDataByLoginIdentifier(email, password)(dispatch);
+
   } catch (error) {
     logError('Sign in failed', error);
-    dispatch({ type: 'AUTH_FAILURE', payload: error.message });
-    throw error; 
+
+    const errorMessage = getSignInErrorMessage(error);
+
+    dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
+    throw error;
   }
 };
 
@@ -98,59 +118,60 @@ export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
 export const signUp = (email, username, password, userType) => async (dispatch) => {
   try {
     dispatch({ type: 'AUTH_LOADING' });
-    
+
     const userCollection = collection(firestore, 'users');
-    
-    await createUserWithEmailAndPassword(auth, email, password).then(
-      async (user) => {
-        console.log('user is', user);   
-        const new_id = user.user.uid;
-        logging('new_id', new_id);
-        const newUserDoc = doc(userCollection, new_id); 
-        // todo:set a new user correctly
-        logging(userType,'userType');
-        logging(email,'email');
-        logging(username,'username');
-        logging(serverTimestamp(),'serverTimestamp');
-        await setDoc(newUserDoc, {
-          userType: userType,
+
+    await createUserWithEmailAndPassword(auth, email, password).then(async (user) => {
+      const new_id = user.user.uid;
+      const newUserDoc = doc(userCollection, new_id);
+      await setDoc(newUserDoc, {
+        userType,
+        id: new_id,
+        email,
+        username,
+        date_of_birth: null,
+        is_active: true,
+        is_admin: false,
+        is_owner: userType === 'shopper' ? false : true,
+        last_login: serverTimestamp(),
+        created: serverTimestamp(),
+        surname: null,
+        name: null,
+        picture_id: null,
+        reset_password_token: null,
+        reset_password_validity: null,
+        user_id: new_id,
+      });
+
+      dispatch({
+        type: 'AUTH_SUCCESS',
+        payload: {
           id: new_id,
-          email: email,
-          username: username,
-          date_of_birth:null,
-          is_active:true,
-          is_admin:false,
-          is_owner : userType == 'shopper' ? false : true,        
-          last_login: serverTimestamp(),
-          created: serverTimestamp(),
-          surname:null,
-          name:null,
-          //password: password,
-          picture_id:null,
-          reset_password_token: null,
-          reset_password_validity:null,
-          user_id:new_id,
-        })
-        .then((result) => logging('result', result))
-        .catch((error) => logging('error setDoc', error))
-        ;
-      }
-    );
-  }
-  catch (error) {
-    logError('Shopper signup failed', error);
+          email,
+          username,
+          userType,
+          is_active: true,
+          is_admin: false,
+          is_owner: userType === 'shopper' ? false : true,
+          name: null,
+          surname: null,
+          picture_id: null,
+        }
+      });
+    });
+  } catch (error) {
+    let message = 'Signup failed. Please try again.';
     if (error.code === 'auth/email-already-in-use') {
-      dispatch({ type: 'AUTH_FAILURE', payload: 'The email address is already in use by another account.' });
+      message = 'The email address is already in use by another account.';
     } else if (error.code === 'auth/invalid-email') {
-      dispatch({ type: 'AUTH_FAILURE', payload: 'The email address is not valid.' });
+      message = 'The email address is not valid.';
     } else if (error.code === 'auth/operation-not-allowed') {
-      dispatch({ type: 'AUTH_FAILURE', payload: 'Email/password accounts are not enabled.' });
+      message = 'Email/password accounts are not enabled.';
     } else if (error.code === 'auth/weak-password') {
-      dispatch({ type: 'AUTH_FAILURE', payload: 'The password is too weak.' });
-    } else {
-      dispatch({ type: 'AUTH_FAILURE', payload: 'Signup failed. Please try again.' });
+      message = 'The password is too weak.';
     }
-    dispatch({ type: 'AUTH_FAILURE', payload: error.message });
+    dispatch({ type: 'SIGN_UP_ERROR', payload: message });
+    throw error;
   }
 };
 
@@ -193,7 +214,7 @@ const fetchUserData = (uid) => async (dispatch) => {
 
   } catch (error) {
     logError('Fetch user data failed', error);
-    dispatch({ type: 'AUTH_FAILURE', payload: error.message });
+    dispatch({ type: 'SIGN_UP_ERROR', payload: error.message });
   }
 };
 

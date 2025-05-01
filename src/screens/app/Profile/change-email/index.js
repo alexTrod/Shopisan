@@ -9,43 +9,56 @@ import { AppColors } from '../../../../utils';
 import Header from '../../../../components/header';
 import { width, height } from '../../../../utils/dimension';
 import CustomText from '../../../../components/text';
+import { useSelector } from 'react-redux';
 
 export default function ChangeEmailScreen() {
   const navigation = useNavigation();
+  const user = useSelector(state => state.user.userData);
 
   const [currentEmail, setCurrentEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChangeEmail = async () => {
-    if (!currentEmail || !currentPassword || !newEmail) {
-      Alert.alert('Erreur', 'Merci de remplir tous les champs.');
+  const handleChangeNameAndEmail = async () => {
+    if (!currentEmail || !currentPassword || (!newEmail && !newName)) {
+      Alert.alert('Erreur', 'Merci de remplir tous les champs requis.');
       return;
     }
 
     setLoading(true);
     const auth = getAuth();
-    const user = auth.currentUser;
+    const currentUser = auth.currentUser;
 
     try {
       await signInWithEmailAndPassword(auth, currentEmail, currentPassword);
 
-      await verifyBeforeUpdateEmail(user, newEmail);
+      const userRef = doc(firestore, 'users', user.id);
 
-      const userRef = doc(firestore, 'users', user.uid);
-      await updateDoc(userRef, {
-        email: newEmail,
-      });
+      if (newName.trim()) {
+        await updateDoc(userRef, {
+          name: newName.trim(),
+        });
+      }
+ 
+      if (newEmail.trim()) {
+        await verifyBeforeUpdateEmail(currentUser, newEmail.trim());
+        await updateDoc(userRef, {
+          email: newEmail.trim(),
+        });
+      }
 
       Alert.alert(
         'Succès',
-        "Un email de confirmation a été envoyé à votre nouvelle adresse. Veuillez vérifier votre boîte mail."
+        newEmail
+          ? "Nom et email modifiés. Veuillez confirmer votre nouvelle adresse e-mail dans votre boîte mail."
+          : "Nom modifié avec succès.",
+        [{ text: "OK", onPress: () => navigation.goBack() }]
       );
 
-      navigation.goBack();
     } catch (error) {
-      console.error('Erreur lors du changement d\'email :', error);
+      console.error('Erreur lors du changement de nom/email :', error);
       Alert.alert('Erreur', error.message);
     } finally {
       setLoading(false);
@@ -57,7 +70,7 @@ export default function ChangeEmailScreen() {
       <Header
         showLeft
         showBack
-        title="Changer l'adresse e-mail"
+        title="Changer nom et email"
         containerStyle={{ width: width(90), alignSelf: 'center' }}
       />
       <View style={styles.container}>
@@ -70,6 +83,7 @@ export default function ChangeEmailScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
+
         <CustomText>Mot de passe</CustomText>
         <TextInput
           style={styles.input}
@@ -78,7 +92,16 @@ export default function ChangeEmailScreen() {
           onChangeText={setCurrentPassword}
           secureTextEntry
         />
-        <CustomText>Nouvelle adresse e-mail</CustomText>
+
+        <CustomText>Nouveau nom (optionnel)</CustomText>
+        <TextInput
+          style={styles.input}
+          placeholder="Nouveau nom"
+          value={newName}
+          onChangeText={setNewName}
+        />
+
+        <CustomText>Nouvelle adresse e-mail (optionnelle)</CustomText>
         <TextInput
           style={styles.input}
           placeholder="Nouvelle adresse e-mail"
@@ -87,7 +110,12 @@ export default function ChangeEmailScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <Button title={loading ? "Chargement..." : "Valider"} onPress={handleChangeEmail} disabled={loading} />
+
+        <Button
+          title={loading ? "Chargement..." : "Valider"}
+          onPress={handleChangeNameAndEmail}
+          disabled={loading}
+        />
       </View>
     </ScreenWrapper>
   );
@@ -96,21 +124,37 @@ export default function ChangeEmailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    marginTop: 20,
+    paddingHorizontal: width(5),
+    paddingTop: height(2),
   },
   input: {
     borderWidth: 1,
-    borderColor: AppColors.grey_200,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    fontSize: 16,
-    backgroundColor: AppColors.white_100,
+    borderColor: AppColors.grey_300,
+    borderRadius: 12,
+    paddingVertical: height(1.5),
+    paddingHorizontal: width(4),
+    fontSize: height(2),
+    marginBottom: height(2),
+    backgroundColor: AppColors.white,
+    color: AppColors.black,
+  },
+  label: {
+    fontSize: height(2),
+    fontWeight: '600',
+    marginBottom: height(1),
+    color: AppColors.black,
   },
   button: {
-    marginTop: 10,
-    padding: height(2),
+    marginTop: height(3),
+    paddingVertical: height(1.5),
+    borderRadius: 12,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: AppColors.white,
+    fontSize: height(2),
+    fontWeight: 'bold',
   },
 });
 

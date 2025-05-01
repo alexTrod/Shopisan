@@ -20,7 +20,7 @@ import i18n from "../../../translations/i18n";
 
 export default function SignIn({ navigation }) {
   const [loading, setLoading] = useState(false);
-  const errorMessage = useSelector(state => state.user.error);
+  const errorMessage = useSelector(state => state.user.signInError);
   const locale = useSelector(state => state.locale.currentLocale);
   const dispatch = useDispatch();
 

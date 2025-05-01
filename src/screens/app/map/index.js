@@ -10,7 +10,7 @@ import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import logging from "../../../utils/logging";
 import cities from "../../../components/cities/cities.json";
 import MapboxGL from "@rnmapbox/maps";
@@ -121,7 +121,7 @@ export default function Map({ navigation, route  }) {
           });
         }        
       } else {
-        console.log("❌ Aucun magasin trouvé.");
+        console.log("Aucun magasin trouvé.");
       }
     } catch (error) {
       console.error("Erreur lors de la recherche du magasin le plus proche :", error);
@@ -135,11 +135,20 @@ export default function Map({ navigation, route  }) {
         return;
       }
   
-      const results = await fetchCitySuggestions(searchQuery);
-      setSuggestions(results);
+      const citySuggestions = await fetchCitySuggestions(searchQuery);
+      const storeSuggestions = await fetchStoreNameSuggestions(searchQuery);
+  
+      const formattedCities = citySuggestions.map(city => ({ label: city, type: "city" }));
+      const formattedStores = storeSuggestions.map(store => ({ label: store.name, id: store.id, location: store.location, type: "store" }));
+  
+      setSuggestions([...formattedCities, ...formattedStores]);
     };
   
-    getSuggestions();
+    const delayDebounce = setTimeout(() => {
+      getSuggestions();
+    }, 300);
+    
+    return () => clearTimeout(delayDebounce);
   }, [searchQuery]);  
 
   const fetchCitySuggestions = async (query) => {
@@ -153,15 +162,40 @@ export default function Map({ navigation, route  }) {
     return [...new Set(filtered)];
   };    
 
-  const handleSearch = async (queryFromClick) => {
-    const query = queryFromClick ?? searchQuery;
+  const handleSearch = async (item) => {
+    if (!item) return;
   
-    if (!query.trim()) return;
+    if (item.type === "city") {
+      try {
+        const locations = await Location.geocodeAsync(item.label);
+        if (locations.length > 0) {
+          const { latitude, longitude } = locations[0];
   
-    try {
-      const locations = await Location.geocodeAsync(query);
-      if (locations.length > 0) {
-        const { latitude, longitude } = locations[0];
+          setCameraCoordinates({
+            latitude,
+            longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          });
+  
+          if (cameraRef.current) {
+            cameraRef.current.setCamera({
+              centerCoordinate: [longitude, latitude],
+              zoomLevel: 14,
+              animationDuration: 1000,
+            });
+          }
+  
+          setSuggestions([]);
+        } else {
+          Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
+        }
+      } catch (error) {
+        console.error("Erreur lors de la recherche de ville :", error);
+      }
+    } else if (item.type === "store" && item.location) {
+      try {
+        const { latitude, longitude } = item.location;
   
         setCameraCoordinates({
           latitude,
@@ -173,16 +207,15 @@ export default function Map({ navigation, route  }) {
         if (cameraRef.current) {
           cameraRef.current.setCamera({
             centerCoordinate: [longitude, latitude],
-            zoomLevel: 14,
+            zoomLevel: 16,
             animationDuration: 1000,
           });
-          setSuggestions([]);
-        }        
-      } else {
-        Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
+        }
+  
+        setSuggestions([]);
+      } catch (error) {
+        console.error("Erreur lors de la recherche du store :", error);
       }
-    } catch (error) {
-      console.error("Erreur lors de la recherche :", error);
     }
   };  
 
@@ -215,7 +248,6 @@ export default function Map({ navigation, route  }) {
       }      
   
       fetchNearbyStores(latitude, longitude);
-      //navigation.setParams({ initialStore: null });
     } else {
       getUserLocation();
     }
@@ -350,6 +382,30 @@ export default function Map({ navigation, route  }) {
         }
       });
     }
+  };
+
+  const fetchStoreNameSuggestions = async (searchText) => {
+    if (!searchText.trim()) return [];
+    const storesRef = collection(firestore, "stores");
+    const endText = searchText.slice(0, -1) + String.fromCharCode(searchText.charCodeAt(searchText.length - 1) + 1);
+  
+    const q = query(
+      storesRef,
+      orderBy('name'),
+      where('name', '>=', searchText),
+      where('name', '<', endText),
+      limit(10)
+    );
+  
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        location: data.address?.[0]?.location?.geopoint || null,
+      };
+    });
   };  
 
   useEffect(() => {
@@ -376,12 +432,14 @@ export default function Map({ navigation, route  }) {
               key={index}
               style={styles.suggestionItem}
               onPress={() => {
-                setSearchQuery(suggestion);
-                setSuggestions([]);
+                setSearchQuery(suggestion.label);                
                 handleSearch(suggestion);
+                setSuggestions([]); 
               }}
             >
-              <Text style={styles.suggestionText}>{suggestion}</Text>
+              <Text style={styles.suggestionText}>
+                {suggestion.label} {suggestion.type === "store" ? "(store)" : "(ville)"}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>

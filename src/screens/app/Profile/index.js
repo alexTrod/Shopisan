@@ -5,31 +5,33 @@ import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
 import CustomText from '../../../components/text';
 import { height, width } from "../../../utils/dimension";
-import ListItem from "../../../components/list-item";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../Redux/Actions/UserActions";
-import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
+  const user = useSelector(state => state.user.userData);
 
   const profileOptions = [
-    { title: "Changer le nom", screen: "ChangeNameScreen" },
-    { title: "Changer Adresse e-mail", screen: "ChangeEmailScreen" },
-    { title: "Accéder au support", screen: "SupportScreen" },
+    { title: "Changer Adresse e-mail et nom", screen: "ChangeEmailScreen" },
+    user?.userType === "merchant" && { title: "Accéder au support", screen: "SupportScreen" },
     { title: "Récupérer le mot de passe", screen: "RecoverPasswordScreen" },
     { title: "Récupérer l'ancien compte", screen: "RecoverAccountScreen" },
     { title: "Ajouter un magasin", screen: "AddStoreScreen" },
     { title: "Signaler quelque chose", screen: "ReportIssueScreen" },
     { title: "Donner une idée / signaler un bug", screen: "SuggestIdeaScreen" },
-  ];
+  ].filter(Boolean);
 
   const handlePress = (screen) => {
     if (screen) {
       navigation.navigate(screen);
     }
+  };
+
+  const handleLogout = () => {
+    dispatch(signOut());
   };
 
   return (
@@ -42,9 +44,9 @@ export default function Profile({ navigation }) {
         showLeft={true}
         showBack
         title="Profile"
-        rightIcon
         containerStyle={{ width: width(90), alignSelf: "center" }}
       />
+      
       <View style={{ paddingHorizontal: 20, marginTop: 30 }}>
         {profileOptions.map((option, index) => (
           <TouchableOpacity
@@ -60,8 +62,21 @@ export default function Profile({ navigation }) {
             </View>
           </TouchableOpacity>
         ))}
-      </View>
 
+        {/* Tile Logout */}
+        <TouchableOpacity
+          style={[styles.optionTile, { backgroundColor: AppColors.red }]}
+          onPress={handleLogout}
+        >
+          <View style={styles.optionContent}>
+            <CustomText size={1.8} color={AppColors.white}>
+              Se déconnecter
+            </CustomText>
+            <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
+          </View>
+        </TouchableOpacity>
+
+      </View>
     </ScreenWrapper>
   );
 }

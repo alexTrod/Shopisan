@@ -26,6 +26,7 @@ export default function SignUp({ navigation }) {
   const locale = useSelector(state => state.locale.currentLocale);
   i18n.locale = locale;
   const dispatch = useDispatch();
+  const errorMessage = useSelector(state => state.user.signUpError);
 
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
@@ -107,6 +108,21 @@ export default function SignUp({ navigation }) {
         />
 
         <View style={styles.inputContainer}>
+          {errorMessage && (
+            <View style={{
+              backgroundColor: "#FFE8E8",
+              padding: 10,
+              marginVertical: 10,
+              borderRadius: 5,
+              width: "90%",
+              alignSelf: "center"
+            }}>
+              <CustomText color={AppColors.red} size={1.6}>
+                {errorMessage}
+              </CustomText>
+            </View>
+          )}
+
           <Spacer vertical={height(1)} />
           <InputField
             control={control}

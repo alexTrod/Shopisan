@@ -21,17 +21,13 @@ export const getStoreQuery = (selectedCategories, lastVisible, categories, selec
 
   queryConstraints.push(orderBy('id', 'desc'));
   queryConstraints.push(limit(STORES_PER_PAGE));
-  console.log("-> Contraintes de requête:", queryConstraints);
 
   let baseQuery = query(storeCollection, ...queryConstraints);
-  console.log("-> BaseQuery construite:", baseQuery);
 
   if (lastVisible) {
     baseQuery = query(baseQuery, startAfter(lastVisible));
-    console.log("-> startAfter ajouté:", lastVisible);
   }
 
-  console.log("==> Requête finale:", baseQuery);
   return baseQuery;
 };
 
@@ -66,11 +62,8 @@ export const fetchStoreRatings = async (storeId) => {
 
 export const fetchStores = async (storeQuery) => {
   try {
-    console.log("==> fetchStores appelé avec la query:", storeQuery);
     const snapshot = await getDocs(storeQuery);
-    console.log("Nombre de documents récupérés:", snapshot.docs.length);
     const newStores = snapshot.docs.map(doc => {
-      console.log("Document récupéré:", doc.id, doc.data());
       return {
         id: doc.id,
         ...doc.data()

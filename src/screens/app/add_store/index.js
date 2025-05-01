@@ -9,19 +9,24 @@ import {
   Modal,
   FlatList,
   ScrollView,
+  Image
 } from "react-native";
 import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
-import { firestore } from "../../../../firebaseconfig";
+import { firestore, storage } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import * as ImagePicker from 'expo-image-picker';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import Autocomplete from 'react-native-autocomplete-input';
 
 export default function AddStoreScreen({ navigation }) {
   const user = useSelector((state) => state.user.userData);
   const [name, setName] = useState("");
+  const [streetNumber, setStreetNumber] = useState("");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -29,6 +34,59 @@ export default function AddStoreScreen({ navigation }) {
   const { categories, selectedCategories } = useSelector(state => state.categories);
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [storeEmail, setStoreEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [phone, setPhone] = useState('');
+  const [managerFirstName, setManagerFirstName] = useState('');
+  const [managerLastName, setManagerLastName] = useState('');
+  
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  const fetchAddressSuggestions = async (text) => {
+    setQuery(text);
+    if (text.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    setLoadingSuggestions(true);
+  
+    const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+  
+    try {
+      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${mapboxToken}&autocomplete=true&limit=5&country=fr`);
+      const result = await response.json();
+      setSuggestions(result.features || []);
+    } catch (error) {
+      console.error('Erreur de recherche Mapbox:', error);
+    }
+    setLoadingSuggestions(false);
+  };  
+
+  const handleAddressSelect = (item) => {
+    if (!item) return;
+  
+    setSuggestions([]);
+    
+    const context = item.context || [];
+    const cityInfo = context.find(c => c.id.includes('place'));
+    const postalCodeInfo = context.find(c => c.id.includes('postcode'));
+    const countryInfo = context.find(c => c.id.includes('country'));
+  
+    const streetNumber = item.address || '';
+    const streetName = item.text || '';
+  
+    const city = cityInfo ? cityInfo.text : '';
+    const postalCode = postalCodeInfo ? postalCodeInfo.text : '';
+  
+    setStreet(streetName);
+    setStreetNumber(streetNumber);
+    setCity(city);
+    setPostalCode(postalCode);
+    setQuery(`${streetNumber} ${streetName}`);
+  };  
 
   const [openingHours, setOpeningHours] = useState({
     monday: { morning: null, afternoon: null },
@@ -111,9 +169,16 @@ export default function AddStoreScreen({ navigation }) {
       Alert.alert("Erreur", "Tous les champs sont obligatoires !");
       return;
     }
+
+    let imageUrl = null;
   
     try {
-      const fullAddress = `${street}, ${postalCode} ${city}, France`;
+      if (selectedImage) {
+        const imageName = `store_${Date.now()}.jpg`;
+        imageUrl = await uploadImageAsync(selectedImage.uri, imageName);
+      }
+
+      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
   
       const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
       const response = await fetch(
@@ -152,7 +217,7 @@ export default function AddStoreScreen({ navigation }) {
         address: [
           {
             location: {
-              address: { street },
+              address: {street: `${streetNumber} ${street}`},
               city: {
                 name: city,
                 postal_code: postalCode,
@@ -170,7 +235,14 @@ export default function AddStoreScreen({ navigation }) {
         category: selectedCategories,
         storeStatus: 0,
         website: "",
-        openingHours: openingHours
+        openingHours: openingHours,
+        imageUrl: imageUrl || '',
+        ...(user?.userType === "merchant" && {
+          email: storeEmail || "",
+          phone: phone || "",
+          managerFirstName: managerFirstName || "",
+          managerLastName: managerLastName || "",
+        })
       };
   
       await addDoc(storesRef, storeData);
@@ -181,6 +253,36 @@ export default function AddStoreScreen({ navigation }) {
       console.error("Erreur lors de l'ajout du magasin :", error);
       Alert.alert("Erreur", "Impossible d'ajouter le magasin");
     }
+  };  
+
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  
+    if (!permissionResult.granted) {
+      alert("Permission refusée pour accéder aux photos !");
+      return;
+    }
+  
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+  
+    if (!result.cancelled && result.assets && result.assets.length > 0) {
+      setSelectedImage(result.assets[0]);
+    }
+  };  
+
+  const uploadImageAsync = async (uri, imageName) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+  
+    const storageRef = ref(storage, `stores/${imageName}`);
+    await uploadBytes(storageRef, blob);
+  
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
   };  
 
   const getOwnerId = async (userId) => {
@@ -204,6 +306,14 @@ export default function AddStoreScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={30} color={AppColors.primary} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
+          Ajouter un magasin
+        </Text>
+      </View>
     <ScrollView 
       contentContainerStyle={styles.scrollContainer} 
       keyboardShouldPersistTaps="handled"
@@ -213,7 +323,24 @@ export default function AddStoreScreen({ navigation }) {
         <TextInput style={styles.input} placeholder="Entrez le nom" value={name} onChangeText={setName} />
 
         <Text style={styles.label}>Adresse</Text>
-        <TextInput style={styles.input} placeholder="Rue" value={street} onChangeText={setStreet} />
+          <Autocomplete
+            data={suggestions}
+            defaultValue={query}
+            onChangeText={fetchAddressSuggestions}
+            placeholder="Tapez l'adresse"
+            flatListProps={{
+              keyExtractor: (item) => item.id,
+              renderItem: ({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleAddressSelect(item)}
+                  style={styles.suggestionItem}
+                >
+                  <Text>{item.place_name}</Text>
+                </TouchableOpacity>
+              ),
+            }}
+            inputContainerStyle={styles.input}
+          />
 
         <Text style={styles.label}>Ville</Text>
         <TextInput style={styles.input} placeholder="Ville" value={city} onChangeText={setCity} />
@@ -268,6 +395,54 @@ export default function AddStoreScreen({ navigation }) {
           </View>
         ))}
 
+        {user?.userType === "merchant" && (
+          <>
+            <Text style={styles.label}>Email du magasin</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email du magasin"
+              value={storeEmail}
+              onChangeText={setStoreEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.label}>Site web</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="URL du site web"
+              value={website}
+              onChangeText={setWebsite}
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.label}>Téléphone</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Numéro de téléphone"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={styles.label}>Prénom du gérant</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Prénom"
+              value={managerFirstName}
+              onChangeText={setManagerFirstName}
+            />
+
+            <Text style={styles.label}>Nom du gérant</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nom"
+              value={managerLastName}
+              onChangeText={setManagerLastName}
+            />
+          </>
+        )}
+
         <Text style={styles.label}>Catégories</Text>
         <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
           <Text style={styles.categoryButtonText}>
@@ -285,6 +460,19 @@ export default function AddStoreScreen({ navigation }) {
             </View>
           ))}
         </ScrollView>
+
+        {!selectedImage ? (
+          <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
+            <Text style={styles.imageButtonText}>Ajouter une image</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.selectedImageContainer}>
+            <Image source={{ uri: selectedImage.uri }} style={styles.selectedImage} />
+            <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
+              <Icon name="close-circle" size={30} color="red" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.addButton} onPress={handleAddStore}>
           <Text style={styles.addButtonText}>Ajouter le magasin</Text>
@@ -474,5 +662,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#444",
   },
+  imageButton: {
+    backgroundColor: AppColors.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  imageButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  selectedImageContainer: {
+    marginVertical: 10,
+    position: "relative",
+    alignItems: "center",
+  },
+  selectedImage: {
+    width: width(80),
+    height: height(20),
+    borderRadius: 10,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+  },  
+  suggestionItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  }  
 });
 
