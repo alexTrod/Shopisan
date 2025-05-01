@@ -20,7 +20,7 @@ import i18n from "../../../translations/i18n";
 
 export default function SignIn({ navigation }) {
   const [loading, setLoading] = useState(false);
-  const errorMessage = useSelector(state => state.user.error);
+  const errorMessage = useSelector(state => state.user.signInError);
   const locale = useSelector(state => state.locale.currentLocale);
   const dispatch = useDispatch();
 
@@ -238,8 +238,7 @@ export default function SignIn({ navigation }) {
             textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary_darker }}
             containerStyle={styles.buttonSecondary}
             onPress={async () => {
-              await dispatch(setNoAuthenticationWanted());
-              console.log("noAuthenticationWanted:", errorMessage);
+              await dispatch(setNoAuthenticationWanted(true));
             }}
           >
             Create an account later

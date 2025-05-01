@@ -1,28 +1,32 @@
 import React, { useEffect, useState, useRef } from "react";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
-import Header from "../../../components/header";
 import { height, width } from "../../../utils/dimension";
 import { StyleSheet, View, Alert, TextInput, Text, TouchableOpacity } from "react-native";
-import MapView, { Marker } from "react-native-maps";
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
-import CategoryFilter from "../../../components/category-filter";
 import MapCategoryFilter from "../../../components/map-category-filter";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import logging from "../../../utils/logging";
+import cities from "../../../components/cities/cities.json";
+import MapboxGL from "@rnmapbox/maps";
+
+import CustomMarker from "../../../components/customMarker";
+
+MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
 const SEARCH_RADIUS_KM = 3;
 const REFRESH_DISTANCE_KM = 1;
 
-export default function Map({ navigation }) {
+export default function Map({ navigation, route  }) {
+  const initialStore = route?.params?.initialStore;
   const [loading, setLoading] = useState(true);
   const [stores, setStores] = useState([]);
-  const [selectedStore, setSelectedStore] = useState(null);
+  const [selectedStore, setSelectedStore] = useState(initialStore ? initialStore : null);
   const [userLocation, setUserLocation] = useState(null);
   const [cameraCoordinates, setCameraCoordinates] = useState(null);
   const [lastPosition, setLastPosition] = useState(null);
@@ -30,12 +34,99 @@ export default function Map({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedStoreDetails, setSelectedStoreDetails] = useState(null);
   const mapRef = useRef(null);
+  const allCategories = useSelector(state => state.categories.categories);
+  const [mapCenter, setMapCenter] = useState(null);
+  const [currentRegion, setCurrentRegion] = useState(null);
+  const markerRefs = useRef({});
+  const [currentZoom, setCurrentZoom] = useState(14);
+  const cameraRef = useRef(null);
 
-  //const selectedCategories = useSelector((state) => state.categories.selectedCategories);
   const [selectedCategories, setSelectedCategories] = useState([]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+
+  const getCategoryName = (id) => {
+    const match = allCategories.find(cat => cat.id === id);
+    return match ? match.name : `#${id}`;
+  };  
+
+  const storesWithNamedTags = stores.map(store => ({
+    ...store,
+    tags: store.category?.map(getCategoryName) || [],
+  }));
+
+  useEffect(() => {
+    if (initialStore && stores.length > 0) {
+      const matchingStore = stores.find((store) => store.id === initialStore.id);
+      if (matchingStore) {
+        setSelectedStore(matchingStore);
+      }
+    }
+  }, [stores, initialStore]);  
+
+  const findClosestStore = async () => {
+    if (!mapCenter) {
+      Alert.alert("Position inconnue", "Impossible de déterminer la position de la carte.");
+      return;
+    }
+  
+    try {
+      const storesRef = collection(firestore, "stores");
+      const storesSnapshot = await getDocs(storesRef);
+  
+      let closestStore = null;
+      let minDistance = Infinity;
+  
+      storesSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (!data.address?.[0]?.location?.geopoint) return;
+  
+        let { latitude: storeLat, longitude: storeLng } = data.address[0].location.geopoint;
+        storeLat = Number(storeLat);
+        storeLng = Number(storeLng);
+  
+        if (isNaN(storeLat) || isNaN(storeLng)) return;
+  
+        const distance = getDistanceInKm(mapCenter.latitude, mapCenter.longitude, storeLat, storeLng);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestStore = {
+            id: doc.id,
+            ...data,
+            latitude: storeLat,
+            longitude: storeLng,
+            distance: distance.toFixed(2),
+          };
+        }
+      });
+  
+      if (closestStore) {
+        const region = {
+          latitude: closestStore.latitude,
+          longitude: closestStore.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+  
+        setCameraCoordinates(region);
+        setLastPosition({ latitude: region.latitude, longitude: region.longitude });
+        fetchNearbyStores(region.latitude, region.longitude);
+  
+        if (cameraRef.current) {
+          cameraRef.current.setCamera({
+            centerCoordinate: [region.longitude, region.latitude],
+            zoomLevel: 14,
+            animationDuration: 1000,
+          });
+        }        
+      } else {
+        console.log("Aucun magasin trouvé.");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la recherche du magasin le plus proche :", error);
+    }
+  };  
 
   useEffect(() => {
     const getSuggestions = async () => {
@@ -44,98 +135,123 @@ export default function Map({ navigation }) {
         return;
       }
   
-      const results = await fetchCitySuggestions(searchQuery);
-      setSuggestions(results);
+      const citySuggestions = await fetchCitySuggestions(searchQuery);
+      const storeSuggestions = await fetchStoreNameSuggestions(searchQuery);
+  
+      const formattedCities = citySuggestions.map(city => ({ label: city, type: "city" }));
+      const formattedStores = storeSuggestions.map(store => ({ label: store.name, id: store.id, location: store.location, type: "store" }));
+  
+      setSuggestions([...formattedCities, ...formattedStores]);
     };
   
-    getSuggestions();
+    const delayDebounce = setTimeout(() => {
+      getSuggestions();
+    }, 300);
+    
+    return () => clearTimeout(delayDebounce);
   }, [searchQuery]);  
-
-  const fetchCountryCode = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.warn("Permission refusée pour la localisation.");
-        return null;
-      }
-  
-      const location = await Location.getCurrentPositionAsync({});
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-  
-      if (reverseGeocode.length > 0) {
-        return reverseGeocode[0].isoCountryCode;
-      }
-  
-      return null;
-    } catch (error) {
-      console.error("Erreur lors de la récupération du pays :", error);
-      return null;
-    }
-  };
 
   const fetchCitySuggestions = async (query) => {
     if (!query.trim()) return [];
+    const lowerQuery = query.toLowerCase();
   
-    try {
-      const username = "saitoosu";
-      const countryCode = await fetchCountryCode();
+    const filtered = cities.filter(city =>
+      city.toLowerCase().startsWith(lowerQuery)
+    );
   
-      if (!countryCode) {
-        console.warn("Impossible de récupérer le code pays.");
-        return [];
-      }
-  
-      const url = `http://api.geonames.org/searchJSON?name_startsWith=${query}&featureClass=P&maxRows=5&country=${countryCode}&username=${username}`;
-      const response = await fetch(url);
-      const data = await response.json();
-  
-      if (!data.geonames) {
-        console.error("Données incorrectes reçues :", data);
-        return [];
-      }
-  
-      const uniqueCities = [...new Set(data.geonames.map(city => city.name))];
-  
-      return uniqueCities;
-    } catch (error) {
-      console.error("Erreur lors de la récupération des suggestions :", error);
-      return [];
-    }
-  };   
+    return [...new Set(filtered)];
+  };    
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-
-    try {
-      const locations = await Location.geocodeAsync(searchQuery);
-      if (locations.length > 0) {
-        const { latitude, longitude } = locations[0];
-
-        setCameraCoordinates({ latitude, longitude });
-
-        if (mapRef.current) {
-          mapRef.current.animateToRegion({
+  const handleSearch = async (item) => {
+    if (!item) return;
+  
+    if (item.type === "city") {
+      try {
+        const locations = await Location.geocodeAsync(item.label);
+        if (locations.length > 0) {
+          const { latitude, longitude } = locations[0];
+  
+          setCameraCoordinates({
             latitude,
             longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          }, 1000);
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          });
+  
+          if (cameraRef.current) {
+            cameraRef.current.setCamera({
+              centerCoordinate: [longitude, latitude],
+              zoomLevel: 14,
+              animationDuration: 1000,
+            });
+          }
+  
           setSuggestions([]);
+        } else {
+          Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
         }
-      } else {
-        Alert.alert("Ville non trouvée", "Veuillez entrer un nom valide.");
+      } catch (error) {
+        console.error("Erreur lors de la recherche de ville :", error);
       }
-    } catch (error) {
-      console.error("Erreur lors de la recherche :", error);
+    } else if (item.type === "store" && item.location) {
+      try {
+        const { latitude, longitude } = item.location;
+  
+        setCameraCoordinates({
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        });
+  
+        if (cameraRef.current) {
+          cameraRef.current.setCamera({
+            centerCoordinate: [longitude, latitude],
+            zoomLevel: 16,
+            animationDuration: 1000,
+          });
+        }
+  
+        setSuggestions([]);
+      } catch (error) {
+        console.error("Erreur lors de la recherche du store :", error);
+      }
     }
-  };
+  };  
 
   useEffect(() => {
-    getUserLocation();
-  }, []);
+    if (
+      initialStore &&
+      !isNaN(Number(initialStore?.address?.[0]?.location?.geopoint.latitude)) &&
+      !isNaN(Number(initialStore?.address?.[0]?.location?.geopoint.longitude))
+    ) {
+      const latitude = Number(initialStore?.address?.[0]?.location?.geopoint.latitude);
+      const longitude = Number(initialStore?.address?.[0]?.location?.geopoint.longitude);
+  
+      const region = {
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+  
+      setCameraCoordinates(region);
+      setUserLocation({ latitude, longitude });
+      setLastPosition({ latitude, longitude });
+  
+      if (cameraRef.current) {
+        cameraRef.current.setCamera({
+          centerCoordinate: [region.longitude, region.latitude],
+          zoomLevel: 14,
+          animationDuration: 1000,
+        });
+      }      
+  
+      fetchNearbyStores(latitude, longitude);
+    } else {
+      getUserLocation();
+    }
+  }, [initialStore]);     
 
   useEffect(() => {
     if (userLocation) fetchNearbyStores(userLocation.latitude, userLocation.longitude);
@@ -158,17 +274,21 @@ export default function Map({ navigation }) {
       const { latitude, longitude } = location.coords;
   
       setUserLocation({ latitude, longitude });
-      setCameraCoordinates({ latitude, longitude });
+      setCameraCoordinates({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });      
       setLastPosition({ latitude, longitude });
   
-      if (mapRef.current) {
-        mapRef.current.animateToRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }, 1000);
-      }
+      if (cameraRef.current) {
+        cameraRef.current.setCamera({
+          centerCoordinate: [longitude, latitude],
+          zoomLevel: 14,
+          animationDuration: 1000,
+        });
+      }      
     } catch (error) {
       console.error("Erreur lors de la récupération de la localisation :", error);
     }
@@ -228,14 +348,69 @@ export default function Map({ navigation }) {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
-  const onRegionChangeComplete = (region) => {
-    if (!lastPosition) return;
-    const distanceMoved = getDistanceInKm(lastPosition.latitude, lastPosition.longitude, region.latitude, region.longitude);
-    if (distanceMoved >= REFRESH_DISTANCE_KM) {
-      setLastPosition({ latitude: region.latitude, longitude: region.longitude });
-      fetchNearbyStores(region.latitude, region.longitude);
+  const onRegionChangeComplete = (regionFeature) => {
+    if (!regionFeature || !regionFeature.properties) return;
+  
+    const zoomLevel = regionFeature.properties.zoomLevel;
+    const center = regionFeature.geometry.coordinates;
+  
+    if (center) {
+      const region = {
+        latitude: center[1],
+        longitude: center[0],
+      };
+  
+      setMapCenter(region);
+      setCurrentRegion(region);
+      setCurrentZoom(zoomLevel);
+  
+      if (!lastPosition) return;
+  
+      const distanceMoved = getDistanceInKm(lastPosition.latitude, lastPosition.longitude, region.latitude, region.longitude);
+      if (distanceMoved >= REFRESH_DISTANCE_KM) {
+        setLastPosition({ latitude: region.latitude, longitude: region.longitude });
+        fetchNearbyStores(region.latitude, region.longitude);
+      }
+    }
+  };  
+
+  const showCalloutsIfZoomed = () => {
+    if (currentRegion?.latitudeDelta < 0.01) {
+      Object.values(markerRefs.current).forEach((markerRef) => {
+        if (markerRef) {
+          markerRef.showCallout();
+        }
+      });
     }
   };
+
+  const fetchStoreNameSuggestions = async (searchText) => {
+    if (!searchText.trim()) return [];
+    const storesRef = collection(firestore, "stores");
+    const endText = searchText.slice(0, -1) + String.fromCharCode(searchText.charCodeAt(searchText.length - 1) + 1);
+  
+    const q = query(
+      storesRef,
+      orderBy('name'),
+      where('name', '>=', searchText),
+      where('name', '<', endText),
+      limit(10)
+    );
+  
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        location: data.address?.[0]?.location?.geopoint || null,
+      };
+    });
+  };  
+
+  useEffect(() => {
+    showCalloutsIfZoomed();
+  }, [currentRegion]);
 
   return (
     <ScreenWrapper backgroundColor={AppColors.white_100} statusBarColor={AppColors.white_100} barStyle="dark-content">
@@ -245,7 +420,7 @@ export default function Map({ navigation }) {
           placeholder="Rechercher une ville..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
+          onSubmitEditing={() => handleSearch(searchQuery)}
           returnKeyType="search"
         />
       </View>
@@ -257,12 +432,14 @@ export default function Map({ navigation }) {
               key={index}
               style={styles.suggestionItem}
               onPress={() => {
-                setSearchQuery(suggestion);
-                setSuggestions([]);
-                handleSearch();
+                setSearchQuery(suggestion.label);                
+                handleSearch(suggestion);
+                setSuggestions([]); 
               }}
             >
-              <Text style={styles.suggestionText}>{suggestion}</Text>
+              <Text style={styles.suggestionText}>
+                {suggestion.label} {suggestion.type === "store" ? "(store)" : "(ville)"}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -278,46 +455,70 @@ export default function Map({ navigation }) {
                 setSelectedCategories={setSelectedCategories} 
               />
             </View>
-            <MapView
+            <TouchableOpacity
+              style={styles.centerButton}
+              onPress={getUserLocation}
+            >
+              <Ionicons name="locate" size={24} color="black" />
+            </TouchableOpacity>
+            <MapboxGL.MapView
               ref={mapRef}
               style={styles.map}
-              initialRegion={{
-                latitude: cameraCoordinates.latitude,
-                longitude: cameraCoordinates.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }}
-              onRegionChangeComplete={onRegionChangeComplete}
-              showsUserLocation={true}
-              provider="google"
+              styleURL={MapboxGL.StyleURL.Street}
+              logoEnabled={false}
+              attributionEnabled={false}
+              compassEnabled={true}
+              onRegionDidChange={(regionFeature) => onRegionChangeComplete(regionFeature)}
             >
-              {stores.map((store, index) => (
-              <Marker
-                key={`${store.id}-${index}`}
-                coordinate={{ latitude: store.latitude, longitude: store.longitude }}
-                title={store.name}
-                description={store.description?.en || "No description available"}
-                onPress={() => {
-                  setSelectedStore(store);
-                  setSelectedStoreDetails({
-                    id: store.id,
-                    title: store.name,
-                    description: store.description?.en || "No description available",
-                    tags: store.category || [],
-                    address: store.address || "No address available",
-                  });
-                  setModalVisible(true);
-                }}
+              <MapboxGL.Camera
+                ref={cameraRef}
+                zoomLevel={cameraCoordinates?.zoom || 14}
+                centerCoordinate={[cameraCoordinates?.longitude || 2.35, cameraCoordinates?.latitude || 48.85]}
               />
-            ))}
-            </MapView>
+
+              <MapboxGL.UserLocation
+                visible={true}
+                androidRenderMode="normal"
+              />
+
+              {stores.map((store) => (
+                <CustomMarker
+                  key={store.id}
+                  store={store}
+                  selected={selectedStore?.id === store.id}
+                  showLabel={currentZoom > 14}
+                  onPress={() => {
+                    setSelectedStore(store);
+                    setSelectedStoreDetails({
+                      id: store.id,
+                      title: store.name,
+                      description: store.description?.en || "No description available",
+                      tags: store.category?.map(getCategoryName) || [],
+                      address: store.address || "No address available",
+                      openingHours: store.openingHours || null,
+                    });
+                    setModalVisible(true);
+                  }}                  
+                />
+              ))}
+            </MapboxGL.MapView>
+
+            {!loading && stores.length === 0 && (
+              <View style={styles.noStoreContainer}>
+                <Text style={styles.noStoreText}>Aucun magasin trouvé dans cette zone.</Text>
+
+                <TouchableOpacity onPress={findClosestStore}>
+                  <Text style={styles.closestStoreButtonText}>Trouver le magasin le plus proche</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.loading}><Text>Chargement de la carte...</Text></View>
         )}
       </View>
       <FloatingCards 
-        data={stores} 
+        data={storesWithNamedTags} 
         ref={flatListRef}
         selectedStore={selectedStore}
         onCardSelect={setSelectedStore}
@@ -390,5 +591,43 @@ const styles = StyleSheet.create({
     zIndex: 10,
     borderRadius: 10,
     padding: 10,
-  }
+  },
+  centerButton: {
+    position: "absolute",
+    top: 10,
+    right: 20,
+    backgroundColor: "white",
+    borderRadius: 30,
+    padding: 10,
+    elevation: 5,
+    zIndex: 10,
+  },
+  noStoreContainer: {
+    position: "absolute",
+    top: height(25),
+    left: width(10),
+    right: width(10),
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    elevation: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  
+  noStoreText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#444",
+    textAlign: "center",
+  },
+  closestStoreButtonText: {
+    marginTop: 10,
+    color: AppColors.primary,
+    fontWeight: "600",
+    fontSize: 15,
+    textAlign: "center",
+    textDecorationLine: "underline",
+  }    
 });

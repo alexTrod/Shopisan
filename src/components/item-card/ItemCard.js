@@ -35,7 +35,9 @@ const ItemCard = React.memo(({
   id,
   isFavorite,
   onPressFavorite,
-  owner_id
+  owner_id,
+  onPress,
+  openingHours
 }) => {
 
   const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
@@ -95,104 +97,117 @@ const ItemCard = React.memo(({
   };
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity activeOpacity={0.9} style={styles.card}>
       <View>
-        <Image style={styles.image} source={image || placeholders[Math.floor(id % placeholders.length)]} />
-        <View
-          style={[
-            styles.image,
-            { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
-          ]}
-        />
-        {
-          <View style={styles.actionButtons}>
-            {isOwner && (
-              <TouchableOpacity style={styles.iconButton} onPress={handleEditPress}>
-                <Ionicons name="create-outline" size={24} color={AppColors.white} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.infoIcon} onPress={handleInfoPress}>
-              <Ionicons
-                name="information-circle-outline"
-                size={24}
-                color={AppColors.white}
-              />
-            </TouchableOpacity>
-          </View>
-        }
-      </View>
-
-      <View style={styles.cardContent}>
-        <Text style={styles.title}>{title}</Text>
-
-        <View style={styles.rating}>
-          {[...Array(5)].map((_, index) => (
-            <Ionicons
-              key={index}
-              name="star"
-              size={height(2.5)}
-              color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
-            />
-          ))}
-          <Text style={styles.ratingText}>
-            {rating.ratingCount > 0 
-              ? rating.averageRating + ' (' + rating.ratingCount + ')'
-              : 'No ratings yet'}
-          </Text>
+        <View>
+          <Image style={styles.image} source={image || placeholders[Math.floor(id % placeholders.length)]} />
+          <View
+            style={[
+              styles.image,
+              { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
+            ]}
+          />
+          {
+            <View style={styles.topIconsRow}>
+              <View style={styles.leftIcons}>
+                <TouchableOpacity style={styles.iconButton} onPress={onPress}>
+                  <Ionicons name="map-outline" size={24} color={AppColors.white} />
+                </TouchableOpacity>
+              </View>
+            
+              <View style={styles.rightIcons}>
+                {isOwner && (
+                  <TouchableOpacity style={styles.iconButton} onPress={handleEditPress}>
+                    <Ionicons name="create-outline" size={24} color={AppColors.white} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.iconButton2} onPress={handleInfoPress}>
+                  <Ionicons name="information-circle-outline" size={24} color={AppColors.white} />
+                </TouchableOpacity>
+              </View>
+            </View>          
+          }
         </View>
 
-        {
-          <View style={styles.tags}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {tags.map((tag, index) => (
-                <TouchableOpacity key={index} style={styles.tag}>
-                  <Text
-                    style={{
-                      fontSize: height(1.5),
-                      fontFamily: "Mulish-Bold",
-                      color: AppColors.primary,
-                    }}
-                  >
-                    {tag}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        }
+        <View style={styles.cardContent}>
+          <Text style={styles.title}>{title}</Text>
 
-        {
-          <>
-            <View style={styles.descriptionrating}>
-
-
-            </View>
-            <Text style={styles.description}>
-              {description.length > 150 ? `${description.substring(0, 150)}...` : description}
-            </Text>
-            <TouchableOpacity 
-              style={styles.favoriteIcon} 
-              onPress={() => {
-                console.log(`Toggling favorite for store ID: ${id}, new state: ${!isFavorite}`);
-                onPressFavorite();
-              }}
-            >
-              <Ionicons 
-                name={isFavorite ? "heart" : "heart-outline"} 
-                size={24} 
-                color={AppColors.primary} 
+          <View style={styles.rating}>
+            {[...Array(5)].map((_, index) => (
+              <Ionicons
+                key={index}
+                name="star"
+                size={height(2.5)}
+                color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
               />
-            </TouchableOpacity>
-          </>
-        }
+            ))}
+            <Text style={styles.ratingText}>
+              {rating.ratingCount > 0 
+                ? rating.averageRating + ' (' + rating.ratingCount + ')'
+                : 'No ratings yet'}
+            </Text>
+          </View>
 
+          {
+            <View style={styles.tags}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {tags.map((tag, index) => (
+                  <TouchableOpacity key={index} style={styles.tag}>
+                    <Text
+                      style={{
+                        fontSize: height(1.5),
+                        fontFamily: "Mulish-Bold",
+                        color: AppColors.primary,
+                      }}
+                    >
+                      {tag}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          }
+
+          {
+            <>
+              <View style={styles.descriptionrating}>
+
+
+              </View>
+              <Text style={styles.description}>
+                {description.length > 150 ? `${description.substring(0, 150)}...` : description}
+              </Text>
+              <TouchableOpacity 
+                style={styles.favoriteIcon} 
+                onPress={() => {
+                  console.log(`Toggling favorite for store ID: ${id}, new state: ${!isFavorite}`);
+                  onPressFavorite();
+                }}
+              >
+                <Ionicons 
+                  name={isFavorite ? "heart" : "heart-outline"} 
+                  size={24} 
+                  color={AppColors.primary} 
+                />
+              </TouchableOpacity>
+            </>
+          }
+
+        </View>
+        <ItemDetailModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          item={{
+            id,
+            title,
+            description,
+            tags,
+            address,
+            openingHours: openingHours || null,
+          }}
+        />
       </View>
-      <ItemDetailModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        item={{ id, title, description, tags, address }}
-      />
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -230,16 +245,31 @@ const styles = StyleSheet.create({
     top: height(1),
     right: height(1),
   },
-  actionButtons: {
+  topIconsRow: {
     position: "absolute",
     top: height(1),
+    left: height(1),
     right: height(1),
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+  },
+  leftIcons: {
+    flexDirection: "row",
+  },
+  rightIcons: {
     flexDirection: "row",
   },
   iconButton: {
-    marginRight: 50,
-    marginTop: 13
-  },
+    marginHorizontal: 2,
+    padding: 5,
+  }, 
+  iconButton2: {
+    marginRight: 20,
+    marginTop: 1,
+    padding: 5,
+  },   
   cardContent: {
     padding: 10,
   },

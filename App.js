@@ -16,6 +16,14 @@ import ForgotPassword from './src/screens/auth/forgot-password';
 import AddStore from "./src/screens/app/add_store";
 import HandleStore from "./src/screens/app/handle_store";
 
+import ChangeNameScreen from './src/screens/app/Profile/change-name/';
+import ChangeEmailScreen from './src/screens/app/Profile/change-email/';
+import SupportScreen from './src/screens/app/Profile/support/';
+import RecoverPasswordScreen from './src/screens/app/Profile/recover-password/';
+import RecoverAccountScreen from './src/screens/app/Profile/recover-account/';
+import ReportIssueScreen from './src/screens/app/Profile/report-issue';
+import SuggestIdeaScreen from './src/screens/app/Profile/suggest-idea';
+
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -47,6 +55,14 @@ const App = () => {
               component={HandleStore} 
               options={{ presentation: "modal" }}
             />
+            <Stack.Screen name="ChangeNameScreen" component={ChangeNameScreen} />
+            <Stack.Screen name="ChangeEmailScreen" component={ChangeEmailScreen} />
+            <Stack.Screen name="SupportScreen" component={SupportScreen} />
+            <Stack.Screen name="RecoverPasswordScreen" component={RecoverPasswordScreen} />
+            <Stack.Screen name="RecoverAccountScreen" component={RecoverAccountScreen} />
+            <Stack.Screen name="AddStoreScreen" component={AddStore} />
+            <Stack.Screen name="ReportIssueScreen" component={ReportIssueScreen} />
+            <Stack.Screen name="SuggestIdeaScreen" component={SuggestIdeaScreen} />
           </>
         ) : (
           <>

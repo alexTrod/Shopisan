@@ -29,7 +29,7 @@ const Header = ({
   const user = useSelector(state => state?.Auth?.user);
 
   const toggleSettings = () => {
-    setSettingsVisible(!settingsVisible);
+    //setSettingsVisible(!settingsVisible);
   };
 
   const handleSwitchUserType = async () => {
@@ -80,21 +80,6 @@ const Header = ({
             {title}
           </CustomText>
         )}
-        <View
-          style={[
-            {
-              position: "absolute",
-              right: 0,
-            }
-          ]}
-        >
-          {!children && (
-            <Pressable onPress={toggleSettings}>
-              <SettingsIcon height={height(3)} width={height(3)} />
-            </Pressable>
-          )}
-          {children}
-        </View>
       </View>
 
       <Modal

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import { AppColors } from "../../utils";
 import { height } from "../../utils/dimension";
@@ -7,19 +7,43 @@ import { collection, addDoc, updateDoc, query, where, getDocs, serverTimestamp }
 import { firestore } from '../../../firebaseconfig';
 import { getAuth } from 'firebase/auth';
 import AddressComponent from './AddressComponent';
+import { ScreenNames } from "../../Routes/routes";
 import logging from '../../utils/logging';
+import { useNavigation } from '@react-navigation/native';
 
 import { toggleFavoriteStore } from '../../Redux/Actions/UserActions';
 import { useDispatch, useSelector } from 'react-redux';
+import { signOut } from "../../Redux/Actions/UserActions";
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
+  const navigation = useNavigation();
   const [averageRating, setAverageRating] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
   const [userRating, setUserRating] = useState(0);
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
   const isFavorite = useSelector(state => state.user.favoriteStores.includes(item.id));
+  const user = useSelector(state => state.user.userData);
 
+  const days = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday"
+  ];
+  
+  const daysLabels = {
+    monday: "Lundi",
+    tuesday: "Mardi",
+    wednesday: "Mercredi",
+    thursday: "Jeudi",
+    friday: "Vendredi",
+    saturday: "Samedi",
+    sunday: "Dimanche"
+  };  
 
   const auth = getAuth();
   const address = (itemAddress) => {
@@ -30,6 +54,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     const geoHash = location?.geopoint || '';
     return {street, postalCode, city, geoHash};
   }
+
   const fetchStoreRatings = async () => {
     try {
       let totalRating = 0;
@@ -64,56 +89,101 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   };
 
   const submitRating = async (score) => {
-    if (!auth.currentUser) {
-      Alert.alert('Login Required', 'Please login to rate items');
+    if (!user) {
+      Alert.alert(
+        "Connexion requise",
+        "Vous devez être connecté pour donner une note. Voulez-vous aller à la page de connexion ?",
+        [
+          { text: "Non", style: "cancel" },
+          { text: "Oui", onPress: () => {
+              dispatch(signOut());
+              navigation.navigate(ScreenNames.SIGN_IN);
+            }
+          },
+        ],
+        { cancelable: true }
+      );
       return;
     }
-
+  
     try {
       setLoading(true);
       const ratingsRef = collection(firestore, 'ratings');
-      
+  
       const userRatingQuery = query(
         ratingsRef, 
         where('store_id', '==', item.id),
         where('user_id', '==', auth.currentUser.uid)
       );
       const userRatingSnapshot = await getDocs(userRatingQuery);
-
-      if (userRatingSnapshot.empty) { //check firebase doc
+  
+      if (userRatingSnapshot.empty) {
         await addDoc(ratingsRef, {
           store_id: item.id,
           user_profile_id: auth.currentUser.uid,
           score: score,
           created: serverTimestamp(),
-          updated:null,
-          comment:null,
-          is_active:true,
-          is_deleted:false,
+          updated: null,
+          comment: null,
+          is_active: true,
+          is_deleted: false,
         });
       } else {
         const ratingDoc = userRatingSnapshot.docs[0].ref;
         await updateDoc(ratingDoc, {
           score: score,
-          updated_at: serverTimestamp()
+          updated_at: serverTimestamp(),
         });
       }
-
+  
       setUserRating(score);
       await fetchStoreRatings();
     } catch (error) {
       console.error('Error submitting rating:', error);
-      Alert.alert('Error', 'Failed to submit rating');
+      Alert.alert('Erreur', 'Impossible de soumettre la note');
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   useEffect(() => {
     if (visible) {
       fetchStoreRatings();
     }
   }, [visible]);
+
+  const handleGoToHome = (store) => {
+    onClose();
+    setTimeout(() => {
+      navigation.navigate(ScreenNames.HOME, {
+        merge: true,
+        initialStoreFromMap: store,
+      });
+    }, 300);
+  };  
+  
+  const handleToggleFavoriteFromModal = () => {
+    if (!user) {
+      Alert.alert(
+        "Connexion requise",
+        "Vous devez être connecté pour ajouter un favori. Voulez-vous aller à la page de connexion ?",
+        [
+          { text: "Non", style: "cancel" },
+          { 
+            text: "Oui", 
+            onPress: () => {
+              dispatch(signOut());
+              navigation.navigate(ScreenNames.SIGN_IN);
+            } 
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+  
+    dispatch(toggleFavoriteStore(item.id));
+  };  
 
   return (
     <Modal
@@ -125,11 +195,15 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalContainer}>
           <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>
-              
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <View style={styles.modalContent}>              
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
+                <Ionicons name="home-outline" size={24} color="white" />
+              </TouchableOpacity>
+
               <Text style={styles.title}>{item.title}</Text>
               <AddressComponent address={address(item.address)} />
 
@@ -142,6 +216,36 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </View>
 
               <Text style={styles.description}>{item.description}</Text>
+
+              {item.openingHours && (
+                <View style={{ width: '100%', marginTop: 20 }}>
+                  <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
+                  {days.map((dayKey) => {
+                    const dayHours = item.openingHours[dayKey];
+                    const dayLabel = daysLabels[dayKey];
+
+                    let hoursText = "";
+
+                    if (dayHours?.morning && dayHours?.afternoon) {
+                      hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                    } else if (dayHours?.morning) {
+                      hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
+                    } else if (dayHours?.afternoon) {
+                      hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                    } else {
+                      hoursText = "Non communiqué";
+                    }
+
+                    return (
+                      <View key={dayKey} style={styles.openingHourRow}>
+                        <Text style={styles.openingHourDay}>{dayLabel} :</Text>
+                        <Text style={styles.openingHourText}>{hoursText}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
               <View style={styles.ratingContainer}>
                 <View style={styles.ratingSection}>
                   <Text style={styles.sectionTitle}>Your rating</Text>
@@ -182,7 +286,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </View>
               <View style={styles.favoriteContainer}>
                 <TouchableOpacity
-                  onPress={() => dispatch(toggleFavoriteStore(item.id))}
+                  onPress={handleToggleFavoriteFromModal}
                   style={styles.favoriteButton}
                 >
                   <Ionicons
@@ -277,6 +381,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
+  goHomeButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    padding: 10,
+    backgroundColor: AppColors.grey_100,
+    borderRadius: 5,
+  }  
 });
 
 export default ItemDetailModal; 

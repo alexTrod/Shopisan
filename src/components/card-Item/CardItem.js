@@ -21,7 +21,7 @@ const CardItem = ({ item, isSelected, onPress }) => {
   
   const _id = item.id;
   const _description = item.description.en;
-  const _tags = item.category;
+  const _tags = item.tags ?? item.category ?? [];
   const _address = item.address;
   const _title = item.name;
 
@@ -91,7 +91,14 @@ const CardItem = ({ item, isSelected, onPress }) => {
       <ItemDetailModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        item={{id:_id, title: _title,description: _description,tags: _tags,address: _address}}
+        item={{
+          id: _id,
+          title: _title,
+          description: _description,
+          tags: _tags,
+          address: _address,
+          openingHours: item.openingHours || null,
+        }}
       />
     </>
   );
