@@ -120,6 +120,7 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
           date_of_birth:null,
           is_active:true,
           is_admin:false,
+          is_validated:false,
           is_owner : userType == 'shopper' ? false : true,        
           last_login: serverTimestamp(),
           created: serverTimestamp(),

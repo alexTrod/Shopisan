@@ -1,23 +1,35 @@
 const AppColors = {
-  white: "#ffffff",
-  white_100: "#F7F7F7",
-  white_200: "#FBFBFB",
-  black: "black",
-  red: "#E94560",
-  red_100: "rgba(224,74,93,0.1)",
+  // Base Colors
+  black: "rgba(0,0,0,1)",
+  white: "rgba(255,255,255,1)",
   transparent: "transparent",
-  primary: "#E04A5D",
-  primary_darker:"#A01F39",
-  secondary: "#CCCCCC",
-  snowWhite: "#C6C6C6",
-  purple: "#533483",
-  wihte5: "#707070",
-  primary2: "#17568E",
-  cardColor: "rgba(84,161,203,0.3)",
-  pink: "#D76B98",
+
+  // White Variants
+  white_100: "rgba(247,247,247,1)",
+  white_200: "rgba(251,251,251,1)",
+  snowWhite: "rgba(198,198,198,1)",
+  wihte5: "rgba(112,112,112,1)",
+
+  // Primary Colors
+  primary: "rgba(224,74,93,1)",
+  primary_darker: "rgba(160,31,57,1)",
+  primary2: "rgba(23,86,142,1)",
+
+  // Red Variants
+  red: "rgba(233,69,96,1)",
+  red_100: "rgba(224,74,93,0.1)",
+  red_100_full: "rgba(124,40,60,0.9)",
+
+  // Grey Scale
   grey_100: "rgba(0,0,0,0.3)",
-  grey_200: "#8F92A1",
-  grey_300: "#F6F6F8",
-  grey_400: "#D9D9D9",
+  grey_200: "rgba(143,146,161,1)",
+  grey_300: "rgba(246,246,248,1)",
+  grey_400: "rgba(217,217,217,1)",
+  secondary: "rgba(204,204,204,1)",
+
+  // Accent Colors
+  purple: "rgba(83,52,131,1)",
+  pink: "rgba(215,107,152,1)",
+  cardColor: "rgba(84,161,203,0.3)",
 };
 export default AppColors;

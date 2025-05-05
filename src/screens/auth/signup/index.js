@@ -21,7 +21,7 @@ import Toast from "react-native-toast-message";
 import i18n from "../../../translations/i18n";
 import { signUp, setNoAuthenticationWanted } from "../../../Redux/Actions/UserActions";
 
-export default function SignUp({ navigation }) {
+export default function SignUp({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const locale = useSelector(state => state.locale.currentLocale);
   i18n.locale = locale;
@@ -32,56 +32,43 @@ export default function SignUp({ navigation }) {
   const emailRef = useRef(null);
   const [passwordHide, setPasswordHide] = useState(true);
   const [confirmPasswordHide, setConfirmPasswordHide] = useState(true);
-  const [userType, setUserType] = useState("shopper");
+  const [userType, setUserType] = useState(route?.params?.role || "shopper");
 
   const { control, handleSubmit, formState: { isValid, errors } } = useForm({
     mode: "all",
     resolver: yupResolver(SignUpFormValidation),
   });
-
   const signupHandler = async (values) => {
-    setLoading(true);
-    dispatch(signUp(values.email, values.username, values.password, userType));
-    setLoading(false);
-  };
-
-  const handleSignup = async (values) => {
-    setLoading(true);
+    console.log("signing up", values);
     try {
-      const userRef = doc(firestore, "users", values.email.trim());
-      await setDoc(userRef, {
-        email: values.email,
-        username: values.username,
-        userType,
-        createdAt: serverTimestamp(),
-      });
-
-      if (userType === "merchant") {
-        const merchantRef = doc(firestore, "users", values.email.trim());
-        await setDoc(merchantRef, {
-          email: values.email,
-          stores: [],
-          status: "active",
-          createdAt: serverTimestamp(),
+      setLoading(true);
+      await dispatch(signUp(values.email, values.username, values.password, userType));
+      
+      // Add a small delay to ensure the toast is visible
+      setTimeout(() => {
+        Toast.show({
+          type: 'success',
+          text1: 'Registration Successful',
+          text2: 'Once we validate your account, you will be notified. You can start browsing stores!s',
+          position: 'bottom',
+          visibilityTime: 3000,
         });
-        navigation.replace("MerchantHome");
-      } else {
-        navigation.replace("Home");
-      }
-
-      Toast.show({
-        text1: "Success",
-        text2: "Account created successfully",
-        type: "success",
-      });
+        navigation.navigate(ScreenNames.SIGN_IN);
+      }, 100);
     } catch (error) {
-      Toast.show({
-        text1: "Error",
-        text2: error.message,
-        type: "error",
-      });
+      // Add a small delay to ensure the toast is visible
+      setTimeout(() => {
+        Toast.show({
+          type: 'error',
+          text1: 'Registration Failed',
+          text2: error.message || 'Please try again',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }, 100);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const goToSignIn = () => {
@@ -105,6 +92,43 @@ export default function SignUp({ navigation }) {
           source={require("../../../../assets/LogoIcon.png")}
           style={{ height: height(5), width: height(5) }}
         />
+
+        <View style={styles.userTypeToggleContainer}>
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                styles.toggleButtonLeft,
+                userType === "shopper" && styles.toggleButtonSelected
+              ]}
+              onPress={() => setUserType("shopper")}
+            >
+              <CustomText
+                color={userType === "shopper" ? AppColors.primary_darker : AppColors.grey_200}
+                textProps={{ fontFamily: "Mulish-Bold" }}
+                size={1.7}
+              >
+                Shopper
+              </CustomText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                styles.toggleButtonRight,
+                userType === "merchant" && styles.toggleButtonSelected
+              ]}
+              onPress={() => setUserType("merchant")}
+            >
+              <CustomText
+                color={userType === "merchant" ? AppColors.primary_darker : AppColors.grey_100}
+                textProps={{ fontFamily: "Mulish-Bold" }}
+                size={1.7}
+              >
+                Store owner
+              </CustomText>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.inputContainer}>
           <Spacer vertical={height(1)} />
@@ -232,37 +256,6 @@ export default function SignUp({ navigation }) {
               </TouchableOpacity>
             }
           />
-          <View style={styles.userTypeContainer}>
-            <CustomText color={AppColors.grey_200} textProps={{ fontFamily: "Mulish-Regular" }} size={1.7}>
-              I want to:
-            </CustomText>
-            <View style={styles.radioGroup}>
-              <TouchableOpacity
-                style={[styles.radioButton, userType === "shopper" && styles.radioButtonSelected]}
-                onPress={() => setUserType("shopper")}
-              >
-                <CustomText
-                  color={userType === "shopper" ? AppColors.primary : AppColors.grey_200}
-                  textProps={{ fontFamily: "Mulish-Bold" }}
-                  size={1.7}
-                >
-                  Shop at stores
-                </CustomText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radioButton, userType === "merchant" && styles.radioButtonSelected]}
-                onPress={() => setUserType("merchant")}
-              >
-                <CustomText
-                  color={userType === "merchant" ? AppColors.primary : AppColors.grey_200}
-                  textProps={{ fontFamily: "Mulish-Bold" }}
-                  size={1.7}
-                >
-                  Manage my store
-                </CustomText>
-              </TouchableOpacity>
-            </View>
-          </View>
           <Spacer vertical={height(3)} />
           <Button
             disabled={!isValid}

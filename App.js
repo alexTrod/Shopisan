@@ -15,6 +15,8 @@ import CustomText from './src/components/text';
 import ForgotPassword from './src/screens/auth/forgot-password';
 import AddStore from "./src/screens/app/add_store";
 import HandleStore from "./src/screens/app/handle_store";
+import ChooseRoleScreen from './src/screens/auth/choose-role';
+import Toast from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator();
 
@@ -50,6 +52,7 @@ const App = () => {
           </>
         ) : (
           <>
+            <Stack.Screen name={ScreenNames.CHOOSE_ROLE} component={ChooseRoleScreen} />
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
             <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
             <Stack.Screen name={ScreenNames.FORGOT_PASSWORD} component={ForgotPassword} />
@@ -63,6 +66,7 @@ const App = () => {
 const WrappedApp = () => (
   <Provider store={store}>
     <App />
+    <Toast />
   </Provider>
 );
 
