@@ -147,20 +147,32 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
         type: 'AUTH_SUCCESS',
         payload: {
           id: new_id,
-          email,
-          username,
-          userType,
-          is_active: true,
-          is_admin: false,
-          is_owner: userType === 'shopper' ? false : true,
-          name: null,
-          surname: null,
-          picture_id: null,
-        }
-      });
-    });
-  } catch (error) {
-    let message = 'Signup failed. Please try again.';
+          email: email,
+          username: username,
+          date_of_birth:null,
+          is_active:true,
+          is_admin:false,
+          is_validated:false,
+          is_owner : userType == 'shopper' ? false : true,        
+          last_login: serverTimestamp(),
+          created: serverTimestamp(),
+          surname:null,
+          name:null,
+          //password: password,
+          picture_id:null,
+          reset_password_token: null,
+          reset_password_validity:null,
+          user_id:new_id,
+        })
+        .then((result) => logging('result', result))
+        .catch((error) => logging('error setDoc', error))
+        ;
+      }
+    );
+  }
+  catch (error) {
+    logError('Shopper signup failed', error);
+
     if (error.code === 'auth/email-already-in-use') {
       message = 'The email address is already in use by another account.';
     } else if (error.code === 'auth/invalid-email') {
