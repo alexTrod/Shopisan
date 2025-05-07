@@ -24,12 +24,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.ecomerce.shopisan",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA"
-        }
-      }
+      "package": "com.ecomerce.shopisan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,24 +32,21 @@
     "plugins": [
       "expo-font",
       [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsDownloadToken": "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
-        }
-      ],
-      "expo-localization",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "1.7.20"
-          }
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "555fc5db-cc75-4200-b4f2-b6e3580b799f"
+        "projectId": "d9297f62-d439-4940-91a8-caca65d96a32"
       }
     }
   }
