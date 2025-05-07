@@ -65,15 +65,15 @@ const CategoryFilter = () => {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <TouchableOpacity onPress={() => {
-              if (selectedCategories.length === categories.length) {
-                dispatch(setSelectedCategories([]));
-              } else {
-                dispatch(setSelectedCategories(categories.map(category => category.id)));
-              }
-            }} style={styles.categoryItem}>
-              <Text style={[styles.categoryText, { color: selectedCategories.length === categories.length ? AppColors.primary : AppColors.black }]}>All</Text>
+            <TouchableOpacity
+              onPress={() => dispatch(setSelectedCategories([]))}
+              style={styles.categoryItem}
+            >
+              <Text style={[styles.categoryText, { color: selectedCategories.length === 0 ? AppColors.primary : AppColors.black }]}>
+                Unselect
+              </Text>
             </TouchableOpacity>
+
             <FlatList
               data={data}
               keyExtractor={item => item.value.toString()}

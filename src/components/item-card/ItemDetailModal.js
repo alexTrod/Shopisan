@@ -155,8 +155,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const handleGoToHome = (store) => {
     onClose();
     setTimeout(() => {
-      navigation.navigate(ScreenNames.HOME, { initialStoreFromMap: store });
-    }, 300); 
+      navigation.navigate(ScreenNames.HOME, {
+        merge: true,
+        initialStoreFromMap: store,
+      });
+    }, 300);
   };  
   
   const handleToggleFavoriteFromModal = () => {

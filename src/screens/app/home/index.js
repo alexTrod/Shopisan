@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert } from "react-native";
+import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert, TextInput } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
 import { getUserFavoriteStoreIds, getFavoriteStoreQuery, getStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
@@ -26,10 +26,12 @@ export default function HomeScreen({ navigation, route }) {
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const SEARCH_RADIUS_KM = 1;
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [isNearbyActive, setIsNearbyActive] = useState(false);
   const initialStoreFromMap = route?.params?.initialStoreFromMap;
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const flatListRef = useRef(null);
 
   const favoriteStores = useSelector(state => state.user.favoriteStores);
   const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
@@ -97,7 +99,7 @@ export default function HomeScreen({ navigation, route }) {
   
     try {
       const favoriteStoreIds = await getUserFavoriteStoreIds(user.id);
-      console.log("Liste des favoris  :", favoriteStoreIds);
+
       if (favoriteStoreIds.length === 0) {
         setStores([]);
         setHasMore(false);
@@ -105,7 +107,6 @@ export default function HomeScreen({ navigation, route }) {
       }
   
       const validFavoriteStoreIds = favoriteStoreIds.filter(id => id !== null && id !== undefined);
-      console.log("Liste des favoris après nettoyage :", validFavoriteStoreIds);
 
       const storeQuery = getFavoriteStoreQuery(validFavoriteStoreIds, lastVisibleRef.current);
       
@@ -185,8 +186,6 @@ export default function HomeScreen({ navigation, route }) {
         return;
       }
   
-      console.log("Requête finale pour les magasins du marchand :", storeQuery);
-  
       const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
   
       if (isRefreshing) {
@@ -232,7 +231,6 @@ export default function HomeScreen({ navigation, route }) {
     if (!favoriteStores || loadingRef.current || (!hasMoreRef.current && !isRefreshing)) return;
   
     setLoading(true);
-    console.log("selectedCategories avant requête :", selectedCategories);
     
     const storeQuery = getStoreQuery(
       selectedCategories,
@@ -243,7 +241,6 @@ export default function HomeScreen({ navigation, route }) {
 
     try {
       const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
-      console.log("Stores récupérés après requête :", newStores);
 
       const updatedStores = newStores.map(store => ({
         ...store,
@@ -272,7 +269,7 @@ export default function HomeScreen({ navigation, route }) {
 
   useEffect(() => {
     const fetchStoreByInternalId = async (internalId) => {
-      try {  
+      try {
         const storesCollection = collection(firestore, "stores");
         const storesQuery = query(storesCollection, where("id", "==", internalId));
         const querySnapshot = await getDocs(storesQuery);
@@ -287,13 +284,16 @@ export default function HomeScreen({ navigation, route }) {
             isFavorite: favoriteStores.includes(storeDoc.id),
           };
   
-          setStores((prev) => {
-            const alreadyExists = prev.some(store => store.id === completeStore.id);
-            if (!alreadyExists) {
-              return [completeStore, ...prev];
-            }
-            return prev;
+          setStores((prevStores) => {
+            const filteredStores = prevStores.filter(store => store.id !== completeStore.id);
+            return [completeStore, ...filteredStores];
           });
+  
+          setTimeout(() => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+            }
+          }, 300);
   
         } else {
           console.warn("Aucun store trouvé avec ce internalId :", internalId);
@@ -346,6 +346,8 @@ export default function HomeScreen({ navigation, route }) {
   }, [loadStores]);
 
   const handleEndReached = useCallback(() => {
+    if (isSearching) return;
+  
     if (hasMoreRef.current) {
       if (showFavoritesOnly) {
         loadFavoriteStores();
@@ -353,7 +355,7 @@ export default function HomeScreen({ navigation, route }) {
         loadStores();
       }
     }
-  }, [showFavoritesOnly, loadFavoriteStores, loadStores]);  
+  }, [isSearching, showFavoritesOnly, loadFavoriteStores, loadStores]);  
 
   const renderFooter = useCallback(() => {
     if (!loading) return null;
@@ -383,6 +385,7 @@ export default function HomeScreen({ navigation, route }) {
       tags={getCategoriesNamesByIds(item?.category ?? [])}
       description={item?.description?.[locale] ?? ""}
       address={item.address}
+      image={item.imageUrl ? { uri: item.imageUrl } : undefined}
       isFavorite={item.isFavorite}
       onPressFavorite={() => handleToggleFavorite(item.id)}
       owner_id={item.owner_id} 
@@ -448,6 +451,10 @@ export default function HomeScreen({ navigation, route }) {
     }
   }, [stores]);
 
+  useEffect(() => {
+    handleNearbyPress();
+  }, []);  
+
   const handleNearbyPress = async () => {
     if (isNearbyActive) {
       setIsNearbyActive(false);
@@ -457,16 +464,15 @@ export default function HomeScreen({ navigation, route }) {
       loadStores(true);
       return;
     }
-    
+  
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permission refusée", "Activez la localisation pour continuer.");
         return;
       }
-
-      setShowNearbyModal(true);
   
+      setShowNearbyModal(true);
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const userLat = location.coords.latitude;
       const userLng = location.coords.longitude;
@@ -480,30 +486,37 @@ export default function HomeScreen({ navigation, route }) {
         .map((doc) => {
           const data = doc.data();
           if (!data.address?.[0]?.location?.geopoint) return null;
-  
-          let { latitude, longitude } = data.address[0].location.geopoint;
-          latitude = Number(latitude);
-          longitude = Number(longitude);
-  
+          const { latitude, longitude } = data.address[0].location.geopoint;
           if (isNaN(latitude) || isNaN(longitude)) return null;
-  
           return {
             id: doc.id,
             ...data,
-            latitude,
-            longitude,
+            latitude: Number(latitude),
+            longitude: Number(longitude),
           };
         })
         .filter(Boolean);
   
+      const searchInRadius = (radiusKm) => {
+        return allStores.filter(store => {
+          const distance = getDistanceInKm(userLat, userLng, store.latitude, store.longitude);
+          return distance <= radiusKm;
+        });
+      };
   
-      const nearbyStores = allStores.filter(store => {
-        const distance = getDistanceInKm(userLat, userLng, store.latitude, store.longitude);
-        const isNearby = distance <= SEARCH_RADIUS_KM;
-        if (isNearby)
-        return isNearby;
-      });
-  
+      let nearbyStores = searchInRadius(1);
+      if (nearbyStores.length === 0) {
+        nearbyStores = searchInRadius(5);
+      }
+      if (nearbyStores.length === 0) {
+        nearbyStores = searchInRadius(30);
+      }
+      if (nearbyStores.length === 0) {
+        nearbyStores = searchInRadius(150);
+      }
+      if (nearbyStores.length === 0) {
+        nearbyStores = allStores;
+      }
   
       setStores(nearbyStores.map(store => ({
         ...store,
@@ -517,7 +530,7 @@ export default function HomeScreen({ navigation, route }) {
       console.error("Erreur lors de la récupération des magasins proches :", error);
     } finally {
       setLoading(false);
-      setShowNearbyModal(false); 
+      setShowNearbyModal(false);
     }
   };
 
@@ -530,6 +543,47 @@ export default function HomeScreen({ navigation, route }) {
       Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  };  
+
+  const handleSearchSubmit = async () => {
+    if (!searchQuery.trim()) {
+      setIsSearching(false);
+      setStores([]);
+      setLastVisible(null);
+      setHasMore(true);
+      loadStores(true);
+      return;
+    }
+  
+    setIsSearching(true);
+    setLoading(true);
+  
+    try {
+      const storesRef = collection(firestore, "stores");
+      const storesSnapshot = await getDocs(storesRef);
+  
+      const allStores = storesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+  
+      const filteredStores = allStores.filter(store =>
+        store.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+  
+      setStores(filteredStores.map(store => ({
+        ...store,
+        isFavorite: favoriteStores.includes(store.id),
+      })));
+  
+      setLastVisible(null);
+      setHasMore(false);
+    } catch (error) {
+      console.error("Erreur lors de la recherche :", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };  
 
   return (
@@ -577,7 +631,7 @@ export default function HomeScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.rowContainer}>          
+        <View style={styles.rowContainer}>
           {user?.userType === 'merchant' && (
             <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
               <MaterialIcons 
@@ -597,7 +651,18 @@ export default function HomeScreen({ navigation, route }) {
           </Button>
         </View>
 
-        <FlatList {...flatListProps} />
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher un magasin..."
+            value={searchQuery}
+            onChangeText={text => setSearchQuery(text)}
+            onSubmitEditing={handleSearchSubmit}
+            returnKeyType="search"
+          />
+        </View>
+
+        <FlatList {...flatListProps} ref={flatListRef} />
       </View>
       <Modal visible={showNearbyModal} transparent animationType="fade">
         <View style={modalStyles.container}>

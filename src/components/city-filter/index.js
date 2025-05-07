@@ -109,7 +109,7 @@ const CityFilter = () => {
             </ScrollView>
             <TouchableOpacity onPress={handleSelectAll} style={styles.cityItem}>
               <Text style={[styles.cityText, { color: selectedCities.length === 0 ? AppColors.primary : AppColors.black }]}>
-                All
+                Unselect
               </Text>
             </TouchableOpacity>
             <FlatList

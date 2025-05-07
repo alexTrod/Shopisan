@@ -7,11 +7,12 @@ const initialState = {
   isAuthenticated: false,
   userData: null,
   favoriteStores: [],
-  error: null,
+  signInError: null,
+  signUpError: null,
   loading: false,
-  noAuthenticationWanted:false,
-  selectedCountry:'FR',
-  countries:[]
+  noAuthenticationWanted: false,
+  selectedCountry: 'FR',
+  countries: []
 };
 
 export const getCountryLocale = async (current_doc) => {
@@ -40,13 +41,26 @@ export const getCountries = async () => {
 }
 
 export const userReducer = (state = initialState, action) => {
-  console.log('Reducing:', action.type);
   switch (action.type) {
     case 'AUTH_LOADING':
       return {
         ...state,
         loading: true,
         error: null
+      };
+
+    case 'SIGN_IN_ERROR':
+      return {
+        ...state,
+        loading: false,
+        signInError: action.payload,
+      };
+
+  case 'SIGN_UP_ERROR':
+      return {
+        ...state,
+        loading: false,
+        signUpError: action.payload,
       };
 
     case 'AUTH_SUCCESS':
