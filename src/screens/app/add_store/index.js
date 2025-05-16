@@ -22,6 +22,11 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from 'expo-image-picker';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Autocomplete from 'react-native-autocomplete-input';
+import { Ionicons } from "@expo/vector-icons";
+import MapboxGL from "@rnmapbox/maps";
+import * as Location from 'expo-location';
+
+MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
 export default function AddStoreScreen({ navigation }) {
   const user = useSelector((state) => state.user.userData);
@@ -44,6 +49,18 @@ export default function AddStoreScreen({ navigation }) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState(null);
+  const [showMap, setShowMap] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [expandedDay, setExpandedDay] = useState(null);
+  const [groupedDays, setGroupedDays] = useState([]);
+
+  const timePresets = [
+    { label: "9h-12h / 14h-19h", morning: { start: "9", end: "12" }, afternoon: { start: "14", end: "19" } },
+    { label: "8h-12h / 13h-18h", morning: { start: "8", end: "12" }, afternoon: { start: "13", end: "18" } },
+    { label: "10h-19h", morning: { start: "10", end: "19" }, afternoon: null },
+    { label: "Fermé", morning: null, afternoon: null },
+  ];
 
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
@@ -64,6 +81,18 @@ export default function AddStoreScreen({ navigation }) {
     }
     setLoadingSuggestions(false);
   };  
+
+  const applyPresetToAllDays = (preset) => {
+    const newOpeningHours = {};
+    days.forEach(day => {
+      newOpeningHours[day] = {
+        morning: preset.morning ? { ...preset.morning } : null,
+        afternoon: preset.afternoon ? { ...preset.afternoon } : null
+      };
+    });
+    setOpeningHours(newOpeningHours);
+    setSelectedPreset(preset.label);
+  };
 
   const handleAddressSelect = (item) => {
     if (!item) return;
@@ -86,7 +115,47 @@ export default function AddStoreScreen({ navigation }) {
     setCity(city);
     setPostalCode(postalCode);
     setQuery(`${streetNumber} ${streetName}`);
+    
+    if (item.center) {
+      setSelectedLocation({
+        latitude: item.center[1],
+        longitude: item.center[0]
+      });
+      setShowMap(true);
+    }
   };  
+
+  const handleUseCurrentLocation = async () => {
+    const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission refusée', 'Nous avons besoin de votre localisation pour continuer.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      setSelectedLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+      setShowMap(true);
+
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${mapboxToken}`
+      );
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        const address = data.features[0];
+        handleAddressSelect(address);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Erreur', 'Impossible d\'obtenir votre position actuelle');
+    }
+  };
 
   const [openingHours, setOpeningHours] = useState({
     monday: { morning: null, afternoon: null },
@@ -164,6 +233,38 @@ export default function AddStoreScreen({ navigation }) {
     dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)));
   };
 
+  const uploadImageToCloudflare = async (uri) => {
+    const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
+    const apiToken = 'o44MNleTjEPJpsfbegB9ocnlFA1DJh0ZUlrxIrNI';
+
+    const fileName = `photo_${Date.now()}.jpg`;
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      name: fileName,
+      type: 'image/jpeg'
+    });
+
+    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'multipart/form-data'
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      console.error("Erreur Cloudflare:", data.errors);
+      throw new Error('Échec de l’upload vers Cloudflare');
+    }
+
+    return data.result.variants[0];
+  };
+
   const handleAddStore = async () => {
     if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
       Alert.alert("Erreur", "Tous les champs sont obligatoires !");
@@ -174,8 +275,7 @@ export default function AddStoreScreen({ navigation }) {
   
     try {
       if (selectedImage) {
-        const imageName = `store_${Date.now()}.jpg`;
-        imageUrl = await uploadImageAsync(selectedImage.uri, imageName);
+        imageUrl = await uploadImageToCloudflare(selectedImage.uri);
       }
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
@@ -274,17 +374,6 @@ export default function AddStoreScreen({ navigation }) {
     }
   };  
 
-  const uploadImageAsync = async (uri, imageName) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-  
-    const storageRef = ref(storage, `stores/${imageName}`);
-    await uploadBytes(storageRef, blob);
-  
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
-  };  
-
   const getOwnerId = async (userId) => {
       try {
         const userRef = doc(firestore, "users", userId);
@@ -304,6 +393,87 @@ export default function AddStoreScreen({ navigation }) {
       }
     };
 
+  const updateGroupedDays = (hours) => {
+    const groups = [];
+    let currentGroup = { days: [], hours: null };
+
+    days.forEach((day, index) => {
+      const dayHours = JSON.stringify(hours[day]);
+      
+      if (currentGroup.hours === null) {
+        currentGroup = { days: [day], hours: dayHours };
+      } else if (currentGroup.hours === dayHours) {
+        currentGroup.days.push(day);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = { days: [day], hours: dayHours };
+      }
+
+      if (index === days.length - 1) {
+        groups.push(currentGroup);
+      }
+    });
+
+    setGroupedDays(groups);
+  };
+
+  useEffect(() => {
+    updateGroupedDays(openingHours);
+  }, [openingHours]);
+
+  const copyToNextDay = (day) => {
+    const currentIndex = days.indexOf(day);
+    if (currentIndex < days.length - 1) {
+      const nextDay = days[currentIndex + 1];
+      setOpeningHours(prev => ({
+        ...prev,
+        [nextDay]: { ...prev[day] }
+      }));
+    }
+  };
+
+  const formatHours = (hours) => {
+    if (!hours.morning && !hours.afternoon) return "Fermé";
+    
+    let result = "";
+    if (hours.morning) {
+      result += `${hours.morning.start}h-${hours.morning.end}h`;
+    }
+    if (hours.afternoon) {
+      if (result) result += " / ";
+      result += `${hours.afternoon.start}h-${hours.afternoon.end}h`;
+    }
+    return result;
+  };
+
+  // Add validation state
+  const [hoursErrors, setHoursErrors] = useState({});
+
+  const validateHour = (day, period, field, value) => {
+    let error = '';
+    if (value && !/^\d{1,2}$/.test(value)) {
+      error = 'notNumber';
+    }
+    const otherField = field === 'start' ? 'end' : 'start';
+    const otherValue = openingHours[day][period]?.[otherField];
+    if (value && otherValue && /^\d{1,2}$/.test(value) && /^\d{1,2}$/.test(otherValue)) {
+      const v1 = field === 'start' ? value : otherValue;
+      const v2 = field === 'end' ? value : otherValue;
+      if (parseInt(v1) >= parseInt(v2)) {
+        error = 'order';
+      }
+    }
+    setHoursErrors(prev => ({
+      ...prev,
+      [`${day}_${period}_${field}`]: error
+    }));
+  };
+
+  const updateOpeningHourValidated = (day, period, field, value) => {
+    updateOpeningHour(day, period, field, value);
+    validateHour(day, period, field, value);
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
@@ -311,7 +481,7 @@ export default function AddStoreScreen({ navigation }) {
           <Icon name="arrow-left" size={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
-          Ajouter un magasin
+          Add a store
         </Text>
       </View>
     <ScrollView 
@@ -323,6 +493,7 @@ export default function AddStoreScreen({ navigation }) {
         <TextInput style={styles.input} placeholder="Entrez le nom" value={name} onChangeText={setName} />
 
         <Text style={styles.label}>Adresse</Text>
+        <View style={styles.addressContainer}>
           <Autocomplete
             data={suggestions}
             defaultValue={query}
@@ -335,12 +506,34 @@ export default function AddStoreScreen({ navigation }) {
                   onPress={() => handleAddressSelect(item)}
                   style={styles.suggestionItem}
                 >
-                  <Text>{item.place_name}</Text>
+                  <Text style={styles.suggestionText}>{item.place_name}</Text>
                 </TouchableOpacity>
               ),
             }}
             inputContainerStyle={styles.input}
           />
+          <TouchableOpacity 
+            style={styles.locationButton}
+            onPress={handleUseCurrentLocation}
+          >
+            <Ionicons name="location" size={24} color={AppColors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {showMap && selectedLocation && (
+          <View style={styles.mapContainer}>
+            <MapboxGL.MapView style={styles.map}>
+              <MapboxGL.Camera
+                centerCoordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+                zoomLevel={14}
+              />
+              <MapboxGL.PointAnnotation
+                id="selected-location"
+                coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+              />
+            </MapboxGL.MapView>
+          </View>
+        )}
 
         <Text style={styles.label}>Ville</Text>
         <TextInput style={styles.input} placeholder="Ville" value={city} onChangeText={setCity} />
@@ -351,49 +544,159 @@ export default function AddStoreScreen({ navigation }) {
         <Text style={styles.label}>Description</Text>
         <TextInput style={[styles.input, styles.textArea]} placeholder="Décrivez votre magasin" value={description} onChangeText={setDescription} multiline />
 
-        {days.map((day) => (
-          <View key={day} style={styles.dayContainer}>
-            <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
+        <Text style={styles.label}>Horaires d'ouverture</Text>
+        <View style={styles.presetsContainer}>
+          {timePresets.map((preset, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.presetButton,
+                selectedPreset === preset.label && styles.selectedPreset
+              ]}
+              onPress={() => applyPresetToAllDays(preset)}
+            >
+              <Text style={[
+                styles.presetText,
+                selectedPreset === preset.label && styles.selectedPresetText
+              ]}>
+                {preset.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-            <View style={styles.periodContainer}>
-              <Text style={styles.periodLabel}>Matin :</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Début"
-                  value={openingHours[day].morning?.start || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'morning', 'start', text)}
+        <View style={styles.openingHoursContainer}>
+          {groupedDays.map((group, groupIndex) => (
+            <View key={groupIndex} style={styles.dayGroup}>
+              <TouchableOpacity
+                style={styles.dayGroupHeader}
+                onPress={() => setExpandedDay(expandedDay === group.days[0] ? null : group.days[0])}
+              >
+                <View style={styles.dayGroupTitle}>
+                  <Text style={styles.dayGroupText}>
+                    {group.days.map(day => daysLabels[day]).join(", ")}
+                  </Text>
+                  <Text style={styles.dayGroupHours}>
+                    {formatHours(openingHours[group.days[0]])}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={expandedDay === group.days[0] ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={AppColors.primary}
                 />
-                <Text style={styles.toText}>à</Text>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Fin"
-                  value={openingHours[day].morning?.end || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'morning', 'end', text)}
-                />
-              </View>
-            </View>
+              </TouchableOpacity>
 
-            <View style={styles.periodContainer}>
-              <Text style={styles.periodLabel}>Après-midi :</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Début"
-                  value={openingHours[day].afternoon?.start || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'afternoon', 'start', text)}
-                />
-                <Text style={styles.toText}>à</Text>
-                <TextInput
-                  style={styles.hourInput}
-                  placeholder="Fin"
-                  value={openingHours[day].afternoon?.end || ""}
-                  onChangeText={(text) => updateOpeningHour(day, 'afternoon', 'end', text)}
-                />
-              </View>
+              {expandedDay === group.days[0] && (
+                <View style={styles.dayGroupContent}>
+                  {/* Header Row */}
+                  <View style={styles.hoursHeaderRow}>
+                    <Text style={[styles.dayLabel, {color: 'transparent'}]}>-</Text>
+                    <View style={styles.hoursHeaderBlock}>
+                      <Text style={styles.hoursHeaderText}>Matin</Text>
+                      <View style={styles.timeInputs}>
+                        <Text style={styles.hoursHeaderSubText}>Début</Text>
+                        <Text style={styles.hoursHeaderSubText}>Fin</Text>
+                      </View>
+                    </View>
+                    <View style={styles.hoursHeaderBlock}>
+                      <Text style={styles.hoursHeaderText}>Après-midi</Text>
+                      <View style={styles.timeInputs}>
+                        <Text style={styles.hoursHeaderSubText}>Début</Text>
+                        <Text style={styles.hoursHeaderSubText}>Fin</Text>
+                      </View>
+                    </View>
+                    <View style={styles.dayActionsHeader} />
+                  </View>
+                  {/* Day Rows */}
+                  {group.days.map((day, index) => (
+                    <View key={day} style={styles.dayRow}>
+                      <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
+                      {/* Matin */}
+                      <View style={styles.timeInputs}>
+                        <TextInput
+                          style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
+                          placeholder="09"
+                          value={openingHours[day].morning?.start || ""}
+                          onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'start', text.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                        <Text style={styles.timeSeparator}>h</Text>
+                        <TextInput
+                          style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
+                          placeholder="12"
+                          value={openingHours[day].morning?.end || ""}
+                          onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'end', text.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                      </View>
+                      {/* Après-midi */}
+                      <View style={styles.timeInputs}>
+                        <TextInput
+                          style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
+                          placeholder="14"
+                          value={openingHours[day].afternoon?.start || ""}
+                          onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'start', text.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                        <Text style={styles.timeSeparator}>h</Text>
+                        <TextInput
+                          style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
+                          placeholder="19"
+                          value={openingHours[day].afternoon?.end || ""}
+                          onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'end', text.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                      </View>
+                      {/* Actions */}
+                      <View style={styles.dayActions}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => {
+                            setOpeningHours(prev => ({
+                              ...prev,
+                              [day]: { morning: null, afternoon: null }
+                            }));
+                          }}
+                        >
+                          <Ionicons
+                            name={!openingHours[day].morning && !openingHours[day].afternoon ? "lock-closed" : "lock-open"}
+                            size={20}
+                            color={AppColors.primary}
+                          />
+                        </TouchableOpacity>
+                        {index < group.days.length - 1 && (
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => copyToNextDay(day)}
+                          >
+                            <Ionicons name="copy" size={20} color={AppColors.primary} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {(hoursErrors[`${day}_morning_start`] === 'order' || hoursErrors[`${day}_morning_end`] === 'order') && (
+                        <Text style={styles.timeInputErrorText}>L'heure de fin doit être après l'heure de début</Text>
+                      )}
+                      {(hoursErrors[`${day}_morning_start`] === 'notNumber' || hoursErrors[`${day}_morning_end`] === 'notNumber') && (
+                        <Text style={styles.timeInputErrorText}>Veuillez entrer un nombre</Text>
+                      )}
+                      {(hoursErrors[`${day}_afternoon_start`] === 'order' || hoursErrors[`${day}_afternoon_end`] === 'order') && (
+                        <Text style={styles.timeInputErrorText}>L'heure de fin doit être après l'heure de début</Text>
+                      )}
+                      {(hoursErrors[`${day}_afternoon_start`] === 'notNumber' || hoursErrors[`${day}_afternoon_end`] === 'notNumber') && (
+                        <Text style={styles.timeInputErrorText}>Veuillez entrer un nombre</Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
 
         {user?.userType === "merchant" && (
           <>
@@ -690,9 +993,208 @@ const styles = StyleSheet.create({
     right: 5,
   },  
   suggestionItem: {
-    padding: 10,
+    padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-  }  
+    borderBottomColor: AppColors.grey_200,
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: AppColors.black,
+  },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  locationButton: {
+    padding: 10,
+    marginLeft: 10,
+    backgroundColor: AppColors.primary_faded,
+    borderRadius: 8,
+  },
+  mapContainer: {
+    height: 200,
+    marginBottom: 15,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  map: {
+    flex: 1,
+  },
+  presetsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 15,
+  },
+  presetButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: AppColors.primary_faded,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  selectedPreset: {
+    borderColor: AppColors.primary,
+    backgroundColor: AppColors.white,
+  },
+  presetText: {
+    color: AppColors.primary,
+    fontSize: 14,
+  },
+  selectedPresetText: {
+    fontWeight: 'bold',
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  closedButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    backgroundColor: AppColors.primary_faded,
+  },
+  closedButtonText: {
+    color: AppColors.primary,
+    fontSize: 12,
+  },
+  closedText: {
+    color: AppColors.grey_200,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 10,
+  },
+  openingHoursContainer: {
+    marginBottom: 20,
+  },
+  dayGroup: {
+    backgroundColor: AppColors.white,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+  },
+  dayGroupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+  },
+  dayGroupTitle: {
+    flex: 1,
+  },
+  dayGroupText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: AppColors.black,
+  },
+  dayGroupHours: {
+    fontSize: 12,
+    color: AppColors.grey_200,
+    marginTop: 2,
+  },
+  dayGroupContent: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.grey_200,
+    backgroundColor: AppColors.white_200,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 2,
+    minHeight: 48,
+  },
+  hoursContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timeInputGroup: {
+    flex: 1,
+  },
+  timeInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeInput: {
+    width: 44,
+    height: 36,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+    borderRadius: 6,
+    textAlign: 'center',
+    fontSize: 16,
+    marginHorizontal: 4,
+    backgroundColor: AppColors.white_100,
+    paddingVertical: 2,
+  },
+  timeSeparator: {
+    marginHorizontal: 4,
+    color: AppColors.grey_200,
+  },
+  dayActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    padding: 4,
+  },
+  hoursHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingHorizontal: 2,
+  },
+  hoursHeaderBlock: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  hoursHeaderText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+    marginBottom: 2,
+  },
+  hoursHeaderSubText: {
+    fontSize: 11,
+    color: AppColors.grey_200,
+    marginHorizontal: 8,
+  },
+  dayActionsHeader: {
+    width: 48,
+  },
+  dayLabel: {
+    width: 70,
+    fontSize: 14,
+    color: AppColors.black,
+  },
+  timeInputError: {
+    borderColor: AppColors.red,
+    backgroundColor: '#fff0f0',
+  },
+  timeInputErrorText: {
+    color: AppColors.red,
+    fontSize: 11,
+    marginTop: -4,
+    marginBottom: 4,
+    marginLeft: 8,
+  },
+  dayActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    width: 48,
+    marginLeft: 4,
+  },
+  actionButton: {
+    padding: 4,
+  },
 });
-

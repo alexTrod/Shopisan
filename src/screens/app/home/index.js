@@ -54,6 +54,8 @@ export default function HomeScreen({ navigation, route }) {
   const hasMoreRef = useRef(hasMore);
   const lastVisibleRef = useRef(lastVisible);
 
+  const [showCityModal, setShowCityModal] = useState(false);
+
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
   useEffect(() => { lastVisibleRef.current = lastVisible; }, [lastVisible]);
@@ -333,9 +335,12 @@ export default function HomeScreen({ navigation, route }) {
       if (showFavoritesOnly) {
         return prevStores.filter(store => store.id !== storeId);
       }
-      return prevStores;
+      return prevStores.map(store => 
+        store.id === storeId 
+          ? { ...store, isFavorite: !store.isFavorite }
+          : store
+      );
     });
-  
   }, [dispatch, navigation, user, showFavoritesOnly]);
 
   const handleRefresh = useCallback(() => {
@@ -383,7 +388,7 @@ export default function HomeScreen({ navigation, route }) {
       title={item.name}
       id={item.id}
       tags={getCategoriesNamesByIds(item?.category ?? [])}
-      description={item?.description?.[locale] ?? ""}
+      description={item?.description?.fr ?? ""}
       address={item.address}
       image={item.imageUrl ? { uri: item.imageUrl } : undefined}
       isFavorite={item.isFavorite}
@@ -592,46 +597,37 @@ export default function HomeScreen({ navigation, route }) {
       statusBarColor={AppColors.white_100}
       barStyle="dark-content"
     >
-      <View style={{ flex: 1 }}>
-        
-        <View style={styles.filterRow}>
-          <CategoryFilter />
-        </View>
-
-        <View style={styles.filterRow}>
-          <CityFilter />
-        </View>
-
-        <View style={styles.rowContainer}>          
-          <TouchableOpacity onPress={handleToggleShowFavorites} style={styles.switchButton}>
-            <MaterialIcons 
-              name={showFavoritesOnly ? "favorite" : "favorite-border"} 
-              size={24} 
-              color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200} 
+      <View style={styles.container}>
+        {/* Search Bar + Category Chip Group */}
+        <View style={styles.searchGroupContainer}>
+          <View style={styles.searchBarRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Look for a store"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
             />
-            <Text style={styles.switchText}>{showFavoritesOnly ? "Favoris" : "Tous"}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleNearbyPress}
-            style={[
-              styles.switchButton,
-              { marginLeft: 0, marginTop: 10 },
-              isNearbyActive && { borderColor: AppColors.primary, backgroundColor: "#f0f0f0" },
-            ]}
-          >
-            <Ionicons
-              name="location-outline"
-              size={24}
-              color={isNearbyActive ? AppColors.primary : AppColors.grey_200}
-            />
-            <Text style={[styles.switchText, isNearbyActive && { color: AppColors.primary }]}>
-              Autour de moi
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.citySearchButton}
+              onPress={() => setShowCityModal(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="navigate-circle-outline" size={22} color={AppColors.primary} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.categoryChipRow}>
+            <CategoryFilter />
+          </View>
         </View>
 
-        <View style={styles.rowContainer}>
+        {/* Filters */}
+        <View style={styles.filtersRow}>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionsRow}>
           {user?.userType === 'merchant' && (
             <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
               <MaterialIcons 
@@ -639,36 +635,53 @@ export default function HomeScreen({ navigation, route }) {
                 size={24} 
                 color={showMyStoresOnly ? AppColors.primary : AppColors.grey_200} 
               />
-              <Text style={styles.switchText}>{showMyStoresOnly ? "Mes Magasins" : "Tous"}</Text>
+              <Text style={styles.switchText}>{showMyStoresOnly ? "My stores" : "All stores"}</Text>
             </TouchableOpacity>
           )}
-
-          <Button
-            onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
-            containerStyle={styles.addButton}
-          >
-            Add New Store
-          </Button>
         </View>
 
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher un magasin..."
-            value={searchQuery}
-            onChangeText={text => setSearchQuery(text)}
-            onSubmitEditing={handleSearchSubmit}
-            returnKeyType="search"
+        {/* Store List */}
+        <FlatList {...flatListProps} ref={flatListRef} style={styles.list} />
+
+        {/* Floating Location Button (single tap only) */}
+        <TouchableOpacity
+          onPress={handleNearbyPress}
+          style={styles.fabLocation}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="location-outline" size={28} color={AppColors.primary} />
+        </TouchableOpacity>
+
+        {/* Floating Add New Store Button */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
+          style={styles.fabAdd}
+        >
+          <MaterialIcons
+            name="add"
+            size={32}
+            color="#fff"
           />
-        </View>
+        </TouchableOpacity>
 
-        <FlatList {...flatListProps} ref={flatListRef} />
+        {/* Floating Favorite Button */}
+        <TouchableOpacity
+          onPress={handleToggleShowFavorites}
+          style={styles.fabFavorite}
+        >
+          <MaterialIcons
+            name={showFavoritesOnly ? "favorite" : "favorite-border"}
+            size={28}
+            color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200}
+          />
+        </TouchableOpacity>
       </View>
+      <CityFilter onSelect={() => setShowCityModal(false)} isVisible={showCityModal} />
       <Modal visible={showNearbyModal} transparent animationType="fade">
         <View style={modalStyles.container}>
           <View style={modalStyles.modal}>
             <ActivityIndicator size="large" color={AppColors.primary} />
-            <Text style={modalStyles.text}>Recherche des magasins à proximité...</Text>
+            <Text style={modalStyles.text}>Looking for stores around...</Text>
           </View>
         </View>
       </Modal>
@@ -677,25 +690,69 @@ export default function HomeScreen({ navigation, route }) {
 }
 
 const styles = {
-  filterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.white_100,
+    paddingTop: 0,
+  },
+  searchGroupContainer: {
+    backgroundColor: '#fff',
+    borderColor: '#e0e0e0',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e0e0e0',
+    borderRadius: 0,
+    width: '100%',
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+  },
+  searchBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#f0f0f0',
+    fontSize: 16,
+    paddingHorizontal: 12,
+    borderWidth: 0,
     marginBottom: 0,
   },
-  rowContainer: {
+  categoryChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 0,
+    // No justifyContent, chip will be as wide as its content
+  },
+  filtersRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    flexWrap: 'wrap',
   },
-  addButton: {
-    backgroundColor: AppColors.primary,
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  list: {
+    flex: 1,
+    paddingHorizontal: 0,
   },
   switchButton: {
     flexDirection: "row",
@@ -712,6 +769,100 @@ const styles = {
     marginLeft: 5,
     fontSize: 14,
     color: AppColors.black,
+  },
+  addButton: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  fabAdd: {
+    position: 'absolute',
+    bottom: 100,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: AppColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  fabFavorite: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+  },
+  fabLocation: {
+    position: 'absolute',
+    bottom: 170,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+    overflow: 'visible',
+  },
+  citySearchButton: {
+    marginLeft: 8,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cityDropdownContainer: {
+    position: 'absolute',
+    top: 56, // below the search bar
+    right: 16,
+    zIndex: 100,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 180,
+    padding: 8,
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99,
+    backgroundColor: 'transparent',
   },
 };
 
@@ -735,6 +886,5 @@ const modalStyles = StyleSheet.create({
     color: "#333",
   },
 });
-
 
 

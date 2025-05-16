@@ -14,6 +14,8 @@ import { useNavigation } from '@react-navigation/native';
 import { toggleFavoriteStore } from '../../Redux/Actions/UserActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { signOut } from "../../Redux/Actions/UserActions";
+import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
+import { ScrollView } from 'react-native';
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
   const navigation = useNavigation();
@@ -24,6 +26,9 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const dispatch = useDispatch();
   const isFavorite = useSelector(state => state.user.favoriteStores.includes(item.id));
   const user = useSelector(state => state.user.userData);
+  const selectedCategories = useSelector(state => state.categories.selectedCategories);
+  const categories = useSelector(state => state.categories.categories);
+  const [postMedia, setPostMedia] = useState([]);
 
   const days = [
     "monday",
@@ -53,6 +58,23 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     const postalCode = location?.city?.postal_code || '';
     const geoHash = location?.geopoint || '';
     return {street, postalCode, city, geoHash};
+  }
+
+  const fetchPostMedia = async () => {
+    try {
+      const postsRef = collection(firestore, 'posts');
+      const q = query(postsRef, where('store.id', '==', item.id));
+      const snapshot = await getDocs(q);
+
+      const mediaArray = snapshot.docs
+        .map(doc => doc.data()?.media)
+        .filter(Boolean)
+        .flat();
+
+      setPostMedia(mediaArray);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des médias :", error);
+    }
   }
 
   const fetchStoreRatings = async () => {
@@ -149,6 +171,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   useEffect(() => {
     if (visible) {
       fetchStoreRatings();
+      fetchPostMedia();
     }
   }, [visible]);
 
@@ -185,6 +208,16 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     dispatch(toggleFavoriteStore(item.id));
   };  
 
+  const handleCategoryPress = (categoryName) => {
+    const category = categories.find(cat => cat.name === categoryName);
+    if (category) {
+      const newSelectedCategories = selectedCategories.includes(category.id)
+        ? selectedCategories.filter(cat => cat !== category.id)
+        : [...selectedCategories, category.id];
+      dispatch(setSelectedCategories(newSelectedCategories));
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -195,107 +228,144 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalContainer}>
           <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>              
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="white" />
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
-                <Ionicons name="home-outline" size={24} color="white" />
-              </TouchableOpacity>
-
-              <Text style={styles.title}>{item.title}</Text>
-              <AddressComponent address={address(item.address)} />
-
-              <View style={styles.tagsContainer}>
-                {item.tags.map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <Text style={styles.description}>{item.description}</Text>
-
-              {item.openingHours && (
-                <View style={{ width: '100%', marginTop: 20 }}>
-                  <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
-                  {days.map((dayKey) => {
-                    const dayHours = item.openingHours[dayKey];
-                    const dayLabel = daysLabels[dayKey];
-
-                    let hoursText = "";
-
-                    if (dayHours?.morning && dayHours?.afternoon) {
-                      hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
-                    } else if (dayHours?.morning) {
-                      hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
-                    } else if (dayHours?.afternoon) {
-                      hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
-                    } else {
-                      hoursText = "Non communiqué";
-                    }
-
-                    return (
-                      <View key={dayKey} style={styles.openingHourRow}>
-                        <Text style={styles.openingHourDay}>{dayLabel} :</Text>
-                        <Text style={styles.openingHourText}>{hoursText}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              <View style={styles.ratingContainer}>
-                <View style={styles.ratingSection}>
-                  <Text style={styles.sectionTitle}>Your rating</Text>
-                  <View style={styles.rating}>
-                    {[...Array(5)].map((_, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() => submitRating(index + 1)}
-                        disabled={loading}
-                      >
-                        <Ionicons
-                          name={index < userRating ? "star" : "star-outline"}
-                          size={height(2.5)}
-                          color={index < userRating ? "gold" : "gray"}
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-               
-                <View style={styles.ratingSection}>
-                  <Text style={styles.sectionTitle}>Shopper's rating</Text>
-                  <View style={styles.rating}>
-                    {[...Array(5)].map((_, index) => (
-                      <Ionicons
-                        key={index}
-                        name={index < averageRating ? "star" : "star-outline"}
-                        size={height(2.5)}
-                        color={index < averageRating ? "gold" : "gray"}
-                      />
-                    ))}
-                    <Text style={styles.ratingText}>
-                      {loading ? 'Updating...' : 
-                       `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.favoriteContainer}>
-                <TouchableOpacity
-                  onPress={handleToggleFavoriteFromModal}
-                  style={styles.favoriteButton}
-                >
-                  <Ionicons
-                    name={isFavorite ? "heart" : "heart-outline"}
-                    size={height(2.5)}
-                    color={isFavorite ? "red" : "gray"}
-                  />
+            <View style={styles.modalContent}>   
+              <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.headerContainer}>
+                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                    <Ionicons name="close" size={24} color={AppColors.primary} />
+                  </TouchableOpacity>
+                {/*
+                <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
+                  <Ionicons name="home-outline" size={24} color="white" />
                 </TouchableOpacity>
-              </View>
+                */}
+                    <TouchableOpacity
+                      onPress={handleToggleFavoriteFromModal}
+                      style={styles.favoriteButton}
+                    >
+                      <Ionicons
+                        name={isFavorite ? "heart" : "heart-outline"}
+                        size={height(2.5)}
+                        color={isFavorite ? "red" : "gray"}
+                      />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.title}>{item.title}</Text>
+                <AddressComponent address={address(item.address)} />
+
+                <View style={styles.tagsContainer}>
+                  {item.tags.map((tag, index) => (
+                    <TouchableOpacity 
+                      key={index} 
+                      style={[
+                        styles.tag,
+                        selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
+                      ]}
+                      onPress={() => handleCategoryPress(tag)}
+                    >
+                      <Text
+                        style={[
+                          styles.tagText,
+                          selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
+                        ]}
+                      >
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.description}>{item.description || "aa"}</Text>
+
+                {item.openingHours && (
+                  <View style={{ width: '100%', marginTop: 20 }}>
+                    <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
+                    {days.map((dayKey) => {
+                      const dayHours = item.openingHours[dayKey];
+                      const dayLabel = daysLabels[dayKey];
+
+                      let hoursText = "";
+
+                      if (dayHours?.morning && dayHours?.afternoon) {
+                        hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                      } else if (dayHours?.morning) {
+                        hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
+                      } else if (dayHours?.afternoon) {
+                        hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                      } else {
+                        hoursText = "Unknown";
+                      }
+
+                      return (
+                        <View key={dayKey} style={styles.openingHourRow}>
+                          <Text style={styles.openingHourDay}>{dayLabel} :</Text>
+                          <Text style={styles.openingHourText}>{hoursText}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <View style={styles.ratingContainer}>
+                  <View style={styles.ratingSection}>
+                    <Text style={styles.sectionTitle}>Your rating</Text>
+                    <View style={styles.rating}>
+                      {[...Array(5)].map((_, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => submitRating(index + 1)}
+                          disabled={loading}
+                        >
+                          <Ionicons
+                            name={index < userRating ? "star" : "star-outline"}
+                            size={height(2.5)}
+                            color={index < userRating ? "gold" : "gray"}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                
+                  <View style={styles.ratingSection}>
+                    <Text style={styles.sectionTitle}>Shopper's rating</Text>
+                    <View style={styles.rating}>
+                      {[...Array(5)].map((_, index) => (
+                        <Ionicons
+                          key={index}
+                          name={index < averageRating ? "star" : "star-outline"}
+                          size={height(2.5)}
+                          color={index < averageRating ? "gold" : "gray"}
+                        />
+                      ))}
+                      <Text style={styles.ratingText}>
+                        {loading ? 'Updating...' : 
+                        `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {postMedia.length > 0 && (
+                  <View style={styles.mediaContainer}>
+                    <Text style={styles.sectionTitle}>Annonces postées</Text>
+                    {postMedia.map((media, index) => (
+                      <View key={index} style={styles.mediaCard}>
+                        <Text style={styles.mediaText}>
+                          {media?.description?.en || media?.description?.fr || "Pas de description."}
+                        </Text>
+                        {media?.price !== null && (
+                          <Text style={styles.mediaPrice}>Prix : {media.price} €</Text>
+                        )}
+                        {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
+                          <Text style={styles.mediaLink}>
+                            {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </ScrollView>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -304,12 +374,12 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  favoriteContainer: {
+const styles = StyleSheet.create({   
+  headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
-
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
   },
   address: {
     fontSize: 14,
@@ -331,6 +401,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 10,
     padding: 20,
     alignItems: 'center',
+    maxHeight: '60%',
+  },
+  scrollContent: {
+    width: '100%',
+    paddingBottom: 20,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -339,15 +414,24 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   tag: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: AppColors.primary_faded,
     borderRadius: 15,
     paddingVertical: 5,
     paddingHorizontal: 10,
     marginRight: 5,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  selectedTag: {
+    borderColor: AppColors.primary_faded_dark,
+    borderWidth: 2,
   },
   tagText: {
     fontSize: height(1.5),
     fontFamily: "Mulish-Bold",
+    color: AppColors.primary,
+  },
+  selectedTagText: {
     color: AppColors.primary,
   },
   title: {
@@ -369,16 +453,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  closeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 10,
-    backgroundColor: AppColors.grey_100,
-    borderRadius: 5,
-  },
   closeButtonText: {
-    color: 'white',
+    color: AppColors.primary,
     fontWeight: 'bold',
   },
   goHomeButton: {
@@ -388,7 +464,35 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: AppColors.grey_100,
     borderRadius: 5,
-  }  
+  },
+  mediaContainer: {
+    marginTop: 20,
+    width: '100%',
+  },
+  mediaCard: {
+    backgroundColor: AppColors.white_200,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+  },
+  mediaText: {
+    fontSize: 14,
+    color: AppColors.black,
+    marginBottom: 6,
+  },
+  mediaPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+  },
+  mediaLink: {
+    fontSize: 13,
+    color: AppColors.primary,
+    textDecorationLine: 'underline',
+    marginTop: 4,
+  }
 });
 
 export default ItemDetailModal; 

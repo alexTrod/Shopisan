@@ -42,7 +42,7 @@ const CategoryFilter = () => {
   return (
     <View style={[styles.container, { zIndex: 9999 }]}>
       <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' , justifyContent:'center'}}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Text style={styles.selectedTextStyle}>
           {selectedCategories.length > 0 ? '+' : '+ Category'}
           </Text>
@@ -108,28 +108,25 @@ const styles = StyleSheet.create({
     margin:2,
   },
   container: {
-    paddingHorizontal: width(6),
-    marginVertical: height(2),
-    zIndex: 9999,
-    elevation: 9999,
-    width: '100%',
     flexDirection:'row',
+    alignItems: 'center',
   },
   dropdown: {
-    //width: '80%',
-    left:'-25%',
-    backgroundColor: AppColors.primary,
-    borderRadius: 25,
-    paddingLeft:15,
-    paddingRight:15,
+    backgroundColor: AppColors.white,
+    borderColor: AppColors.black,
+    borderWidth: 1,
+    borderRadius: 16,
+    height: 32,
+    paddingHorizontal: 12,
     justifyContent: 'center',
-    marginRight:0,
-    color:AppColors.white,
-    
+    alignItems: 'center',
+    flexShrink: 1,
+    color: AppColors.black,
   },
   selectedTextStyle: {
     fontSize: 14,
-    color:AppColors.white,
+    color: AppColors.black,
+    lineHeight: 18,
   },
   modalContainer: {
     flex: 1,
@@ -156,7 +153,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     marginTop: 20,
     padding: 10,
-    backgroundColor: AppColors.red,
+    backgroundColor: AppColors.primary,
     borderRadius: 5,
     alignItems: 'center',
   },

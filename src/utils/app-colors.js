@@ -11,7 +11,9 @@ const AppColors = {
   wihte5: "rgba(112,112,112,1)",
 
   // Primary Colors
-  primary: "rgba(224,74,93,1)",
+  primary: "rgb(74, 34, 88)",
+  primary_faded: "rgba(240,240,240,1)",
+  primary_faded_dark: "rgb(149, 118, 157)",
   primary_darker: "rgba(160,31,57,1)",
   primary2: "rgba(23,86,142,1)",
 

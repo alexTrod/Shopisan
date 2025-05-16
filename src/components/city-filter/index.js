@@ -10,12 +10,18 @@ import { getCitiesLocale } from '../../Redux/Reducers/CitiesReducer';
 import { getCountriesLocale } from '../../Redux/Reducers/CountriesReducer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const CityFilter = () => {
+const CityFilter = ({ onSelect, isVisible }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
   const { cities, selectedCities } = useSelector(state => state.cities);
   const [countries, setCountries] = useState([]);
   const [selectedCountry, setSelectedCountry] = useState("all");
+
+  useEffect(() => {
+    if (isVisible) {
+      setModalVisible(true);
+    }
+  }, [isVisible]);
 
   useEffect(() => {
     const loadCitiesAndCountries = async () => {
@@ -59,77 +65,57 @@ const CityFilter = () => {
   };
 
   return (
-    <View style={[styles.container, { zIndex: 9999 }]}>
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={styles.selectedTextStyle}>
-            {selectedCities.length > 0 ? '+' : '+ City'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      
-      <ScrollView horizontal style={styles.selectedCitiesContainer}>
-        {selectedCities.map((cityName) => (
-          <View key={cityName} style={styles.selectedCityItem}>
-            <Text style={styles.selectedCityText}>{cityName}</Text>
-            <TouchableOpacity onPress={() => dispatch(setSelectedCities(selectedCities.filter(c => c !== cityName)))}>
-              <Icon name="close" size={20} color={AppColors.black} />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </ScrollView>
-
-      <Modal animationType="slide" transparent={true} visible={modalVisible}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <ScrollView
-              horizontal
-              style={styles.countryScroll}
-              showsHorizontalScrollIndicator={false}
-            >
-              {countries.map(country => (
-                <TouchableOpacity
-                  key={country.id}
+    <Modal animationType="slide" transparent={true} visible={isVisible}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <ScrollView
+            horizontal
+            style={styles.countryScroll}
+            showsHorizontalScrollIndicator={false}
+          >
+            {countries.map(country => (
+              <TouchableOpacity
+                key={country.id}
+                style={[
+                  styles.countryButton,
+                  selectedCountry === country.id && styles.selectedCountryButton
+                ]}
+                onPress={() => setSelectedCountry(country.id)}
+              >
+                <Text
                   style={[
-                    styles.countryButton,
-                    selectedCountry === country.id && styles.selectedCountryButton
+                    styles.countryText,
+                    selectedCountry === country.id && styles.selectedCountryText
                   ]}
-                  onPress={() => setSelectedCountry(country.id)}
                 >
-                  <Text
-                    style={[
-                      styles.countryText,
-                      selectedCountry === country.id && styles.selectedCountryText
-                    ]}
-                  >
-                    {country.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity onPress={handleSelectAll} style={styles.cityItem}>
-              <Text style={[styles.cityText, { color: selectedCities.length === 0 ? AppColors.primary : AppColors.black }]}>
-                Unselect
-              </Text>
-            </TouchableOpacity>
-            <FlatList
-              data={data}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => handleSelectCity(item)} style={styles.cityItem}>
-                  <Text style={[styles.cityText, { color: selectedCities.includes(item.value) ? AppColors.primary : AppColors.black }]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Finish</Text>
-            </TouchableOpacity>
-          </View>
+                  {country.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity onPress={handleSelectAll} style={styles.cityItem}>
+            <Text style={[styles.cityText, { color: selectedCities.length === 0 ? AppColors.primary : AppColors.black }]}>Unselect</Text>
+          </TouchableOpacity>
+          <FlatList
+            data={data}
+            keyExtractor={(item) => item.value}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => handleSelectCity(item)} style={styles.cityItem}>
+                <Text style={[styles.cityText, { color: selectedCities.includes(item.value) ? AppColors.primary : AppColors.black }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+          <TouchableOpacity onPress={() => {
+            setModalVisible(false);
+            if (onSelect) onSelect();
+          }} style={styles.cancelButton}>
+            <Text style={styles.cancelButtonText}>Finish</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -234,7 +220,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     marginTop: 10,
     padding: 10,
-    backgroundColor: AppColors.red,
+    backgroundColor: AppColors.primary,
     borderRadius: 5,
     alignItems: 'center',
   },  

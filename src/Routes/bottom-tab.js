@@ -15,6 +15,7 @@ import ShopFilled from "../../assets/icons/shop-filled";
 import { ScreenNames } from "./routes";
 import Profile from "../screens/app/Profile";
 import Map from "../screens/app/map";
+import { AppColors } from "../utils/";
 
 const Tab = createBottomTabNavigator();
 
@@ -45,8 +46,8 @@ export default function BottomTabs() {
             }
           }
         },
-        tabBarActiveTintColor: "tomato",
-        tabBarInactiveTintColor: "gray",
+        tabBarActiveTintColor: AppColors.primary,
+        tabBarInactiveTintColor: AppColors.grey_200,
         header: () => false,
       })}
     >

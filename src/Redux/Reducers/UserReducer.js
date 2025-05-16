@@ -41,6 +41,7 @@ export const getCountries = async () => {
 }
 
 export const userReducer = (state = initialState, action) => {
+  console.log('Reducing:', action.type);
   switch (action.type) {
     case 'AUTH_LOADING':
       return {

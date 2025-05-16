@@ -492,7 +492,7 @@ export default function Map({ navigation, route  }) {
                     setSelectedStoreDetails({
                       id: store.id,
                       title: store.name,
-                      description: store.description?.en || "No description available",
+                      description: store.description?.fr || "No description available",
                       tags: store.category?.map(getCategoryName) || [],
                       address: store.address || "No address available",
                       openingHours: store.openingHours || null,

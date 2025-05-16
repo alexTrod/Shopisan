@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
 } from "react-native";
 
 import { collection, query, getDocs, where} from 'firebase/firestore';
@@ -19,6 +20,8 @@ import { selectFavoriteStores } from '../../Redux/Selectors/UserSelectors';
 import ItemDetailModal from './ItemDetailModal';
 import { useNavigation } from '@react-navigation/native'
 import { ScreenNames } from "../../Routes/routes";
+import CityFilter from '../../components/city-filter';
+import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
 
 
 const placeholderImage1 = require('../../images/placeholder_store_1.png');	
@@ -42,6 +45,10 @@ const ItemCard = React.memo(({
 
   const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
   const [modalVisible, setModalVisible] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const dispatch = useDispatch();
+  const selectedCategories = useSelector(state => state.categories.selectedCategories);
+  const categories = useSelector(state => state.categories.categories);
 
   const navigation = useNavigation();
   const user = useSelector(state => state.user.userData);
@@ -93,72 +100,171 @@ const ItemCard = React.memo(({
   };
 
   const handleInfoPress = () => {
+    console.log('Opening info modal for store:', title);
     setModalVisible(true);
   };
 
+  const handleCategoryPress = (categoryName) => {
+    const category = categories.find(cat => cat.name === categoryName);
+    if (category) {
+      const newSelectedCategories = selectedCategories.includes(category.id)
+        ? selectedCategories.filter(cat => cat !== category.id)
+        : [...selectedCategories, category.id];
+      dispatch(setSelectedCategories(newSelectedCategories));
+    }
+  };
+
   return (
-    <TouchableOpacity activeOpacity={0.9} style={styles.card}>
-      <View>
+    <View style={[styles.card, !image && styles.cardNoImage]}>
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={handleInfoPress}
+        style={{ flex: 1 }}
+      >
         <View>
-          <Image style={styles.image} source={image || placeholders[Math.floor(id % placeholders.length)]} />
-          <View
-            style={[
-              styles.image,
-              { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
-            ]}
-          />
-          {
-            <View style={styles.topIconsRow}>
-              <View style={styles.leftIcons}>
-                <TouchableOpacity style={styles.iconButton} onPress={onPress}>
-                  <Ionicons name="map-outline" size={24} color={AppColors.white} />
-                </TouchableOpacity>
-              </View>
-            
-              <View style={styles.rightIcons}>
-                {isOwner && (
-                  <TouchableOpacity style={styles.iconButton} onPress={handleEditPress}>
-                    <Ionicons name="create-outline" size={24} color={AppColors.white} />
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity style={styles.iconButton2} onPress={handleInfoPress}>
-                  <Ionicons name="information-circle-outline" size={24} color={AppColors.white} />
-                </TouchableOpacity>
-              </View>
-            </View>          
-          }
-        </View>
-
-        <View style={styles.cardContent}>
-          <Text style={styles.title}>{title}</Text>
-
-          <View style={styles.rating}>
-            {[...Array(5)].map((_, index) => (
-              <Ionicons
-                key={index}
-                name="star"
-                size={height(2.5)}
-                color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
-              />
-            ))}
-            <Text style={styles.ratingText}>
-              {rating.ratingCount > 0 
-                ? rating.averageRating + ' (' + rating.ratingCount + ')'
-                : 'No ratings yet'}
-            </Text>
+          <View>
+            {image && (
+              <>
+                <Image style={styles.image} source={image} />
+                <View
+                  style={[
+                    styles.image,
+                    { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
+                  ]}
+                />
+                <View style={styles.topIconsRow}>
+                  <View style={styles.leftIcons}>
+                    <TouchableOpacity 
+                      style={[styles.iconButton, { zIndex: 1 }]} 
+                      onPress={() => {
+                        console.log('Map button pressed');
+                        onPress();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="map-outline" size={24} color={AppColors.white} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.rightIcons}>
+                    {isOwner && (
+                      <TouchableOpacity 
+                        style={[styles.iconButton, { zIndex: 1 }]} 
+                        onPress={() => {
+                          console.log('Edit button pressed');
+                          handleEditPress();
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="create-outline" size={24} color={AppColors.white} />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity 
+                      style={[styles.iconButton, { zIndex: 1 }]} 
+                      onPress={() => {
+                        console.log('Info button pressed');
+                        handleInfoPress();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="information-circle-outline" size={24} color={AppColors.white} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.iconButton, { zIndex: 1 }]} 
+                      onPress={() => {
+                        console.log('Favorite button pressed');
+                        onPressFavorite();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons 
+                        name={isFavorite ? "heart" : "heart-outline"} 
+                        size={24} 
+                        color={AppColors.white} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
 
-          {
+          <View style={[styles.cardContent, !image && styles.cardContentNoImage]}>
+            {!image && (
+              <View style={styles.topIconsRowNoImage}>
+                <View style={styles.rightIcons}>
+                  {isOwner && (
+                    <TouchableOpacity 
+                      style={[styles.iconButton, { zIndex: 1 }]} 
+                      onPress={() => {
+                        console.log('Edit button pressed (no image)');
+                        handleEditPress();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="create-outline" size={24} color={AppColors.primary} />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity 
+                    style={[styles.iconButton, { zIndex: 1 }]} 
+                    onPress={() => {
+                      console.log('Info button pressed (no image)');
+                      handleInfoPress();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="information-circle-outline" size={24} color={AppColors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.iconButton, { zIndex: 1 }]} 
+                    onPress={() => {
+                      console.log('Favorite button pressed (no image)');
+                      onPressFavorite();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name={isFavorite ? "heart" : "heart-outline"} 
+                      size={24} 
+                      color={AppColors.primary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            <Text style={[styles.title, !image && styles.titleNoImage]} numberOfLines={2}>{title}</Text>
+
+            <View style={styles.rating}>
+              {[...Array(5)].map((_, index) => (
+                <Ionicons
+                  key={index}
+                  name="star"
+                  size={height(2.5)}
+                  color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
+                />
+              ))}
+              <Text style={styles.ratingText}>
+                {rating.ratingCount > 0 
+                  ? rating.averageRating + ' (' + rating.ratingCount + ')'
+                  : 'No ratings yet'}
+              </Text>
+            </View>
+
             <View style={styles.tags}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {tags.map((tag, index) => (
-                  <TouchableOpacity key={index} style={styles.tag}>
+                  <TouchableOpacity 
+                    key={index} 
+                    style={[
+                      styles.tag,
+                      selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
+                    ]}
+                    onPress={() => handleCategoryPress(tag)}
+                  >
                     <Text
-                      style={{
-                        fontSize: height(1.5),
-                        fontFamily: "Mulish-Bold",
-                        color: AppColors.primary,
-                      }}
+                      style={[
+                        styles.tagText,
+                        selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
+                      ]}
                     >
                       {tag}
                     </Text>
@@ -166,48 +272,31 @@ const ItemCard = React.memo(({
                 ))}
               </ScrollView>
             </View>
-          }
 
-          {
-            <>
-              <View style={styles.descriptionrating}>
-
-
-              </View>
-              <Text style={styles.description}>
-                {description.length > 150 ? `${description.substring(0, 150)}...` : description}
-              </Text>
-              <TouchableOpacity 
-                style={styles.favoriteIcon} 
-                onPress={() => {
-                  console.log(`Toggling favorite for store ID: ${id}, new state: ${!isFavorite}`);
-                  onPressFavorite();
-                }}
-              >
-                <Ionicons 
-                  name={isFavorite ? "heart" : "heart-outline"} 
-                  size={24} 
-                  color={AppColors.primary} 
-                />
-              </TouchableOpacity>
-            </>
-          }
-
+            {
+              <>
+                <Text style={styles.description} numberOfLines={2}>
+                  {description.length > 150 ? `${description.substring(0, 150)}...` : description}
+                </Text>
+              </>
+            }
+          </View>
         </View>
-        <ItemDetailModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          item={{
-            id,
-            title,
-            description,
-            tags,
-            address,
-            openingHours: openingHours || null,
-          }}
-        />
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      <ItemDetailModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        item={{
+          id,
+          title,
+          description,
+          tags,
+          address,
+          openingHours: openingHours || null,
+        }}
+      />
+    </View>
   );
 });
 
@@ -216,8 +305,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white_200,
     borderRadius: 10,
     overflow: "hidden",
-    marginVertical: 10,
-    // marginHorizontal: 20,
+    marginVertical: 4,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
@@ -225,6 +313,11 @@ const styles = StyleSheet.create({
     elevation: 5, // For Android
     width: width(85),
     alignSelf: "center",
+  },
+  cardNoImage: {
+    paddingVertical: 6,
+    minHeight: 0,
+    marginVertical: 15,
   },
   image: {
     width: "100%",
@@ -264,6 +357,7 @@ const styles = StyleSheet.create({
   iconButton: {
     marginHorizontal: 2,
     padding: 5,
+    zIndex: 1,
   }, 
   iconButton2: {
     marginRight: 20,
@@ -273,9 +367,21 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 10,
   },
+  cardContentNoImage: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    position: 'relative',
+  },
   title: {
     fontSize: height(2),
     fontFamily: "Mulish-Bold",
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    paddingRight: 100, // Make space for the icons
+  },
+  titleNoImage: {
+    fontSize: height(2.2),
+    paddingRight: 100, // Make space for the icons
   },
   descriptionHeading: {
     fontSize: height(1.8),
@@ -284,14 +390,14 @@ const styles = StyleSheet.create({
   rating: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 5,
+    marginVertical: 2,
   },
   descriptionrating: {
     flexDirection: "row",
     alignItems: "center",
-
     marginVertical: 5,
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
+    gap: 10,
   },
   ratingText: {
     marginLeft: 5,
@@ -299,23 +405,51 @@ const styles = StyleSheet.create({
   },
   tags: {
     flexDirection: "row",
-    marginVertical: 5,
+    marginVertical: 2,
   },
   tag: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: AppColors.primary_faded,
     borderRadius: 15,
     paddingVertical: 5,
     paddingHorizontal: 10,
     marginRight: 5,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  selectedTag: {
+    borderColor: AppColors.primary_faded_dark,
+    borderWidth: 2,
+  },
+  tagText: {
+    fontSize: height(1.5),
+    fontFamily: "Mulish-Bold",
+    color: AppColors.primary,
+  },
+  selectedTagText: {
+    color: AppColors.primary,
   },
   description: {
-    marginTop: 10,
+    marginTop: 2,
     color: "gray",
+    minHeight: 0,
   },
   posts: {
     marginTop: 15,
     fontWeight: "bold",
     fontSize: 16,
+  },
+  topIconsRowNoImage: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  actionButton: {
+    backgroundColor: AppColors.white,
+    borderRadius: 50,
+    padding: 5,
   },
 });
 

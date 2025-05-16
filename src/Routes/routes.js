@@ -9,7 +9,7 @@ export const ScreenNames = {
   FORGOT_PASSWORD: "ForgotPassword",
   SELECT_COUNTRY: "SelectCountry",
   SELECT_CATEGORY: "SelectCategory",
-  MAP: "MAP",
+  MAP: "Map",
   PROFILE: "Profile",
   PROFILE_SHOPPER: "ProfileShopper",
   PROFILE_MERCHANT: "ProfileMerchant",

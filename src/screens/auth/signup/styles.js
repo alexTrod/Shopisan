@@ -73,43 +73,6 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary_light,
     borderColor: AppColors.primary,
   },
-  userTypeToggleContainer: {
-    width: '90%',
-    alignSelf: 'center',
-    marginTop: height(2),
-    marginBottom: height(2),
-    alignItems: 'center',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: height(1.2),
-    borderRadius: width(0),
-    borderWidth: 1.5,
-    borderColor: AppColors.grey_100,
-    backgroundColor: AppColors.grey_100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleButtonLeft: {
-    borderTopLeftRadius: width(2),
-    borderBottomLeftRadius: width(2),
-  },
-  toggleButtonRight: {
-    borderTopRightRadius: width(2),
-    borderBottomRightRadius: width(2),
-  },
-  toggleButtonSelected: {
-    borderColor: AppColors.primary,
-    backgroundColor: AppColors.white,
-    elevation: 2,
-  },
 });
 
 export default styles;
