@@ -139,8 +139,6 @@ export default function Profile({ navigation }) {
           ))}
         </View>
 
-        {/* Divider */}
-        <View style={{ height: 1, backgroundColor: AppColors.primary_faded, marginVertical: 40 }} />
 
         <TouchableOpacity
           style={[styles.optionTile, { backgroundColor: AppColors.red }]}
