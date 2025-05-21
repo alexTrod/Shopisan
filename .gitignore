@@ -22,7 +22,6 @@ web-build/
 # assets/
 
 #alex
-android/*
 .idea/*
 
 package-lock.json
