@@ -5,7 +5,7 @@ import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
 import CustomText from '../../../components/text';
 import { height, width } from "../../../utils/dimension";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import { Ionicons } from "@expo/vector-icons";
@@ -47,7 +47,7 @@ export default function Profile({ navigation }) {
         containerStyle={{ width: width(90), alignSelf: "center"}}
       />
       
-      <View style={{ paddingHorizontal: 20, marginTop: 30 }}>
+      <ScrollView style={{ paddingHorizontal: 20, marginTop: 30 }}>
         {/* Account Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
@@ -139,8 +139,6 @@ export default function Profile({ navigation }) {
           ))}
         </View>
 
-        {/* Divider */}
-        <View style={{ height: 1, backgroundColor: AppColors.primary_faded, marginVertical: 40 }} />
 
         <TouchableOpacity
           style={[styles.optionTile, { backgroundColor: AppColors.red }]}
@@ -153,7 +151,7 @@ export default function Profile({ navigation }) {
             <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
           </View>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </ScreenWrapper>
   );
 }

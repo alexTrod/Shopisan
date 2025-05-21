@@ -108,6 +108,61 @@ export default function SignUp({ navigation }) {
         />
 
         <View style={styles.inputContainer}>
+          <View style={styles.userTypeContainer}>
+            <View style={{
+              flexDirection: 'row',
+              borderWidth: 1,
+              borderColor: AppColors.primary,
+              borderRadius: height(2),
+              overflow: 'hidden',
+              alignSelf: 'center',
+              marginBottom: height(2),
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: userType === 'shopper' ? AppColors.primary : 'transparent',
+                  paddingVertical: height(1.5),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderTopLeftRadius: height(2),
+                  borderBottomLeftRadius: height(2),
+                }}
+                onPress={() => setUserType('shopper')}
+                activeOpacity={0.8}
+              >
+                <CustomText
+                  color={userType === 'shopper' ? AppColors.white : AppColors.primary}
+                  textProps={{ fontFamily: 'Mulish-Bold' }}
+                  size={1.7}
+                >
+                  Sign up as a shopper
+                </CustomText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: userType === 'merchant' ? AppColors.primary : 'transparent',
+                  paddingVertical: height(1.5),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderTopRightRadius: height(2),
+                  borderBottomRightRadius: height(2),
+                }}
+                onPress={() => setUserType('merchant')}
+                activeOpacity={0.8}
+              >
+                <CustomText
+                  color={userType === 'merchant' ? AppColors.white : AppColors.primary}
+                  textProps={{ fontFamily: 'Mulish-Bold' }}
+                  size={1.7}
+                >
+                  Sign up as a merchant
+                </CustomText>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {errorMessage && (
             <View style={{
               backgroundColor: "#FFE8E8",
@@ -115,9 +170,11 @@ export default function SignUp({ navigation }) {
               marginVertical: 10,
               borderRadius: 5,
               width: "90%",
-              alignSelf: "center"
+              alignSelf: "center",
+              borderWidth: 1,
+              borderColor: AppColors.red,
             }}>
-              <CustomText color={AppColors.red} size={1.6}>
+              <CustomText color={AppColors.red_100_full} size={1.6}>
                 {errorMessage}
               </CustomText>
             </View>
@@ -248,38 +305,6 @@ export default function SignUp({ navigation }) {
               </TouchableOpacity>
             }
           />
-          <View style={styles.userTypeContainer}>
-            <CustomText color={AppColors.grey_200} textProps={{ fontFamily: "Mulish-Regular" }} size={1.7}>
-              I want to:
-            </CustomText>
-            <View style={styles.radioGroup}>
-              <TouchableOpacity
-                style={[styles.radioButton, userType === "shopper" && styles.radioButtonSelected]}
-                onPress={() => setUserType("shopper")}
-              >
-                <CustomText
-                  color={userType === "shopper" ? AppColors.primary : AppColors.grey_200}
-                  textProps={{ fontFamily: "Mulish-Bold" }}
-                  size={1.7}
-                >
-                  Shop at stores
-                </CustomText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radioButton, userType === "merchant" && styles.radioButtonSelected]}
-                onPress={() => setUserType("merchant")}
-              >
-                <CustomText
-                  color={userType === "merchant" ? AppColors.primary : AppColors.grey_200}
-                  textProps={{ fontFamily: "Mulish-Bold" }}
-                  size={1.7}
-                >
-                  Manage my store
-                </CustomText>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <Spacer vertical={height(3)} />
           <Button
             disabled={!isValid}
             loading={loading}
@@ -290,7 +315,7 @@ export default function SignUp({ navigation }) {
             Register
           </Button>
         </View>
-        <View style={{ alignItems: "center", flexDirection: "column", justifyContent: "space-between", flex: 1 }}>
+        <View style={{ alignItems: "center", flexDirection: "column", justifyContent: "space-between", flex: 1, width:'100%'}}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <CustomText color={AppColors.black} textStyles={{ fontFamily: "Mulish-Regular" }} size={1.5} textAlign="center">
               Already have an Account?
@@ -305,19 +330,26 @@ export default function SignUp({ navigation }) {
             >
               Log in
             </CustomText>
+          </View>        
+          <View style={{ 
+         
+            backgroundColor: AppColors.white
+          }}>
+          
           </View>
-          <View style={{ alignItems: "center", marginTop: height(5) }}>
+          <View style={{ width: '100%', marginTop: height(3) }}>
             <Button
-              textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary_darker }}
-              containerStyle={styles.buttonSecondary}
-              onPress={async () => {
-                await dispatch(setNoAuthenticationWanted(true));
-              }}
-            >
-              Create an account later
-            </Button>
+                textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary}}
+                containerStyle={[styles.buttonSecondary, { width: '100%', borderRadius: 0 }]}
+                onPress={async () => {
+                  await dispatch(setNoAuthenticationWanted(true));
+                }}
+              >
+                Create an account later
+              </Button>
           </View>
         </View>
+
       </View>
     </ScreenWrapper>
   );

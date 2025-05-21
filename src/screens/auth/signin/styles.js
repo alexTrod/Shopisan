@@ -35,13 +35,13 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   buttonSecondary: {
-    paddingVertical: height(2),
+    paddingVertical: height(1),
     paddingHorizontal: width(10),
     borderRadius: width(4),
-    backgroundColor: AppColors.red_100,
-    color: AppColors.red_100,
+    backgroundColor: AppColors.white,
+    color: AppColors.primary,
     borderWidth: width(0.2),
-    borderColor: AppColors.primary_darker,
+    borderColor: AppColors.primary,
   },
   switch: {
     marginRight: 5,

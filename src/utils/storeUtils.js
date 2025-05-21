@@ -20,7 +20,7 @@ export const getStoreQuery = (selectedCategories, lastVisible, categories, selec
   }
 
   queryConstraints.push(orderBy('id', 'desc'));
-  queryConstraints.push(limit(STORES_PER_PAGE));
+  //queryConstraints.push(limit(STORES_PER_PAGE));
 
   let baseQuery = query(storeCollection, ...queryConstraints);
 

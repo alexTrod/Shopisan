@@ -135,7 +135,7 @@ const ItemCard = React.memo(({
                 <View style={styles.topIconsRow}>
                   <View style={styles.leftIcons}>
                     <TouchableOpacity 
-                      style={[styles.iconButton, { zIndex: 1 }]} 
+                      style={[styles.iconButton, { zIndex: 100 }]} 
                       onPress={() => {
                         console.log('Map button pressed');
                         onPress();

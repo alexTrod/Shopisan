@@ -91,9 +91,11 @@ export default function SignIn({ navigation }) {
               marginVertical: 10,
               borderRadius: 5,
               width: "90%",
-              alignSelf: "center"
+              alignSelf: "center",
+              borderWidth: 1,
+              borderColor: AppColors.red,
             }}>
-              <CustomText color={AppColors.red} size={1.6}>
+              <CustomText color={AppColors.red_100_full} size={1.6}>
                 {errorMessage}
               </CustomText>
             </View>
@@ -233,17 +235,20 @@ export default function SignIn({ navigation }) {
           </CustomText>
         </View>
 
-        <View style={{ alignItems: "center", marginTop: height(5) }}>
-          <Button
-            textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary_darker }}
-            containerStyle={styles.buttonSecondary}
-            onPress={async () => {
-              await dispatch(setNoAuthenticationWanted(true));
-            }}
-          >
-            Create an account later
-          </Button>
         </View>
+
+        <View style={{ alignItems: "center", marginTop: height(5), width: '100%' }}>
+          <View style={{ width: '100%', marginTop: height(3) }}>
+            <Button
+              textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary }}
+              containerStyle={[styles.buttonSecondary, { width: '100%', borderRadius: 0 }]}
+              onPress={async () => {
+                await dispatch(setNoAuthenticationWanted(true));
+              }}
+            >
+              Create an account later
+            </Button>
+          </View>
       </View>
     </ScreenWrapper>
   );

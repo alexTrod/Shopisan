@@ -75,6 +75,23 @@ export default function HomeScreen({ navigation, route }) {
   }, []);
 
   const handleToggleShowFavorites = () => {
+    if (!user) {
+      Alert.alert(
+        "Connexion requise",
+        "Vous devez être connecté pour voir vos magasins favoris. Voulez-vous aller à la page de connexion ?",
+        [
+          { text: "Non", style: "cancel" },
+          { text: "Oui", onPress: () => {
+              dispatch(signOut());
+              navigation.navigate(ScreenNames.SIGN_IN);
+            }
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
     setShowFavoritesOnly(prev => {
       const newState = !prev;
 
@@ -90,7 +107,7 @@ export default function HomeScreen({ navigation, route }) {
         setHasMore(true);
         loadStores(true);
       }
-  
+
       return newState;
     });
   };
@@ -510,18 +527,16 @@ export default function HomeScreen({ navigation, route }) {
       };
   
       let nearbyStores = searchInRadius(1);
-      if (nearbyStores.length === 0) {
-        nearbyStores = searchInRadius(5);
-      }
-      if (nearbyStores.length === 0) {
-        nearbyStores = searchInRadius(30);
-      }
-      if (nearbyStores.length === 0) {
-        nearbyStores = searchInRadius(150);
-      }
-      if (nearbyStores.length === 0) {
-        nearbyStores = allStores;
-      }
+      if (nearbyStores.length === 0) nearbyStores = searchInRadius(5);
+      if (nearbyStores.length === 0) nearbyStores = searchInRadius(30);
+      if (nearbyStores.length === 0) nearbyStores = searchInRadius(150);
+      if (nearbyStores.length === 0) nearbyStores = allStores;
+
+      nearbyStores.sort((a, b) => {
+        const distA = getDistanceInKm(userLat, userLng, a.latitude, a.longitude);
+        const distB = getDistanceInKm(userLat, userLng, b.latitude, b.longitude);
+        return distA - distB;
+      });
   
       setStores(nearbyStores.map(store => ({
         ...store,
