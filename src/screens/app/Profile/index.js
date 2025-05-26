@@ -146,7 +146,7 @@ export default function Profile({ navigation }) {
         >
           <View style={styles.optionContent}>
             <CustomText size={1.8} color={AppColors.white}>
-              Se déconnecter
+              {user ? 'Se déconnecter' : 'Accéder à l\'inscription'}
             </CustomText>
             <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
           </View>

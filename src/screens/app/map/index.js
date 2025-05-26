@@ -336,6 +336,10 @@ export default function Map({ navigation, route  }) {
     if (userLocation) {
       fetchNearbyStores(userLocation.latitude, userLocation.longitude);
     }
+
+    if (mapCenter) {
+      fetchNearbyStores(mapCenter.latitude, mapCenter.longitude);
+    }
   }, [selectedCategories]);  
 
   const getDistanceInKm = (lat1, lon1, lat2, lon2) => {

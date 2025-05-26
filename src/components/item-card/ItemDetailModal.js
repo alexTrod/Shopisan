@@ -119,7 +119,6 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
           { text: "Non", style: "cancel" },
           { text: "Oui", onPress: () => {
               dispatch(signOut());
-              navigation.navigate(ScreenNames.SIGN_IN);
             }
           },
         ],

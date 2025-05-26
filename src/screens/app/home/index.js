@@ -388,17 +388,37 @@ export default function HomeScreen({ navigation, route }) {
     );
   }, [loading]);
 
-  const renderEmpty = useCallback(() => (
-    <CustomText
-      textAlign="center"
-      color={AppColors.grey_100}
-      textProps={{ fontFamily: "Mulish-Bold" }}
-      textStyles={{ fontFamily: "Mulish-Bold" }}
-      size={2.2}
-    >
-      No stores available
-    </CustomText>
-  ), []);
+  const renderEmpty = useCallback(() => {
+    const hasCities = selectedCities && selectedCities.length > 0;
+
+    let cityNames = null;
+
+    if (hasCities) {
+      const first = selectedCities[0];
+      if (typeof first === 'object' && first !== null && first.name) {
+        cityNames = selectedCities.map(city => city.name).join(', ');
+      } else {
+        cityNames = selectedCities.join(', ');
+      }
+      console.log("cityNames:", cityNames);
+    }
+
+    const message = cityNames
+      ? `No stores available in ${cityNames}`
+      : 'No stores available';
+
+    return (
+      <CustomText
+        textAlign="center"
+        color={AppColors.grey_100}
+        textProps={{ fontFamily: "Mulish-Bold" }}
+        textStyles={{ fontFamily: "Mulish-Bold" }}
+        size={2.2}
+      >
+        {message}
+      </CustomText>
+    );
+  }, [selectedCities]);
 
   const renderItem = useCallback(({ item }) => (
     <ItemCard

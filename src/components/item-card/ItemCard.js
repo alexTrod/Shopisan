@@ -133,18 +133,16 @@ const ItemCard = React.memo(({
                   ]}
                 />
                 <View style={styles.topIconsRow}>
-                  <View style={styles.leftIcons}>
-                    <TouchableOpacity 
-                      style={[styles.iconButton, { zIndex: 100 }]} 
-                      onPress={() => {
-                        console.log('Map button pressed');
-                        onPress();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="map-outline" size={24} color={AppColors.white} />
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity 
+                    style={[styles.iconButton, { zIndex: 100 }]} 
+                    onPress={() => {
+                      console.log('Map button pressed');
+                      onPress();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="map-outline" size={24} color={AppColors.white} />
+                  </TouchableOpacity>
                   <View style={styles.rightIcons}>
                     {isOwner && (
                       <TouchableOpacity 
@@ -204,6 +202,16 @@ const ItemCard = React.memo(({
                       <Ionicons name="create-outline" size={24} color={AppColors.primary} />
                     </TouchableOpacity>
                   )}
+                  <TouchableOpacity 
+                    style={[styles.iconButton, { zIndex: 1 }]} 
+                    onPress={() => {
+                      console.log('Map button pressed');
+                      onPress();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="map-outline" size={24} color={AppColors.primary} />
+                  </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.iconButton, { zIndex: 1 }]} 
                     onPress={() => {

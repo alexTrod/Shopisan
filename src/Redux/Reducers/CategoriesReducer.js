@@ -15,15 +15,18 @@ export const getCategoryLocale = (current_doc) => {
 }
 
 export const getCategoriesLocale = async () => {
-    const all_categories = collection(firestore, 'store_categories');
-    const categoriesSnapshot = await getDocs(all_categories);
-    const fetchedCategories = categoriesSnapshot.docs.map(doc => ({
-        ref: doc.id,
-        id: doc.data().id,
-        name: getCategoryLocale(doc.data().name),           
-    }));
-    return fetchedCategories;
-}
+  const all_categories = collection(firestore, 'store_categories');
+  const categoriesSnapshot = await getDocs(all_categories);
+  const fetchedCategories = categoriesSnapshot.docs.map(doc => ({
+    ref: doc.id,
+    id: doc.data().id,
+    name: getCategoryLocale(doc.data().name),
+  }));
+
+  fetchedCategories.sort((a, b) => a.id - b.id);
+
+  return fetchedCategories;
+};
 
 const initialState = {
     selectedCategories: [],
