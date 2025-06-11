@@ -17,7 +17,7 @@ export default function ChangeNameScreen() {
 
   const handleChangeName = async () => {
     if (!newName.trim()) {
-      Alert.alert("Erreur", "Veuillez entrer un nom valide.");
+      Alert.alert("Error", "Please enter a valid name.");
       return;
     }
 
@@ -27,12 +27,12 @@ export default function ChangeNameScreen() {
         name: newName.trim()
       });
 
-      Alert.alert("Succès", "Nom mis à jour avec succès.", [
+      Alert.alert("Success", "Name updated successfully.", [
         { text: "OK", onPress: () => navigation.goBack() }
       ]);
     } catch (error) {
-      console.error("Erreur lors de la mise à jour du nom :", error);
-      Alert.alert("Erreur", "Impossible de mettre à jour le nom.");
+      console.error("Error while updating name:", error);
+      Alert.alert("Error", "Unable to update the name.");
     }
   };
 
@@ -41,18 +41,18 @@ export default function ChangeNameScreen() {
       <Header
         showLeft
         showBack
-        title="Changer le nom"
+        title="Change name"
         containerStyle={{ width: width(90), alignSelf: "center" }}
       />
       <View style={styles.container}>
         <TextInput
-          placeholder="Entrez votre nouveau nom"
+          placeholder="Enter your new name"
           value={newName}
           onChangeText={setNewName}
           style={styles.input}
         />
         <Button onPress={handleChangeName} containerStyle={styles.button}>
-          Valider
+          Submit
         </Button>
       </View>
     </ScreenWrapper>

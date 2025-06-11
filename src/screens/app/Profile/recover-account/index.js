@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { View, TextInput, StyleSheet, Alert } from "react-native";
+import React from "react";
+import { View, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSelector } from "react-redux";
-import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "../../../../../firebaseconfig";
 import ScreenWrapper from "../../../../components/screen-wrapper";
 import Header from "../../../../components/header";
@@ -16,7 +15,7 @@ export default function ChangeNameScreen() {
       <Header
         showLeft
         showBack
-        title="Récupérer l'ancien compte"
+        title="Recover old account"
         containerStyle={{ width: width(90), alignSelf: "center" }}
       />
     </ScreenWrapper>

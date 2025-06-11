@@ -147,3 +147,15 @@ export const getMerchantStoreQuery = (ownerId, lastVisible) => {
   return baseQuery;
 };
 
+export const matchesFilters = (store, selectedCategories, selectedCities, searchQuery) => {
+  const matchCategory =
+    selectedCategories.length === 0 || selectedCategories.some(cat => store.category?.includes(cat));
+
+  const matchCity =
+    selectedCities.length === 0 || selectedCities.includes(store.cityName);
+
+  const matchSearch =
+    !searchQuery || store.name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+  return matchCategory && matchCity && matchSearch;
+};

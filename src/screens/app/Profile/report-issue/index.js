@@ -11,11 +11,11 @@ export default function ReportIssueScreen({ navigation }) {
 
   const handleSendReport = () => {
     if (!message.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un message.');
+      Alert.alert('Error', 'Please enter a message.');
       return;
     }
 
-    Alert.alert('Envoyé', 'Merci, votre message a été envoyé.');
+    Alert.alert('Sent', 'Thank you, your message has been sent.');
     navigation.goBack();
   };
 
@@ -28,13 +28,13 @@ export default function ReportIssueScreen({ navigation }) {
       <Header
         showLeft
         showBack
-        title="Signaler un problème"
+        title="Report a problem"
         containerStyle={{ width: width(90), alignSelf: 'center' }}
       />
       <View style={styles.container}>
         <TextInput
           style={styles.textarea}
-          placeholder="Décrivez votre problème ici..."
+          placeholder="Describe your issue here..."
           value={message}
           onChangeText={setMessage}
           multiline
@@ -42,7 +42,7 @@ export default function ReportIssueScreen({ navigation }) {
           textAlignVertical="top"
         />
         <Button onPress={handleSendReport} containerStyle={styles.button}>
-          Envoyer
+          Send
         </Button>
       </View>
     </ScreenWrapper>

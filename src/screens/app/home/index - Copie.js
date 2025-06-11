@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert, TextInput } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
-import { getUserFavoriteStoreIds, getFavoriteStoreQuery, matchesFilters, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
+import { getUserFavoriteStoreIds, getFavoriteStoreQuery, getStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
@@ -22,18 +22,17 @@ import { signOut } from "../../../Redux/Actions/UserActions";
 export default function HomeScreen({ navigation, route }) {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [lastVisible, setLastVisible] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [isNearbyActive, setIsNearbyActive] = useState(false);
   const initialStoreFromMap = route?.params?.initialStoreFromMap;
+  const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const flatListRef = useRef(null);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [allStores, setAllStores] = useState([]);
-  const [userLocation, setUserLocation] = useState(null);
-
-  const selectedCategories = useSelector(state => state.categories.selectedCategories);
 
   const favoriteStores = useSelector(state => state.user.favoriteStores);
   const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
@@ -42,113 +41,25 @@ export default function HomeScreen({ navigation, route }) {
 
   const locale = useSelector(state => state.locale.currentLocale);
   const user = useSelector(state => state.user.userData);
-
+  const selectedCategories = useSelector(
+    state => state.categories.selectedCategories,
+    shallowEqual
+  );
   const categories = useSelector(
     state => state.categories.categories,
     shallowEqual
   );
   const selectedCities = useSelector(state => state.cities.selectedCities, shallowEqual);
 
-  const normalize = str => str?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-  const filterStoresLocally = (stores, selectedCategories, selectedCities, searchQuery) => {
-    const filteredStores = stores.filter(store => {
-      const matchesCity =
-        !selectedCities?.length ||
-        selectedCities.some(city =>
-          typeof city === "string"
-            ? city === store.cityName
-            : city.name === store.cityName
-        );
-
-      const matchesCategory =
-        !selectedCategories?.length ||
-        (Array.isArray(store.category) &&
-          store.category.some(cat => selectedCategories.includes(cat)));
-
-      const normalizedQuery = normalize(searchQuery?.trim());
-      const matchesSearch =
-        !normalizedQuery ||
-        normalize(store.name).includes(normalizedQuery) ||
-        normalize(store.description?.fr || "").includes(normalizedQuery);
-
-      return matchesCity && matchesCategory && matchesSearch;
-    });
-
-    filteredStores.sort((a, b) => {
-      const aGeo = a.address?.[0]?.location?.geopoint;
-      const bGeo = b.address?.[0]?.location?.geopoint;
-
-      if (!aGeo && !bGeo) return 0;
-      if (!aGeo) return 1;
-      if (!bGeo) return -1;
-
-      const distA = getDistanceInKm(userLocation.latitude, userLocation.longitude, aGeo.latitude, aGeo.longitude);
-      const distB = getDistanceInKm(userLocation.latitude, userLocation.longitude, bGeo.latitude, bGeo.longitude);
-
-      return distA - distB;
-    });
-
-
-    return filteredStores;
-  };
-
-  useEffect(() => {
-    const fetchAllStores = async () => {
-      setLoading(true);
-      try {
-        const snapshot = await getDocs(collection(firestore, "stores"));
-        const all = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setAllStores(all);
-        setStores(all);
-      } catch (err) {
-        console.error("Erreur Firestore :", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAllStores();
-  }, []);
-
-  useEffect(() => {
-    const filtered = filterStoresLocally(
-      allStores,
-      selectedCategories,
-      selectedCities,
-      searchQuery
-    );
-    setStores(filtered);
-  }, [allStores, selectedCategories, selectedCities, searchQuery]);
-
-  useEffect(() => {
-    const getUserLocation = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          console.warn("Permission de localisation refusée.");
-          return;
-        }
-        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        });
-      } catch (err) {
-        console.error("Erreur localisation utilisateur :", err);
-      }
-    };
-
-    getUserLocation();
-  }, []);
-
   const loadingRef = useRef(loading);
+  const hasMoreRef = useRef(hasMore);
+  const lastVisibleRef = useRef(lastVisible);
 
   const [showCityModal, setShowCityModal] = useState(false);
 
   useEffect(() => { loadingRef.current = loading; }, [loading]);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { lastVisibleRef.current = lastVisible; }, [lastVisible]);
 
   const getCategoriesNamesByIds = useCallback((ids) => {
     if (!ids?.length) return [];
@@ -199,9 +110,14 @@ export default function HomeScreen({ navigation, route }) {
       if (newState) {
         setShowMyStoresOnly(false);
         setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
         loadFavoriteStores(true);
       } else {
         setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
+        loadStores(true);
       }
 
       return newState;
@@ -217,19 +133,21 @@ export default function HomeScreen({ navigation, route }) {
 
       if (favoriteStoreIds.length === 0) {
         setStores([]);
+        setHasMore(false);
         return;
       }
   
       const validFavoriteStoreIds = favoriteStoreIds.filter(id => id !== null && id !== undefined);
 
-      const storeQuery = getFavoriteStoreQuery(validFavoriteStoreIds);
+      const storeQuery = getFavoriteStoreQuery(validFavoriteStoreIds, lastVisibleRef.current);
       
       if (!storeQuery) {
         setStores([]);
+        setHasMore(false);
         return;
       }
   
-      const { stores: newStores } = await fetchStores(storeQuery);
+      const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
   
       const updatedStores = newStores.map(store => ({
         ...store,
@@ -246,13 +164,15 @@ export default function HomeScreen({ navigation, route }) {
         });
       }
   
+      setLastVisible(newLastVisible);
+      setHasMore(newHasMore);
     } catch (error) {
       logging("Erreur lors du chargement des magasins favoris :", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);   
+  }, [user, lastVisible]);   
 
   const handleToggleShowMyStores = () => {
     setShowMyStoresOnly(prev => {
@@ -261,9 +181,14 @@ export default function HomeScreen({ navigation, route }) {
       if (newState) {
         setShowFavoritesOnly(false);
         setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
         loadMyStores(true);
       } else {
         setStores([]);
+        setLastVisible(null);
+        setHasMore(true);
+        loadStores(true);
       }
   
       return newState;
@@ -279,18 +204,20 @@ export default function HomeScreen({ navigation, route }) {
       if (!ownerId) {
         console.error("Impossible de récupérer l'owner_id.");
         setStores([]);
+        setHasMore(false);
         return;
       }
   
-      const storeQuery = getMerchantStoreQuery(ownerId, null);
+      const storeQuery = getMerchantStoreQuery(ownerId, isRefreshing ? null : lastVisibleRef.current);
   
       if (!storeQuery) {
         console.error("storeQuery invalide :", storeQuery);
         setStores([]);
+        setHasMore(false);
         return;
       }
   
-      const { stores: newStores } = await fetchStores(storeQuery);
+      const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
   
       if (isRefreshing) {
         setStores(newStores);
@@ -302,13 +229,15 @@ export default function HomeScreen({ navigation, route }) {
         });
       }
   
+      setLastVisible(newLastVisible);
+      setHasMore(newHasMore);
     } catch (error) {
       console.error("Erreur lors du chargement des magasins du marchand :", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user, selectedCategories, categories, selectedCities]);  
+  }, [user, lastVisible, selectedCategories, categories, selectedCities]);  
 
   const getOwnerId = async (userId) => {
     try {
@@ -327,7 +256,47 @@ export default function HomeScreen({ navigation, route }) {
       console.error("Erreur lors de la récupération de l'owner_id :", error);
       return null;
     }
-  }; 
+  };
+
+  const loadStores = useCallback(async (isRefreshing = false) => {
+    if (!favoriteStores || loadingRef.current || (!hasMoreRef.current && !isRefreshing)) return;
+  
+    setLoading(true);
+    
+    const storeQuery = getStoreQuery(
+      selectedCategories,
+      lastVisibleRef.current,
+      categories,
+      selectedCities
+    );
+
+    try {
+      const { stores: newStores, lastVisible: newLastVisible, hasMore: newHasMore } = await fetchStores(storeQuery);
+
+      const updatedStores = newStores.map(store => ({
+        ...store,
+        isFavorite: favoriteStores.includes(store.id),
+      }));
+
+      if (isRefreshing) {
+        setStores(updatedStores);
+      } else {
+        setStores(prev => {
+          const existingIds = new Set(prev.map(store => store.id));
+          const uniqueNewStores = updatedStores.filter(store => !existingIds.has(store.id));
+          return [...prev, ...uniqueNewStores];
+        });
+      }
+
+      setLastVisible(newLastVisible);
+      setHasMore(newHasMore);
+    } catch (error) {
+      logging('Error loading stores:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedCategories, categories, selectedCities, favoriteStores]);  
 
   useEffect(() => {
     const fetchStoreByInternalId = async (internalId) => {
@@ -409,6 +378,8 @@ export default function HomeScreen({ navigation, route }) {
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
+    setLastVisible(null);
+    setHasMore(true);
 
     if (showFavoritesOnly) {
       loadFavoriteStores(true);
@@ -416,9 +387,23 @@ export default function HomeScreen({ navigation, route }) {
       loadMyStores(true);
     } else if (isNearbyActive) {
       handleNearbyPress();
-    } 
+    } else {
+      loadStores(true);
+    }
     setRefreshing(false);
-  }, [loadFavoriteStores, loadMyStores, showFavoritesOnly, showMyStoresOnly, isNearbyActive]);  
+  }, [loadStores, loadFavoriteStores, loadMyStores, showFavoritesOnly, showMyStoresOnly, isNearbyActive]);
+
+  const handleEndReached = useCallback(() => {
+    if (isSearching) return;
+  
+    if (hasMoreRef.current) {
+      if (showFavoritesOnly) {
+        loadFavoriteStores();
+      } else {
+        loadStores();
+      }
+    }
+  }, [isSearching, showFavoritesOnly, loadFavoriteStores, loadStores]);  
 
   const renderFooter = useCallback(() => {
     if (!loading) return null;
@@ -492,6 +477,7 @@ export default function HomeScreen({ navigation, route }) {
     data: stores,
     keyExtractor: (item, index) => `${item.id}-${index}`,
     renderItem,
+    onEndReached: handleEndReached,
     onEndReachedThreshold: 0.5,
     ListFooterComponent: renderFooter,
     ListEmptyComponent: renderEmpty,
@@ -500,13 +486,19 @@ export default function HomeScreen({ navigation, route }) {
   }), [
     stores,
     renderItem,
+    handleEndReached,
     renderFooter,
     renderEmpty,
     refreshing,
     handleRefresh
   ]);
 
-  
+  useEffect(() => {
+    setStores([]);
+    setLastVisible(null);
+    setHasMore(true);
+    loadStores(true);
+  }, [selectedCategories, selectedCities]);
 
   useEffect(() => {
     if (stores.length > 0) {
@@ -526,6 +518,10 @@ export default function HomeScreen({ navigation, route }) {
       logging('Duplicate store IDs detected:', duplicates);
     }
   }, [stores]);
+
+  useEffect(() => {
+    handleNearbyPress();
+  }, []);  
 
   const handleNearbyPress = async () => {
  
@@ -585,7 +581,9 @@ export default function HomeScreen({ navigation, route }) {
         ...store,
         isFavorite: favoriteStores.includes(store.id),
       })));
- 
+  
+      setLastVisible(null);
+      setHasMore(false);
       setIsNearbyActive(true);
     } catch (error) {
       console.error("Erreur lors de la récupération des magasins proches :", error);
@@ -604,7 +602,48 @@ export default function HomeScreen({ navigation, route }) {
       Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  };    
+  };  
+
+  const handleSearchSubmit = async () => {
+    if (!searchQuery.trim()) {
+      setIsSearching(false);
+      setStores([]);
+      setLastVisible(null);
+      setHasMore(true);
+      loadStores(true);
+      return;
+    }
+  
+    setIsSearching(true);
+    setLoading(true);
+  
+    try {
+      const storesRef = collection(firestore, "stores");
+      const storesSnapshot = await getDocs(storesRef);
+  
+      const allStores = storesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+  
+      const filteredStores = allStores.filter(store =>
+        store.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+  
+      setStores(filteredStores.map(store => ({
+        ...store,
+        isFavorite: favoriteStores.includes(store.id),
+      })));
+  
+      setLastVisible(null);
+      setHasMore(false);
+    } catch (error) {
+      console.error("Erreur lors de la recherche :", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };  
 
   if (loggingOut) {
     return (
@@ -649,6 +688,7 @@ export default function HomeScreen({ navigation, route }) {
               placeholder="Look for a store"
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearchSubmit}
               returnKeyType="search"
             />
             <TouchableOpacity

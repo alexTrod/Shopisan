@@ -113,11 +113,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const submitRating = async (score) => {
     if (!user) {
       Alert.alert(
-        "Connexion requise",
-        "Vous devez être connecté pour donner une note. Voulez-vous aller à la page de connexion ?",
+        "Login Required",
+        "You need to be logged in to view your favorite stores. Do you want to go to the login page?",
         [
-          { text: "Non", style: "cancel" },
-          { text: "Oui", onPress: () => {
+          { text: "No", style: "cancel" },
+          { text: "Yes", onPress: () => {
               dispatch(signOut());
             }
           },
@@ -187,12 +187,12 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const handleToggleFavoriteFromModal = () => {
     if (!user) {
       Alert.alert(
-        "Connexion requise",
-        "Vous devez être connecté pour ajouter un favori. Voulez-vous aller à la page de connexion ?",
+        "Login Required",
+        "You need to be logged in to add a favorite. Do you want to go to the login page?",
         [
-          { text: "Non", style: "cancel" },
+          { text: "No", style: "cancel" },
           { 
-            text: "Oui", 
+            text: "Yes", 
             onPress: () => {
               dispatch(signOut());
               navigation.navigate(ScreenNames.SIGN_IN);

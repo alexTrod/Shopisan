@@ -13,17 +13,17 @@ export default function RecoverPasswordScreen({ navigation }) {
 
   const handlePasswordReset = async () => {
     if (!email) {
-      Alert.alert('Erreur', 'Veuillez entrer votre adresse e-mail.');
+      Alert.alert('Error', 'Please enter your email address.');
       return;
     }
 
     try {
       await sendPasswordResetEmail(auth, email);
-      Alert.alert('Succès', 'Un e-mail de réinitialisation a été envoyé.');
+      Alert.alert('Success', 'A password reset email has been sent.');
       navigation.goBack();
     } catch (error) {
       console.error(error);
-      Alert.alert('Erreur', error.message || 'Une erreur est survenue.');
+      Alert.alert('Error', error.message || 'An error occurred.');
     }
   };
 
@@ -36,20 +36,20 @@ export default function RecoverPasswordScreen({ navigation }) {
       <Header
         showLeft
         showBack
-        title="Réinitialiser mot de passe"
+        title="Reset password"
         containerStyle={{ width: width(90), alignSelf: 'center' }}
       />
       <View style={styles.container}>
         <TextInput
           style={styles.input}
-          placeholder="Entrez votre e-mail"
+          placeholder="Enter your email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
         />
         <Button onPress={handlePasswordReset} containerStyle={styles.button}>
-          Envoyer l'e-mail de réinitialisation
+          Send password reset email
         </Button>
       </View>
     </ScreenWrapper>

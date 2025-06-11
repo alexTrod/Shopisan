@@ -23,7 +23,7 @@ export default function ChangeEmailScreen() {
 
   const handleChangeNameAndEmail = async () => {
     if (!currentEmail || !currentPassword || (!newEmail && !newName)) {
-      Alert.alert('Erreur', 'Merci de remplir tous les champs requis.');
+      Alert.alert('Error', 'Please fill in all required fields.');
       return;
     }
 
@@ -41,7 +41,7 @@ export default function ChangeEmailScreen() {
           name: newName.trim(),
         });
       }
- 
+
       if (newEmail.trim()) {
         await verifyBeforeUpdateEmail(currentUser, newEmail.trim());
         await updateDoc(userRef, {
@@ -50,16 +50,16 @@ export default function ChangeEmailScreen() {
       }
 
       Alert.alert(
-        'Succès',
+        'Success',
         newEmail
-          ? "Nom et email modifiés. Veuillez confirmer votre nouvelle adresse e-mail dans votre boîte mail."
-          : "Nom modifié avec succès.",
+          ? "Name and email updated. Please confirm your new email address in your inbox."
+          : "Name updated successfully.",
         [{ text: "OK", onPress: () => navigation.goBack() }]
       );
 
     } catch (error) {
-      console.error('Erreur lors du changement de nom/email :', error);
-      Alert.alert('Erreur', error.message);
+      console.error('Error while updating name/email:', error);
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -70,41 +70,41 @@ export default function ChangeEmailScreen() {
       <Header
         showLeft
         showBack
-        title="Changer nom et email"
+        title="Change name and email"
         containerStyle={{ width: width(90), alignSelf: 'center' }}
       />
       <View style={styles.container}>
-        <CustomText>Adresse e-mail actuelle</CustomText>
+        <CustomText>Current email address</CustomText>
         <TextInput
           style={styles.input}
-          placeholder="Adresse e-mail actuelle"
+          placeholder="Current email address"
           value={currentEmail}
           onChangeText={setCurrentEmail}
           keyboardType="email-address"
           autoCapitalize="none"
         />
 
-        <CustomText>Mot de passe</CustomText>
+        <CustomText>Password</CustomText>
         <TextInput
           style={styles.input}
-          placeholder="Mot de passe"
+          placeholder="Password"
           value={currentPassword}
           onChangeText={setCurrentPassword}
           secureTextEntry
         />
 
-        <CustomText>Nouveau nom (optionnel)</CustomText>
+        <CustomText>New name (optional)</CustomText>
         <TextInput
           style={styles.input}
-          placeholder="Nouveau nom"
+          placeholder="New name"
           value={newName}
           onChangeText={setNewName}
         />
 
-        <CustomText>Nouvelle adresse e-mail (optionnelle)</CustomText>
+        <CustomText>New email address (optional)</CustomText>
         <TextInput
           style={styles.input}
-          placeholder="Nouvelle adresse e-mail"
+          placeholder="New email address"
           value={newEmail}
           onChangeText={setNewEmail}
           keyboardType="email-address"
@@ -112,7 +112,7 @@ export default function ChangeEmailScreen() {
         />
 
         <Button
-          title={loading ? "Chargement..." : "Valider"}
+          title={loading ? "Loading..." : "Submit"}
           onPress={handleChangeNameAndEmail}
           disabled={loading}
         />
@@ -157,4 +157,3 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-

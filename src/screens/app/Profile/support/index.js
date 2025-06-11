@@ -26,7 +26,7 @@ export default function SupportScreen({ navigation }) {
       />
       <View style={styles.container}>
         <Button onPress={handleOpenSupport}>
-          Accéder au Support
+          Access Support
         </Button>
       </View>
     </ScreenWrapper>

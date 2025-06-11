@@ -15,13 +15,13 @@ export default function Profile({ navigation }) {
   const user = useSelector(state => state.user.userData);
 
   const profileOptions = [
-    { title: "Changer Adresse e-mail et nom", screen: "ChangeEmailScreen" },
-    user?.userType === "merchant" && { title: "Accéder au support", screen: "SupportScreen" },
-    { title: "Récupérer le mot de passe", screen: "RecoverPasswordScreen" },
-    { title: "Récupérer l'ancien compte", screen: "RecoverAccountScreen" },
-    { title: "Ajouter un magasin", screen: "AddStoreScreen" },
-    { title: "Signaler quelque chose", screen: "ReportIssueScreen" },
-    { title: "Donner une idée / signaler un bug", screen: "SuggestIdeaScreen" },
+    { title: "Change email and name", screen: "ChangeEmailScreen" },
+    user?.userType === "merchant" && { title: "Contact support", screen: "SupportScreen" },
+    { title: "Recover password", screen: "RecoverPasswordScreen" },
+    { title: "Recover old account", screen: "RecoverAccountScreen" },
+    { title: "Add a store", screen: "AddStoreScreen" },
+    { title: "Report an issue", screen: "ReportIssueScreen" },
+    { title: "Suggest an idea / report a bug", screen: "SuggestIdeaScreen" },
   ].filter(Boolean);
 
   const handlePress = (screen) => {
@@ -55,9 +55,9 @@ export default function Profile({ navigation }) {
           </CustomText>
           <View style={{ height: 20 }} />
           {[
-            { title: "Changer Adresse e-mail et nom", screen: "ChangeEmailScreen" },
-            { title: "Récupérer le mot de passe", screen: "RecoverPasswordScreen" },
-            { title: "Récupérer l'ancien compte", screen: "RecoverAccountScreen" },
+            { title: "Change email and name", screen: "ChangeEmailScreen" },
+            { title: "Recover password", screen: "RecoverPasswordScreen" },
+            { title: "Recover old account", screen: "RecoverAccountScreen" },
           ].map((option) => (
             <TouchableOpacity
               key={option.title}
@@ -87,7 +87,7 @@ export default function Profile({ navigation }) {
             >
               <View style={styles.optionContent}>
                 <CustomText size={1.8} color={AppColors.black}>
-                  Accéder au support
+                  Contact support
                 </CustomText>
                 <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
               </View>
@@ -95,10 +95,10 @@ export default function Profile({ navigation }) {
           </View>
         )}
 
-        {/* Magasin Section */}
+        {/* Store Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            Magasin
+            Store
           </CustomText>
           <View style={{ height: 20 }} />
           <TouchableOpacity
@@ -107,7 +107,7 @@ export default function Profile({ navigation }) {
           >
             <View style={styles.optionContent}>
               <CustomText size={1.8} color={AppColors.black}>
-                Ajouter un magasin
+                Add a store
               </CustomText>
               <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
             </View>
@@ -121,8 +121,8 @@ export default function Profile({ navigation }) {
           </CustomText>
           <View style={{ height: 20 }} />
           {[
-            { title: "Signaler quelque chose", screen: "ReportIssueScreen" },
-            { title: "Donner une idée / signaler un bug", screen: "SuggestIdeaScreen" },
+            { title: "Report an issue", screen: "ReportIssueScreen" },
+            { title: "Suggest an idea / report a bug", screen: "SuggestIdeaScreen" },
           ].map((option) => (
             <TouchableOpacity
               key={option.title}
@@ -139,14 +139,13 @@ export default function Profile({ navigation }) {
           ))}
         </View>
 
-
         <TouchableOpacity
           style={[styles.optionTile, { backgroundColor: AppColors.red }]}
           onPress={handleLogout}
         >
           <View style={styles.optionContent}>
             <CustomText size={1.8} color={AppColors.white}>
-              {user ? 'Se déconnecter' : 'Accéder à l\'inscription'}
+              {user ? 'Log out' : 'Go to signup'}
             </CustomText>
             <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
           </View>

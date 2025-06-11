@@ -252,7 +252,7 @@ const ItemCard = React.memo(({
               ))}
               <Text style={styles.ratingText}>
                 {rating.ratingCount > 0 
-                  ? rating.averageRating + ' (' + rating.ratingCount + ')'
+                  ?  `${rating.averageRating.toFixed(2)} (${rating.ratingCount})`
                   : 'No ratings yet'}
               </Text>
             </View>
