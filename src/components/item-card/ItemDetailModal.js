@@ -15,6 +15,7 @@ import { toggleFavoriteStore } from '../../Redux/Actions/UserActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { signOut } from "../../Redux/Actions/UserActions";
 import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
+import CustomText from "../../components/text";
 import { ScrollView } from 'react-native';
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
@@ -29,6 +30,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
   const categories = useSelector(state => state.categories.categories);
   const [postMedia, setPostMedia] = useState([]);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const days = [
     "monday",
@@ -188,15 +190,13 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     if (!user) {
       Alert.alert(
         "Login Required",
-        "You need to be logged in to add a favorite. Do you want to go to the login page?",
+        "You need to be logged in to add a favorite.",
         [
-          { text: "No", style: "cancel" },
           { 
-            text: "Yes", 
+            text: "Ok", 
             onPress: () => {
-              dispatch(signOut());
-              navigation.navigate(ScreenNames.SIGN_IN);
-            } 
+              onClose();
+            }
           },
         ],
         { cancelable: true }
@@ -217,6 +217,14 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     }
   };
 
+  if (loggingOut) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <CustomText>Déconnexion en cours...</CustomText>
+      </View>
+    );
+  }
+
   return (
     <Modal
       visible={visible}
@@ -233,11 +241,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                   <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color={AppColors.primary} />
                   </TouchableOpacity>
-                {/*
-                <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
-                  <Ionicons name="home-outline" size={24} color="white" />
-                </TouchableOpacity>
-                */}
+                
+                  <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
+                    <Ionicons name="home-outline" size={15} color="white" />
+                  </TouchableOpacity>
+                  
                     <TouchableOpacity
                       onPress={handleToggleFavoriteFromModal}
                       style={styles.favoriteButton}
@@ -292,7 +300,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                       } else if (dayHours?.afternoon) {
                         hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
                       } else {
-                        hoursText = "Unknown";
+                        hoursText = "Close";
                       }
 
                       return (
@@ -458,11 +466,12 @@ const styles = StyleSheet.create({
   },
   goHomeButton: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 0,
+    right: 40,
     padding: 10,
-    backgroundColor: AppColors.grey_100,
-    borderRadius: 5,
+    backgroundColor: AppColors.black,
+    borderRadius: 30,
+    elevation: 5,
   },
   mediaContainer: {
     marginTop: 20,

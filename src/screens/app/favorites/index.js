@@ -29,7 +29,6 @@ export default function FavoritesScreen() {
   const dispatch = useDispatch();
 
   const handleToggleFavorite = (storeId) => {
-    console.log(`Toggling favorite for store ID: ${storeId}`);
     dispatch(toggleFavoriteStore(storeId));
 
     setFavoriteStoresData(prevStores => prevStores.filter(store => store.id !== storeId));

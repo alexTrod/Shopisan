@@ -4,35 +4,28 @@ import { useSelector } from "react-redux";
 import { AppColors } from "../../utils";
 import { width, height } from "../../utils/dimension";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { useDispatch } from "react-redux";
+import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
 
-const MapCategoryFilter = ({ stores, selectedCategories, setSelectedCategories }) => {
+const MapCategoryFilter = ({ stores }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const categories = useSelector(state => state.categories.categories);
+  const dispatch = useDispatch();
+  const selectedCategories = useSelector(state => state.categories.selectedCategories);
 
   const [availableCategories, setAvailableCategories] = useState([]);
 
   useEffect(() => {
-    if (stores.length > 0) {
-      const uniqueCategoryIds = Array.from(
-        new Set(stores.flatMap(store => store.category || []).filter(Boolean))
-      );
-
-      const mappedCategories = uniqueCategoryIds.map(categoryId => {
-        const categoryObj = categories.find(cat => cat.id === categoryId);
-        return categoryObj ? { id: categoryObj.id, name: categoryObj.name } : null;
-      }).filter(Boolean);
-
-      setAvailableCategories(mappedCategories);
-    }
-  }, [stores, categories]);
+    setAvailableCategories(categories);
+  }, [categories]);
 
   const handleSelectCategory = (item) => {
     const categoryId = item.id;
     const newSelectedCategories = selectedCategories.includes(categoryId)
       ? selectedCategories.filter(cat => cat !== categoryId)
       : [...selectedCategories, categoryId];
-
-    setSelectedCategories(newSelectedCategories);
+    
+    dispatch(setSelectedCategories(newSelectedCategories));
   };
 
   const getCategoryName = (id) => {
@@ -55,7 +48,7 @@ const MapCategoryFilter = ({ stores, selectedCategories, setSelectedCategories }
           <View key={categoryID} style={styles.selectedCategoryItem}>
             <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
             <TouchableOpacity onPress={() =>
-              setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID))
+              dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)))
             }>
               <Icon name="close" size={20} color={AppColors.black} />
             </TouchableOpacity>
@@ -71,7 +64,7 @@ const MapCategoryFilter = ({ stores, selectedCategories, setSelectedCategories }
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <TouchableOpacity
-              onPress={() => setSelectedCategories([])}
+              onPress={() => dispatch(setSelectedCategories([]))}
               style={styles.categoryItem}
             >
               <Text style={[styles.categoryText, {
@@ -122,6 +115,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 60,
   },
   dropdown: {
     backgroundColor: AppColors.white,

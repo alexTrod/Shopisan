@@ -57,7 +57,6 @@ export default function SelectCategory({ navigation, route }) {
             userData.email.trim()
           );
           await getDoc(docRef).then((res) => {
-            console.log(res);
             dispatch(signin(res.data()));
           });
         })

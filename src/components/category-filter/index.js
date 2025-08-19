@@ -36,6 +36,7 @@ const CategoryFilter = () => {
     const newSelectedCategories = selectedCategories.includes(item.value)
       ? selectedCategories.filter(cat => cat !== item.value) 
       : [...selectedCategories, item.value];
+
     dispatch(setSelectedCategories(newSelectedCategories));
   };
 

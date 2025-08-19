@@ -223,7 +223,6 @@ export default function SignIn({ navigation }) {
           <CustomText
             onPress={() => {
               navigation.navigate(ScreenNames.SIGN_UP);
-              console.log("sign up");
             }}
             color={AppColors.primary}
             textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}

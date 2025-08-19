@@ -7,7 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Modal,
 } from "react-native";
 
 import { collection, query, getDocs, where} from 'firebase/firestore';
@@ -28,7 +27,6 @@ const placeholderImage1 = require('../../images/placeholder_store_1.png');
 const placeholderImage2 = require('../../images/placeholder_store_2.png');	
 const placeholderImage3 = require('../../images/placeholder_store_3.png');	
 
-const placeholders = [placeholderImage1, placeholderImage2, placeholderImage3];
 const ItemCard = React.memo(({
   title,
   tags,
@@ -100,7 +98,6 @@ const ItemCard = React.memo(({
   };
 
   const handleInfoPress = () => {
-    console.log('Opening info modal for store:', title);
     setModalVisible(true);
   };
 
@@ -132,23 +129,21 @@ const ItemCard = React.memo(({
                     { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
                   ]}
                 />
-                <View style={styles.topIconsRow}>
-                  <TouchableOpacity 
-                    style={[styles.iconButton, { zIndex: 100 }]} 
-                    onPress={() => {
-                      console.log('Map button pressed');
-                      onPress();
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="map-outline" size={24} color={AppColors.white} />
-                  </TouchableOpacity>
+                <View style={styles.topIconsRowNoImage}>
                   <View style={styles.rightIcons}>
+                    <TouchableOpacity 
+                      style={[styles.iconButton, { zIndex: 100 }]} 
+                      onPress={() => {
+                        onPress();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="map-outline" size={24} color={AppColors.white} />
+                    </TouchableOpacity>
                     {isOwner && (
                       <TouchableOpacity 
                         style={[styles.iconButton, { zIndex: 1 }]} 
                         onPress={() => {
-                          console.log('Edit button pressed');
                           handleEditPress();
                         }}
                         activeOpacity={0.7}
@@ -159,7 +154,6 @@ const ItemCard = React.memo(({
                     <TouchableOpacity 
                       style={[styles.iconButton, { zIndex: 1 }]} 
                       onPress={() => {
-                        console.log('Info button pressed');
                         handleInfoPress();
                       }}
                       activeOpacity={0.7}
@@ -169,7 +163,6 @@ const ItemCard = React.memo(({
                     <TouchableOpacity 
                       style={[styles.iconButton, { zIndex: 1 }]} 
                       onPress={() => {
-                        console.log('Favorite button pressed');
                         onPressFavorite();
                       }}
                       activeOpacity={0.7}
@@ -194,7 +187,6 @@ const ItemCard = React.memo(({
                     <TouchableOpacity 
                       style={[styles.iconButton, { zIndex: 1 }]} 
                       onPress={() => {
-                        console.log('Edit button pressed (no image)');
                         handleEditPress();
                       }}
                       activeOpacity={0.7}
@@ -205,7 +197,6 @@ const ItemCard = React.memo(({
                   <TouchableOpacity 
                     style={[styles.iconButton, { zIndex: 1 }]} 
                     onPress={() => {
-                      console.log('Map button pressed');
                       onPress();
                     }}
                     activeOpacity={0.7}
@@ -215,7 +206,6 @@ const ItemCard = React.memo(({
                   <TouchableOpacity 
                     style={[styles.iconButton, { zIndex: 1 }]} 
                     onPress={() => {
-                      console.log('Info button pressed (no image)');
                       handleInfoPress();
                     }}
                     activeOpacity={0.7}
@@ -225,7 +215,6 @@ const ItemCard = React.memo(({
                   <TouchableOpacity 
                     style={[styles.iconButton, { zIndex: 1 }]} 
                     onPress={() => {
-                      console.log('Favorite button pressed (no image)');
                       onPressFavorite();
                     }}
                     activeOpacity={0.7}

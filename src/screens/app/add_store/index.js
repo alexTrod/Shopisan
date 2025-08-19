@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,10 @@ import {
   Modal,
   FlatList,
   ScrollView,
-  Image
+  Image,
+  DeviceEventEmitter,
+  Keyboard,
+  BackHandler
 } from "react-native";
 import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
 import { firestore, storage } from "../../../../firebaseconfig";
@@ -20,8 +23,6 @@ import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from 'expo-image-picker';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import Autocomplete from 'react-native-autocomplete-input';
 import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from 'expo-location';
@@ -64,6 +65,7 @@ export default function AddStoreScreen({ navigation }) {
 
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
+    setStreet(text);
     if (text.length < 3) {
       setSuggestions([]);
       return;
@@ -73,7 +75,7 @@ export default function AddStoreScreen({ navigation }) {
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
   
     try {
-      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${mapboxToken}&autocomplete=true&limit=5&country=fr,gr,gb,es,be,it`);
+      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${mapboxToken}&autocomplete=true&limit=10&country=fr,gr,gb,es,be,it`);
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
@@ -102,7 +104,6 @@ export default function AddStoreScreen({ navigation }) {
     const context = item.context || [];
     const cityInfo = context.find(c => c.id.includes('place'));
     const postalCodeInfo = context.find(c => c.id.includes('postcode'));
-    const countryInfo = context.find(c => c.id.includes('country'));
   
     const streetNumber = item.address || '';
     const streetName = item.text || '';
@@ -267,8 +268,13 @@ export default function AddStoreScreen({ navigation }) {
 
   const handleAddStore = async () => {
     if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
-      Alert.alert("Erreur", "Tous les champs sont obligatoires !");
+      Alert.alert("Erreur", "Tous les champs sont obligatoires, ainsi qu'une catégorie !");
       return;
+    }
+
+    if (suggestions.length > 0) {
+      setSuggestions([]);
+      Keyboard.dismiss();
     }
 
     let imageUrl = null;
@@ -279,27 +285,27 @@ export default function AddStoreScreen({ navigation }) {
       }
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
-  
+
       const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
       );
       const data = await response.json();
-  
+
       if (data.status !== "OK" || data.results.length === 0) {
         Alert.alert("Erreur", "Impossible de trouver l'adresse. Vérifiez les informations.");
         return;
       }
-  
+
       const location = data.results[0].geometry.location;
-      const latitude = location.lat;
-      const longitude = location.lng;
-  
+      const latitude = Number(location.lat);
+      const longitude = Number(location.lng);
+
       const ownerId = user ? await getOwnerId(user.id) || null : null;
-  
+
       const storesRef = collection(firestore, "stores");
       const storesSnapshot = await getDocs(storesRef);
-  
+
       let maxId = 0;
       storesSnapshot.forEach((doc) => {
         const storeData = doc.data();
@@ -307,9 +313,9 @@ export default function AddStoreScreen({ navigation }) {
           maxId = storeData.id;
         }
       });
-  
+
       const newStoreId = maxId + 1;
-  
+
       const storeData = {
         id: newStoreId,
         name,
@@ -317,36 +323,42 @@ export default function AddStoreScreen({ navigation }) {
         address: [
           {
             location: {
-              address: {street: `${streetNumber} ${street}`},
+              address: { street: `${street}` },
               city: {
                 name: city,
                 postal_code: postalCode,
                 country_id: "FR",
               },
               geopoint: {
-                latitude: latitude,
-                longitude: longitude,
+                latitude,
+                longitude,
               },
             },
           },
         ],
+        
+        latitude,
+        longitude,
+
         cityName: city,
         description: { fr: description },
         category: selectedCategories,
         storeStatus: 0,
         website: "",
         openingHours: openingHours,
-        imageUrl: imageUrl || '',
+        imageUrl: imageUrl || "",
         ...(user?.userType === "merchant" && {
           email: storeEmail || "",
           phone: phone || "",
           managerFirstName: managerFirstName || "",
           managerLastName: managerLastName || "",
-        })
+        }),
       };
-  
+
       await addDoc(storesRef, storeData);
-  
+
+      DeviceEventEmitter.emit('stores:refresh');
+      dispatch(setSelectedCategories([]));
       Alert.alert("Succès", "Magasin ajouté avec succès !");
       navigation.goBack();
     } catch (error) {
@@ -381,7 +393,6 @@ export default function AddStoreScreen({ navigation }) {
     
         if (userSnap.exists()) {
           const ownerId = userSnap.data().id;
-          console.log("Owner ID récupéré :", ownerId);
           return ownerId;
         } else {
           console.error("Utilisateur introuvable dans Firestore.");
@@ -446,7 +457,6 @@ export default function AddStoreScreen({ navigation }) {
     return result;
   };
 
-  // Add validation state
   const [hoursErrors, setHoursErrors] = useState({});
 
   const validateHour = (day, period, field, value) => {
@@ -474,10 +484,37 @@ export default function AddStoreScreen({ navigation }) {
     validateHour(day, period, field, value);
   };
 
+  const handleBackPress = () => {
+    if (suggestions.length > 0) {
+      setSuggestions([]);
+      Keyboard.dismiss();
+      return;
+    }
+    navigation.goBack();
+  };
+
+  useEffect(() => {
+    const onHardwareBack = () => {
+      if (suggestions.length > 0) {
+        setSuggestions([]);
+        Keyboard.dismiss();
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
+    return () => sub.remove();
+  }, [suggestions]);
+
+  useEffect(() => {
+    return () => setSuggestions([]);
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={handleBackPress}>
           <Icon name="arrow-left" size={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
@@ -487,6 +524,7 @@ export default function AddStoreScreen({ navigation }) {
     <ScrollView 
       contentContainerStyle={styles.scrollContainer} 
       keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled={true}
     >
       <View style={styles.container}>
         <Text style={styles.label}>Nom du magasin</Text>
@@ -494,24 +532,41 @@ export default function AddStoreScreen({ navigation }) {
 
         <Text style={styles.label}>Adresse</Text>
         <View style={styles.addressContainer}>
-          <Autocomplete
-            data={suggestions}
-            defaultValue={query}
-            onChangeText={fetchAddressSuggestions}
-            placeholder="Tapez l'adresse"
-            flatListProps={{
-              keyExtractor: (item) => item.id,
-              renderItem: ({ item }) => (
-                <TouchableOpacity
-                  onPress={() => handleAddressSelect(item)}
-                  style={styles.suggestionItem}
-                >
-                  <Text style={styles.suggestionText}>{item.place_name}</Text>
-                </TouchableOpacity>
-              ),
-            }}
-            inputContainerStyle={styles.input}
-          />
+          <View style={styles.addressInputWrapper}>
+            <TextInput
+              style={styles.input}
+              value={query}
+              onChangeText={fetchAddressSuggestions}
+              placeholder="Adresse"
+              onBlur={() => setSuggestions([])} 
+            />
+
+            {suggestions.length > 0 && (
+              <View style={{
+                height: 200,
+                borderWidth: 1,
+                borderColor: '#ccc',
+                backgroundColor: '#fff',
+              }}>
+                <FlatList
+                  data={suggestions}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => handleAddressSelect(item)}
+                      style={styles.suggestionItem}
+                    >
+                      <Text style={styles.suggestionText}>{item.place_name}</Text>
+                    </TouchableOpacity>
+                  )}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={true}
+                  scrollEnabled={true}
+                />
+              </View>
+            )}
+          </View>
+
           <TouchableOpacity 
             style={styles.locationButton}
             onPress={handleUseCurrentLocation}
@@ -589,7 +644,6 @@ export default function AddStoreScreen({ navigation }) {
 
               {expandedDay === group.days[0] && (
                 <View style={styles.dayGroupContent}>
-                  {/* Header Row */}
                   <View style={styles.hoursHeaderRow}>
                     <Text style={[styles.dayLabel, {color: 'transparent'}]}>-</Text>
                     <View style={styles.hoursHeaderBlock}>
@@ -608,52 +662,53 @@ export default function AddStoreScreen({ navigation }) {
                     </View>
                     <View style={styles.dayActionsHeader} />
                   </View>
-                  {/* Day Rows */}
                   {group.days.map((day, index) => (
                     <View key={day} style={styles.dayRow}>
                       <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
-                      {/* Matin */}
-                      <View style={styles.timeInputs}>
-                        <TextInput
-                          style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
-                          placeholder="09"
-                          value={openingHours[day].morning?.start || ""}
-                          onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'start', text.replace(/[^0-9]/g, ''))}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                        <Text style={styles.timeSeparator}>h</Text>
-                        <TextInput
-                          style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
-                          placeholder="12"
-                          value={openingHours[day].morning?.end || ""}
-                          onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'end', text.replace(/[^0-9]/g, ''))}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
+                      <View style={styles.block}>
+                        <View style={styles.timeInputs}>
+                          <TextInput
+                            style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
+                            placeholder="09"
+                            value={openingHours[day].morning?.start || ""}
+                            onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'start', text.replace(/[^0-9]/g, ''))}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                          <Text style={styles.timeSeparator}>h</Text>
+                          <TextInput
+                            style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
+                            placeholder="12"
+                            value={openingHours[day].morning?.end || ""}
+                            onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'end', text.replace(/[^0-9]/g, ''))}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                        </View>
                       </View>
-                      {/* Après-midi */}
-                      <View style={styles.timeInputs}>
-                        <TextInput
-                          style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
-                          placeholder="14"
-                          value={openingHours[day].afternoon?.start || ""}
-                          onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'start', text.replace(/[^0-9]/g, ''))}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                        <Text style={styles.timeSeparator}>h</Text>
-                        <TextInput
-                          style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
-                          placeholder="19"
-                          value={openingHours[day].afternoon?.end || ""}
-                          onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'end', text.replace(/[^0-9]/g, ''))}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
+                      <View style={styles.block}>
+                        <View style={styles.timeInputs}>
+                          <TextInput
+                            style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
+                            placeholder="14"
+                            value={openingHours[day].afternoon?.start || ""}
+                            onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'start', text.replace(/[^0-9]/g, ''))}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                          <Text style={styles.timeSeparator}>h</Text>
+                          <TextInput
+                            style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
+                            placeholder="19"
+                            value={openingHours[day].afternoon?.end || ""}
+                            onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'end', text.replace(/[^0-9]/g, ''))}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                        </View>
                       </View>
                       {/* Actions */}
-                      <View style={styles.dayActions}>
+                      <View style={[styles.block, styles.blockActions]}>
                         <TouchableOpacity
                           style={styles.actionButton}
                           onPress={() => {
@@ -837,7 +892,7 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     marginBottom: 15,
-    backgroundColor: "#f8f8f8" 
+    backgroundColor: "#f8f8f8", 
   },
   textArea: {
     height: 80,
@@ -932,7 +987,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   dayLabel: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "bold",
     marginBottom: 10,
     color: "#333",
@@ -941,7 +996,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   periodLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     marginBottom: 5,
     color: "#666",
@@ -961,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   toText: {
     marginHorizontal: 8,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#444",
   },
@@ -1000,11 +1055,6 @@ const styles = StyleSheet.create({
   suggestionText: {
     fontSize: 14,
     color: AppColors.black,
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
   },
   locationButton: {
     padding: 10,
@@ -1088,7 +1138,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayGroupText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: AppColors.black,
   },
@@ -1107,10 +1157,42 @@ const styles = StyleSheet.create({
   },
   dayRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 16,
     paddingHorizontal: 2,
     minHeight: 48,
+  },
+  block: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+    marginRight: 4,
+  },
+
+  blockActions: {
+    marginTop: 6,
+  },
+
+  timeInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+
+  timeInput: {
+    width: 44,
+    height: 36,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+    borderRadius: 6,
+    textAlign: 'center',
+    fontSize: 14,
+    marginHorizontal: 4,
+    backgroundColor: AppColors.white_100,
+    paddingVertical: 2,
   },
   hoursContainer: {
     flex: 1,
@@ -1131,7 +1213,7 @@ const styles = StyleSheet.create({
     borderColor: AppColors.grey_200,
     borderRadius: 6,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 14,
     marginHorizontal: 4,
     backgroundColor: AppColors.white_100,
     paddingVertical: 2,
@@ -1171,11 +1253,6 @@ const styles = StyleSheet.create({
   dayActionsHeader: {
     width: 48,
   },
-  dayLabel: {
-    width: 70,
-    fontSize: 14,
-    color: AppColors.black,
-  },
   timeInputError: {
     borderColor: AppColors.red,
     backgroundColor: '#fff0f0',
@@ -1196,5 +1273,16 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 4,
+  },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  addressInputWrapper: {
+    flex: 1,
+  },
+  locationButton: {
+    marginLeft: 8,
   },
 });

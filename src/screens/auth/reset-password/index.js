@@ -27,15 +27,12 @@ export default function ResetPassword({ navigation }) {
   });
 
   const resetHandler = async (values) => {
-    console.log("🔄 resetHandler triggered with email:", values.email);
     setLoading(true);
     const auth = getAuth();
     try {
       await sendPasswordResetEmail(auth, values.email);
-      console.log("✅ Email de réinitialisation envoyé à :", values.email);
       setModalVisible(true);
     } catch (error) {
-      console.log("❌ Erreur lors de l'envoi de l'email :", error.message);
       Toast.show({
         text1: "Error",
         text2: error.message,

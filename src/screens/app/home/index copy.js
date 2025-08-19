@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert, TextInput } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
-import { getUserFavoriteStoreIds, getFavoriteStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
+import { getUserFavoriteStoreIds, getFavoriteStoreQuery, matchesFilters, fetchStores, getMerchantStoreQuery, filterStoresLocally } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
@@ -16,19 +16,13 @@ import { ScreenNames } from "../../../Routes/routes";
 import { doc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../../../../firebaseconfig';
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import cities from "../../../components/cities/cities.json";
-import * as Location from 'expo-location';
-import { height, width } from "../../../utils/dimension";
 
-import { useContext } from 'react';
-import { StoreContext } from '../../../context/StoreContext';
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
 
-const SEARCH_RADIUS_KM = 6;
-
 export default function HomeScreen({ navigation, route }) {
-  const { filteredStores, allStores } = useContext(StoreContext);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,74 +30,12 @@ export default function HomeScreen({ navigation, route }) {
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [isNearbyActive, setIsNearbyActive] = useState(false);
   const initialStoreFromMap = route?.params?.initialStoreFromMap;
-  const { searchQuery, setSearchQuery } = useContext(StoreContext);
-  const { userLocation, customLocation } = useContext(StoreContext);
-
+  const [searchQuery, setSearchQuery] = useState('');
   const flatListRef = useRef(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [allStores, setAllStores] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
-
-
-  useEffect(() => {
-    const applyRadiusFilter = async () => {
-      if (showFavoritesOnly || showMyStoresOnly) return;
-
-      try {
-        const { latitude, longitude } = userLocation || customLocation || {};
-
-        if (!latitude || !longitude) {
-          setStores(filteredStores);
-          return;
-        }
-
-        const nearbyStores = filteredStores
-          .map((store) => {
-            const geopoint = store?.address?.[0]?.location?.geopoint;
-            if (!geopoint) return null;
-
-            const storeLat = Number(geopoint.latitude);
-            const storeLng = Number(geopoint.longitude);
-
-            if (isNaN(storeLat) || isNaN(storeLng)) return null;
-
-            const distance = getDistanceInKm(latitude, longitude, storeLat, storeLng);
-
-            if (distance > SEARCH_RADIUS_KM) return null;
-
-            return {
-              ...store,
-              latitude: storeLat,
-              longitude: storeLng,
-              distance,
-            };
-          })
-          .filter((s) => s !== null);
-
-        setStores(nearbyStores);
-        setSuggestions([]);
-      } catch (error) {
-        logging("Erreur lors du filtrage local des magasins :", error);
-        setStores(filteredStores);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    applyRadiusFilter();
-    if (showMyStoresOnly) {
-      loadMyStores(true);
-    }
-  }, [filteredStores, showFavoritesOnly, showMyStoresOnly, searchQuery, customLocation]);
-
-  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  };
 
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
 
@@ -120,6 +52,8 @@ export default function HomeScreen({ navigation, route }) {
     shallowEqual
   );
   const selectedCities = useSelector(state => state.cities.selectedCities, shallowEqual);
+
+  const customLocation = useSelector(state => state.location.customLocation);
 
   useEffect(() => {
     const getSuggestions = async () => {
@@ -150,6 +84,26 @@ export default function HomeScreen({ navigation, route }) {
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);  
 
+  useEffect(() => {
+    const fetchAllStores = async () => {
+      setLoading(true);
+      try {
+        const snapshot = await getDocs(collection(firestore, "stores"));
+        const all = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAllStores(all);
+        setStores(all);
+      } catch (err) {
+        console.error("Erreur Firestore :", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAllStores();
+  }, []);
+
   const fetchCitySuggestions = async (query) => {
     if (!query.trim()) return [];
     const lowerQuery = query.toLowerCase();
@@ -161,21 +115,72 @@ export default function HomeScreen({ navigation, route }) {
     return [...new Set(filtered)];
   };    
   
-  const fetchStoreNameSuggestions = (searchText) => {
+  const fetchStoreNameSuggestions = async (searchText) => {
     if (!searchText.trim()) return [];
 
-    const lowerSearch = searchText.toLowerCase();
+    try {
+      const storesRef = collection(firestore, "stores");
+      const endText = searchText.slice(0, -1) + String.fromCharCode(searchText.charCodeAt(searchText.length - 1) + 1);
 
-    return allStores
-      .filter(store => store?.name?.toLowerCase().startsWith(lowerSearch))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 10)
-      .map(store => ({
-        id: store.id,
-        name: store.name,
-        location: store.address?.[0]?.location?.geopoint || null,
-      }));
+      const q = query(
+        storesRef,
+        orderBy('name'),
+        where('name', '>=', searchText),
+        where('name', '<', endText),
+        limit(10)
+      );
+
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          location: data.address?.[0]?.location?.geopoint || null,
+        };
+      });
+    } catch (err) {
+      console.error("Erreur fetchStoreNameSuggestions :", err);
+      return [];
+    }
   };
+
+  useEffect(() => {
+    const filtered = filterStoresLocally(
+      allStores,
+      selectedCategories,
+      selectedCities,
+      "",
+      userLocation
+    );
+    setStores(filtered);
+  }, [allStores, selectedCategories, selectedCities, userLocation]);
+
+  useEffect(() => {
+    const getUserLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          console.warn("Permission de localisation refusée.");
+          return;
+        }
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
+      } catch (err) {
+        console.error("Erreur localisation utilisateur :", err);
+      }
+    };
+    
+    if (customLocation) {
+      setUserLocation(customLocation);
+    } else {
+      getUserLocation();
+    }
+  }, [customLocation]);
+
 
   const loadingRef = useRef(loading);
 
@@ -306,6 +311,7 @@ export default function HomeScreen({ navigation, route }) {
   const loadMyStores = useCallback(async (isRefreshing = false) => {
     if (!user || !user.id) return;
     setLoading(true);
+  
     try {
       const ownerId = await getOwnerId(user.id);
       if (!ownerId) {
@@ -333,14 +339,14 @@ export default function HomeScreen({ navigation, route }) {
           return [...prev, ...uniqueNewStores];
         });
       }
-      
+  
     } catch (error) {
       console.error("Erreur lors du chargement des magasins du marchand :", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user, selectedCategories, categories, selectedCities, filteredStores]);  
+  }, [user, selectedCategories, categories, selectedCities]);  
 
   const getOwnerId = async (userId) => {
     try {
@@ -474,9 +480,8 @@ export default function HomeScreen({ navigation, route }) {
       onPress={() => {
         const geo = item?.address?.[0]?.location?.geopoint;
         const store = item;
-
+      
         if (geo?.latitude && geo?.longitude) {
-          dispatch(setCustomLocation({latitude: geo.latitude, longitude: geo.longitude}));
           navigation.navigate(ScreenNames.MAP, {
             initialStore: store
           });
@@ -504,6 +509,8 @@ export default function HomeScreen({ navigation, route }) {
     handleRefresh
   ]);
 
+  
+
   useEffect(() => {
     if (stores.length > 0) {
       setStores(prevStores =>
@@ -523,123 +530,144 @@ export default function HomeScreen({ navigation, route }) {
     }
   }, [stores]);
 
-
-
-
-
   const handleSearch = async (item) => {
     if (!item) return;
 
-    setSuggestions([]);
-
     if (item.type === "city") {
       try {
+        setSuggestions([]);
+        const filteredStores = filterStoresLocally(
+          allStores,
+          selectedCategories,
+          [item.label],
+          "",
+          userLocation
+        );
+
+        setStores(filteredStores);
+
         const locations = await Location.geocodeAsync(item.label);
         if (locations.length > 0) {
           const { latitude, longitude } = locations[0];
-
           dispatch(setCustomLocation({ latitude, longitude }));
-        } else {
-          console.warn("Ville non trouvée :", item.label);
         }
       } catch (error) {
-        console.error("Erreur lors de la géolocalisation de la ville :", error);
+        console.error("Erreur lors de la recherche de ville :", error);
       }
     } else if (item.type === "store") {
-      const filteredByName = filteredStores.filter(store =>
-        store.name.toLowerCase().includes(item.label.toLowerCase())
-      );
-      dispatch(setCustomLocation({ latitude: item.location.latitude, longitude: item.location.longitude }));
-      setStores(filteredByName);
+      try {
+        setSuggestions([]);
+
+        const filteredStores = filterStoresLocally(
+          allStores,
+          selectedCategories,
+          selectedCities,
+          item.label,
+          userLocation
+        );
+
+        setStores(filteredStores);
+      } catch (error) {
+        console.error("Erreur lors de la recherche du store :", error);
+      }
     }
   };
 
-  const updateLocationToCurrent = async () => {
+  const handleEnterSearch = () => {
+    const matchedSuggestion = suggestions.find(
+      (sugg) => sugg.label.toLowerCase() === searchQuery.trim().toLowerCase()
+    );
+
+    if (matchedSuggestion) {
+      handleSearch(matchedSuggestion);
+    } else {
+      setStores(filterStoresLocally(
+        allStores,
+        selectedCategories,
+        selectedCities,
+        searchQuery,
+        userLocation
+      ));
+      setSuggestions([]);
+    }
+  };
+
+  const handleNearbyPress = async () => {  
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permission refusée", "Activez la localisation pour continuer.");
         return;
       }
-      setSearchQuery('');
-      setSuggestions([]);
-
+  
+      setShowNearbyModal(true);
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-
-      dispatch(setCustomLocation(coords));
-    } catch (error) {
-      console.error("Erreur lors de la récupération de la localisation :", error);
-    }
-  };
-
-  const findClosestStore = async () => { 
-    setSuggestions([]);
-    setSearchQuery("");
-
-    if (!userLocation && !customLocation) {
-      Alert.alert("Unknown location", "Unable to determine the map position.");
-      return;
-    }
-
-    const baseLocation = customLocation || userLocation;
-
-    try {    
-      let closestStore = null;
-      let minDistance = Infinity;
-
-      allStores.forEach((store) => {
-        const geopoint = store?.address?.[0]?.location?.geopoint;
-        if (!geopoint) return;
-
-        let { latitude: storeLat, longitude: storeLng } = geopoint;
-        storeLat = Number(storeLat);
-        storeLng = Number(storeLng);
-
-        if (isNaN(storeLat) || isNaN(storeLng)) return;
-
-        const distance = getDistanceInKm(
-          baseLocation.latitude,
-          baseLocation.longitude,
-          storeLat,
-          storeLng
-        );
-
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestStore = {
-            ...store,
-            latitude: storeLat,
-            longitude: storeLng,
-            distance: distance.toFixed(2),
+      const userLat = location.coords.latitude;
+      const userLng = location.coords.longitude;
+  
+      setLoading(true);
+  
+      const storesRef = collection(firestore, "stores");
+      const storesSnapshot = await getDocs(storesRef);
+  
+      const allStores = storesSnapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+          if (!data.address?.[0]?.location?.geopoint) return null;
+          const { latitude, longitude } = data.address[0].location.geopoint;
+          if (isNaN(latitude) || isNaN(longitude)) return null;
+          return {
+            id: doc.id,
+            ...data,
+            latitude: Number(latitude),
+            longitude: Number(longitude),
           };
-        }
-      });
+        })
+        .filter(Boolean);
+  
+      /*const searchInRadius = (radiusKm) => {
+        return allStores.filter(store => {
+          const distance = getDistanceInKm(userLat, userLng, store.latitude, store.longitude);
+          return distance <= radiusKm;
+        });
+      };
+  
+      let nearbyStores = searchInRadius(1);
+      if (nearbyStores.length === 0) nearbyStores = searchInRadius(5);
+      if (nearbyStores.length === 0) nearbyStores = searchInRadius(30);
+      if (nearbyStores.length === 0) nearbyStores = searchInRadius(150);
+      if (nearbyStores.length === 0) */nearbyStores = allStores;
 
-      if (closestStore) {
-        const region = {
-          latitude: closestStore.latitude,
-          longitude: closestStore.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-        dispatch(setCustomLocation({ latitude: region.latitude, longitude: region.longitude }));
-      } else {
-        console.log("Aucun magasin trouvé.");
-      }
+      nearbyStores.sort((a, b) => {
+        const distA = getDistanceInKm(userLat, userLng, a.latitude, a.longitude);
+        const distB = getDistanceInKm(userLat, userLng, b.latitude, b.longitude);
+        return distA - distB;
+      });
+  
+      setStores(nearbyStores.map(store => ({
+        ...store,
+        isFavorite: favoriteStores.includes(store.id),
+      })));
+ 
+      setIsNearbyActive(true);
     } catch (error) {
-      console.error("Erreur lors de la recherche du magasin le plus proche :", error);
+      console.error("Erreur lors de la récupération des magasins proches :", error);
+    } finally {
+      setLoading(false);
+      setShowNearbyModal(false);
     }
   };
 
-
-
-
-
+  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  };    
 
   if (loggingOut) {
     return (
@@ -660,7 +688,7 @@ export default function HomeScreen({ navigation, route }) {
           onPress={handleDirectLogout}
           style={{
             alignSelf: 'flex-end',
-            marginTop: 0,
+            marginTop: 20,
             marginRight: 20,
           }}
         >
@@ -678,13 +706,29 @@ export default function HomeScreen({ navigation, route }) {
       <View style={styles.container}>
         {/* Search Bar + Category Chip Group */}
         <View style={styles.searchGroupContainer}>
-
+          {/*<View style={styles.searchBarRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Look for a store"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            <TouchableOpacity
+              style={styles.citySearchButton}
+              onPress={() => setShowCityModal(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="navigate-circle-outline" size={22} color={AppColors.primary} />
+            </TouchableOpacity>
+          </View>*/}
           <View style={styles.searchBarRow}>
             <TextInput
               style={styles.searchInput}
               placeholder="Search for a city or store"
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onSubmitEditing={handleEnterSearch}
               returnKeyType="search"
             />
           </View>
@@ -732,22 +776,12 @@ export default function HomeScreen({ navigation, route }) {
           )}
         </View>
 
-        {!loading && stores.length === 0 && (
-          <View style={styles.noStoreContainer}>
-            <Text style={styles.noStoreText}>No stores found in this area.</Text>
-
-            <TouchableOpacity onPress={findClosestStore}>
-              <Text style={styles.closestStoreButtonText}>Find the nearest store</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* Store List */}
         <FlatList {...flatListProps} ref={flatListRef} style={styles.list} />
 
         {/* Floating Location Button (single tap only) */}
         <TouchableOpacity
-          onPress={updateLocationToCurrent}
+          onPress={handleNearbyPress}
           style={styles.fabLocation}
           activeOpacity={0.8}
         >
@@ -966,34 +1000,6 @@ const styles = {
     zIndex: 99,
     backgroundColor: 'transparent',
   },
-  noStoreContainer: {
-    position: "absolute",
-    top: height(35),
-    left: width(10),
-    right: width(10),
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    elevation: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-  },
-  
-  noStoreText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#444",
-    textAlign: "center",
-  },
-  closestStoreButtonText: {
-    marginTop: 10,
-    color: AppColors.primary,
-    fontWeight: "600",
-    fontSize: 15,
-    textAlign: "center",
-    textDecorationLine: "underline",
-  } 
 };
 
 const modalStyles = StyleSheet.create({
@@ -1031,7 +1037,7 @@ const modalStyles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: "#fff",
-    zIndex: 999999,
+    zIndex: 9999,
     borderRadius: 5,
     elevation: 3,
   },

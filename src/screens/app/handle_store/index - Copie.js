@@ -10,17 +10,17 @@ import {
   FlatList,
   ScrollView,
 } from "react-native";
-import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
-import { width, height } from "../../../utils/dimension";
+import { width } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
-export default function AddStoreScreen({ navigation }) {
-  const user = useSelector((state) => state.user.userData);
+export default function HandleStoreScreen({ route, navigation }) {
+  const { storeId } = route.params;
   const [name, setName] = useState("");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
@@ -31,6 +31,51 @@ export default function AddStoreScreen({ navigation }) {
   const { categories, selectedCategories } = useSelector(state => state.categories);
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
+
+  const [storeData, setStoreData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [storeDocumentId, setStoreDocumentId] = useState(null);
+
+  useEffect(() => {
+    const fetchStoreData = async () => {
+        try {      
+          const storesRef = collection(firestore, "stores");
+          const q = query(storesRef, where("id", "==", storeId));
+      
+          const querySnapshot = await getDocs(q);
+      
+          if (!querySnapshot.empty) {
+            const storeSnap = querySnapshot.docs[0];
+            const store = storeSnap.data();
+
+            setStoreDocumentId(storeSnap.id);
+      
+            setStoreData(store);
+      
+            setName(store.name);
+            setStreet(store.address[0]?.location?.address?.street || "");
+            setCity(store.cityName || "");
+            setPostalCode(store.address[0]?.location?.city?.postal_code || "");
+            setLatitude(store.address[0]?.location?.geopoint?.latitude?.toString() || "");
+            setLongitude(store.address[0]?.location?.geopoint?.longitude?.toString() || "");
+            setDescription(store.description?.fr || "");
+      
+            dispatch(setSelectedCategories(Array.isArray(store.category) ? store.category : []));
+          } else {
+            Alert.alert("Erreur", "Magasin introuvable.");
+            navigation.goBack();
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement du magasin :", error);
+          Alert.alert("Erreur", "Impossible de charger le magasin.");
+          navigation.goBack();
+        } finally {
+          setLoading(false);
+        }
+      };
+
+    fetchStoreData();
+  }, [storeId, dispatch, navigation]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -61,53 +106,17 @@ export default function AddStoreScreen({ navigation }) {
     dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)));
   };
 
-  const handleAddStore = async () => {
-    if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
+  const handleUpdateStore = async () => {
+    if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0 || !latitude || !longitude) {
       Alert.alert("Erreur", "Tous les champs sont obligatoires !");
       return;
     }
-  
+
     try {
-      const fullAddress = `${street}, ${postalCode} ${city}, France`;
-  
-      const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
-      );
-      const data = await response.json();
-  
-      if (data.status !== "OK" || data.results.length === 0) {
-        Alert.alert("Erreur", "Impossible de trouver l'adresse. Vérifiez les informations.");
-        return;
-      }
-  
-      const location = data.results[0].geometry.location;
-      const latitude = location.lat;
-      const longitude = location.lng;
-  
-      const ownerId = await getOwnerId(user.id);
-      if (!ownerId) {
-        console.error("Impossible de récupérer l'owner_id.");
-        return;
-      }
-  
-      const storesRef = collection(firestore, "stores");
-      const storesSnapshot = await getDocs(storesRef);
-  
-      let maxId = 0;
-      storesSnapshot.forEach((doc) => {
-        const storeData = doc.data();
-        if (storeData.id && typeof storeData.id === "number" && storeData.id > maxId) {
-          maxId = storeData.id;
-        }
-      });
-  
-      const newStoreId = maxId + 1;
-  
-      const storeData = {
-        id: newStoreId,
+      const storeRef = doc(firestore, "stores", storeDocumentId);
+
+      const updatedData = {
         name,
-        owner_id: ownerId,
         address: [
           {
             location: {
@@ -118,8 +127,8 @@ export default function AddStoreScreen({ navigation }) {
                 country_id: "FR",
               },
               geopoint: {
-                latitude: latitude,
-                longitude: longitude,
+                latitude: parseFloat(latitude),
+                longitude: parseFloat(longitude),
               },
             },
           },
@@ -127,37 +136,49 @@ export default function AddStoreScreen({ navigation }) {
         cityName: city,
         description: { fr: description },
         category: selectedCategories,
-        storeStatus: 0,
-        website: "",
       };
-  
-      await addDoc(storesRef, storeData);
-  
-      Alert.alert("Succès", "Magasin ajouté avec succès !");
+
+      await updateDoc(storeRef, updatedData);
+      Alert.alert("Succès", "Magasin mis à jour !");
       navigation.goBack();
     } catch (error) {
-      console.error("Erreur lors de l'ajout du magasin :", error);
-      Alert.alert("Erreur", "Impossible d'ajouter le magasin");
+      console.error("Erreur lors de la mise à jour du magasin :", error);
+      Alert.alert("Erreur", "Impossible de mettre à jour le magasin.");
     }
-  };  
+  };
 
-  const getOwnerId = async (userId) => {
-      try {
-        const userRef = doc(firestore, "users", userId);
-        const userSnap = await getDoc(userRef);
-    
-        if (userSnap.exists()) {
-          const ownerId = userSnap.data().id;
-          return ownerId;
-        } else {
-          console.error("Utilisateur introuvable dans Firestore.");
-          return null;
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération de l'owner_id :", error);
-        return null;
-      }
-    };
+  const handleDeleteStore = async () => {
+    Alert.alert(
+      "Supprimer le magasin",
+      "Êtes-vous sûr de vouloir supprimer ce magasin ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const storeRef = doc(firestore, "stores", storeDocumentId);
+              await deleteDoc(storeRef);
+              Alert.alert("Succès", "Magasin supprimé !");
+              navigation.goBack();
+            } catch (error) {
+              console.error("Erreur lors de la suppression du magasin :", error);
+              Alert.alert("Erreur", "Impossible de supprimer le magasin.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Chargement...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -181,6 +202,12 @@ export default function AddStoreScreen({ navigation }) {
         <Text style={styles.label}>Description</Text>
         <TextInput style={[styles.input, styles.textArea]} placeholder="Décrivez votre magasin" value={description} onChangeText={setDescription} multiline />
 
+        <Text style={styles.label}>Latitude</Text>
+        <TextInput style={styles.input} placeholder="Latitude" value={latitude} onChangeText={setLatitude} keyboardType="numeric" />
+
+        <Text style={styles.label}>Longitude</Text>
+        <TextInput style={styles.input} placeholder="Longitude" value={longitude} onChangeText={setLongitude} keyboardType="numeric" />
+
         <Text style={styles.label}>Catégories</Text>
         <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
           <Text style={styles.categoryButtonText}>
@@ -199,8 +226,12 @@ export default function AddStoreScreen({ navigation }) {
           ))}
         </ScrollView>
 
-        <TouchableOpacity style={styles.addButton} onPress={handleAddStore}>
-          <Text style={styles.addButtonText}>Ajouter le magasinss</Text>
+        <TouchableOpacity style={styles.handleButton} onPress={handleUpdateStore}>
+          <Text style={styles.handleButtonText}>Mettre à jour</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteStore}>
+          <Text style={styles.deleteButtonText}>Supprimer le magasin</Text>
         </TouchableOpacity>
 
         <Modal animationType="slide" transparent={true} visible={modalVisible}>
@@ -295,14 +326,26 @@ const styles = StyleSheet.create({
     marginRight: 5,
     fontSize: 14
   },
-  addButton: {
+  handleButton: {
     backgroundColor: AppColors.primary,
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10
   },
-  addButtonText: {
+  handleButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold"
+  },
+  deleteButton: {
+    backgroundColor: AppColors.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10
+  },
+  deleteButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold"

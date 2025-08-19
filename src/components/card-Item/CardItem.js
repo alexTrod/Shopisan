@@ -16,8 +16,6 @@ const CardItem = ({ item, isSelected, onPress }) => {
   const favoriteStores = useSelector(selectFavoriteStores);
   const [rating, setRating] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
-  const categories = useSelector(state => state.categories.categories);
-
   
   const _id = item.id;
   const _description = item.description.en;
