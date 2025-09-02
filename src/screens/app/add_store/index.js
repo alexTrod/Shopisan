@@ -57,11 +57,101 @@ export default function AddStoreScreen({ navigation }) {
   const [groupedDays, setGroupedDays] = useState([]);
 
   const timePresets = [
-    { label: "9h-12h / 14h-19h", morning: { start: "9", end: "12" }, afternoon: { start: "14", end: "19" } },
-    { label: "8h-12h / 13h-18h", morning: { start: "8", end: "12" }, afternoon: { start: "13", end: "18" } },
-    { label: "10h-19h", morning: { start: "10", end: "19" }, afternoon: null },
-    { label: "Fermé", morning: null, afternoon: null },
+    { label: "Fermé", type: "closed" },
+    { label: "9–12 / 14–19", type: "split", morning: { start: "9", end: "12" }, afternoon: { start: "14", end: "19" } },
+    { label: "10–19 (journée)", type: "day", start: "10", end: "19" },
   ];
+
+  const isPeriodEmpty = (p) => !p || ((p.start ?? "") === "" && (p.end ?? "") === "");
+  const isClosed = (d) => {
+    const day = openingHours[d] || {};
+    return isPeriodEmpty(day.morning) && isPeriodEmpty(day.afternoon);
+  };
+  const isSplit = (d) => openingHours[d].morning && openingHours[d].afternoon;
+  const isDay = (d) => openingHours[d].morning && !openingHours[d].afternoon;
+
+  const clampHour = (v) => {
+    if (v === "" || v == null) return "";
+    const n = Math.max(0, Math.min(23, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
+    return String(n);
+  };
+
+  const setDayClosed = (day, closed) => {
+    setOpeningHours(prev => {
+      const next = { ...prev };
+      next[day] = closed
+        ? { morning: null, afternoon: null }
+        : { morning: { start: "9", end: "19" }, afternoon: null };
+      return next;
+    });
+  };
+
+  const normalizeDay = (dayObj = {}) => {
+    const norm = { ...dayObj };
+    if (isPeriodEmpty(norm.morning)) norm.morning = null;
+
+    if (isPeriodEmpty(norm.afternoon)) norm.afternoon = null;
+    return norm;
+  };
+
+  const setDayMode = (day, mode) => {
+    setOpeningHours(prev => {
+      const cur = normalizeDay(prev[day] || { morning: null, afternoon: null });
+      if (mode === "day") {
+        const start = cur.morning?.start ?? "9";
+        const end = (cur.afternoon?.end ?? cur.morning?.end) ?? "19";
+        return { ...prev, [day]: normalizeDay({ morning: { start, end }, afternoon: null }) };
+      } else {
+        const mStart = cur.morning?.start ?? "9";
+        const mEnd = Math.min(parseInt(cur.morning?.end ?? "12", 10), 12).toString();
+        return {
+          ...prev,
+          [day]: normalizeDay({
+            morning: { start: mStart, end: mEnd },
+            afternoon: { start: "14", end: cur.morning?.end ?? "19" },
+          }),
+        };
+      }
+    });
+  };
+
+  const setHour = (day, period, field, raw) => {
+    const value = clampHour(raw);
+    setOpeningHours(prev => {
+      const cur = prev[day] || { morning: null, afternoon: null };
+      const p = cur[period] ? { ...cur[period], [field]: value } : { [field]: value, ...(field === "start" ? { end: "" } : { start: "" }) };
+      const next = { ...prev, [day]: normalizeDay({ ...cur, [period]: p }) };
+      return next;
+    });
+  };
+
+  const applyPresetToAllDays = (preset) => {
+    const next = {};
+    days.forEach((d) => {
+      if (preset.type === "closed") {
+        next[d] = { morning: null, afternoon: null };
+      } else if (preset.type === "day") {
+        next[d] = { morning: { start: preset.start, end: preset.end }, afternoon: null };
+      } else {
+        next[d] = { morning: { ...preset.morning }, afternoon: { ...preset.afternoon } };
+      }
+    });
+    setOpeningHours(next);
+    setSelectedPreset(preset.label);
+  };
+
+  const copyMondayToWeekdays = () => {
+    setOpeningHours((prev) => {
+      const mon = prev.monday;
+      return {
+        ...prev,
+        tuesday: mon,
+        wednesday: mon,
+        thursday: mon,
+        friday: mon,
+      };
+    });
+  };
 
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
@@ -82,18 +172,6 @@ export default function AddStoreScreen({ navigation }) {
       console.error('Erreur de recherche Mapbox:', error);
     }
     setLoadingSuggestions(false);
-  };  
-
-  const applyPresetToAllDays = (preset) => {
-    const newOpeningHours = {};
-    days.forEach(day => {
-      newOpeningHours[day] = {
-        morning: preset.morning ? { ...preset.morning } : null,
-        afternoon: preset.afternoon ? { ...preset.afternoon } : null
-      };
-    });
-    setOpeningHours(newOpeningHours);
-    setSelectedPreset(preset.label);
   };
 
   const handleAddressSelect = (item) => {
@@ -600,158 +678,154 @@ export default function AddStoreScreen({ navigation }) {
         <TextInput style={[styles.input, styles.textArea]} placeholder="Décrivez votre magasin" value={description} onChangeText={setDescription} multiline />
 
         <Text style={styles.label}>Horaires d'ouverture</Text>
-        <View style={styles.presetsContainer}>
-          {timePresets.map((preset, index) => (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          {timePresets.map((p) => (
             <TouchableOpacity
-              key={index}
+              key={p.label}
+              onPress={() => applyPresetToAllDays(p)}
               style={[
-                styles.presetButton,
-                selectedPreset === preset.label && styles.selectedPreset
+                { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: AppColors.primary },
+                selectedPreset === p.label
+                  ? { backgroundColor: AppColors.primary }
+                  : { backgroundColor: AppColors.white }
               ]}
-              onPress={() => applyPresetToAllDays(preset)}
             >
-              <Text style={[
-                styles.presetText,
-                selectedPreset === preset.label && styles.selectedPresetText
-              ]}>
-                {preset.label}
+              <Text style={{ color: selectedPreset === p.label ? AppColors.white : AppColors.primary, fontWeight: "600" }}>
+                {p.label}
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            onPress={copyMondayToWeekdays}
+            style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: AppColors.grey_200 }}
+          >
+            <Text style={{ color: AppColors.black }}>Copier Lundi → Ven</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.openingHoursContainer}>
-          {groupedDays.map((group, groupIndex) => (
-            <View key={groupIndex} style={styles.dayGroup}>
-              <TouchableOpacity
-                style={styles.dayGroupHeader}
-                onPress={() => setExpandedDay(expandedDay === group.days[0] ? null : group.days[0])}
-              >
-                <View style={styles.dayGroupTitle}>
-                  <Text style={styles.dayGroupText}>
-                    {group.days.map(day => daysLabels[day]).join(", ")}
-                  </Text>
-                  <Text style={styles.dayGroupHours}>
-                    {formatHours(openingHours[group.days[0]])}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={expandedDay === group.days[0] ? "chevron-up" : "chevron-down"}
-                  size={20}
-                  color={AppColors.primary}
-                />
-              </TouchableOpacity>
+        {days.map((day) => {
+          const closed = isClosed(day);
+          const split = isSplit(day);
+          const dayMode = split ? "split" : isDay(day) ? "day" : "closed";
 
-              {expandedDay === group.days[0] && (
-                <View style={styles.dayGroupContent}>
-                  <View style={styles.hoursHeaderRow}>
-                    <Text style={[styles.dayLabel, {color: 'transparent'}]}>-</Text>
-                    <View style={styles.hoursHeaderBlock}>
-                      <Text style={styles.hoursHeaderText}>Matin</Text>
-                      <View style={styles.timeInputs}>
-                        <Text style={styles.hoursHeaderSubText}>Début</Text>
-                        <Text style={styles.hoursHeaderSubText}>Fin</Text>
-                      </View>
-                    </View>
-                    <View style={styles.hoursHeaderBlock}>
-                      <Text style={styles.hoursHeaderText}>Après-midi</Text>
-                      <View style={styles.timeInputs}>
-                        <Text style={styles.hoursHeaderSubText}>Début</Text>
-                        <Text style={styles.hoursHeaderSubText}>Fin</Text>
-                      </View>
-                    </View>
-                    <View style={styles.dayActionsHeader} />
+          const m = openingHours[day].morning;
+          const a = openingHours[day].afternoon;
+
+          const mErr = m && m.start !== "" && m.end !== "" && parseInt(m.start, 10) >= parseInt(m.end, 10);
+          const aErr = a && a.start !== "" && a.end !== "" && parseInt(a.start, 10) >= parseInt(a.end, 10);
+          const overlapErr = m && a && m.end !== "" && a.start !== "" && parseInt(m.end, 10) > parseInt(a.start, 10);
+
+          return (
+            <View key={day} style={{ borderWidth: 1, borderColor: AppColors.grey_200, borderRadius: 8, padding: 12, marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontSize: 14, fontWeight: "bold" }}>{daysLabels[day]}</Text>
+
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontSize: 12, color: AppColors.grey_200 }}>Fermé</Text>
+                  <TouchableOpacity
+                    onPress={() => setDayClosed(day, !closed)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: closed ? AppColors.primary : AppColors.grey_200,
+                      backgroundColor: closed ? AppColors.primary_faded : AppColors.white_100,
+                    }}
+                  >
+                    <Text style={{ color: closed ? AppColors.primary : AppColors.black, fontSize: 12 }}>{closed ? "Oui" : "Non"}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {!closed && (
+                <>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity
+                      onPress={() => setDayMode(day, "day")}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: dayMode === "day" ? AppColors.primary : AppColors.grey_200,
+                        backgroundColor: dayMode === "day" ? AppColors.primary_faded : AppColors.white_100,
+                      }}
+                    >
+                      <Text style={{ color: dayMode === "day" ? AppColors.primary : AppColors.black, fontSize: 12 }}>Journée</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => setDayMode(day, "split")}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: dayMode === "split" ? AppColors.primary : AppColors.grey_200,
+                        backgroundColor: dayMode === "split" ? AppColors.primary_faded : AppColors.white_100,
+                      }}
+                    >
+                      <Text style={{ color: dayMode === "split" ? AppColors.primary : AppColors.black, fontSize: 12 }}>Coupure midi</Text>
+                    </TouchableOpacity>
                   </View>
-                  {group.days.map((day, index) => (
-                    <View key={day} style={styles.dayRow}>
-                      <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
-                      <View style={styles.block}>
-                        <View style={styles.timeInputs}>
-                          <TextInput
-                            style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
-                            placeholder="09"
-                            value={openingHours[day].morning?.start || ""}
-                            onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'start', text.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                          <Text style={styles.timeSeparator}>h</Text>
-                          <TextInput
-                            style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
-                            placeholder="12"
-                            value={openingHours[day].morning?.end || ""}
-                            onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'end', text.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                        </View>
-                      </View>
-                      <View style={styles.block}>
-                        <View style={styles.timeInputs}>
-                          <TextInput
-                            style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
-                            placeholder="14"
-                            value={openingHours[day].afternoon?.start || ""}
-                            onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'start', text.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                          <Text style={styles.timeSeparator}>h</Text>
-                          <TextInput
-                            style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
-                            placeholder="19"
-                            value={openingHours[day].afternoon?.end || ""}
-                            onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'end', text.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                        </View>
-                      </View>
-                      {/* Actions */}
-                      <View style={[styles.block, styles.blockActions]}>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => {
-                            setOpeningHours(prev => ({
-                              ...prev,
-                              [day]: { morning: null, afternoon: null }
-                            }));
-                          }}
-                        >
-                          <Ionicons
-                            name={!openingHours[day].morning && !openingHours[day].afternoon ? "lock-closed" : "lock-open"}
-                            size={20}
-                            color={AppColors.primary}
-                          />
-                        </TouchableOpacity>
-                        {index < group.days.length - 1 && (
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => copyToNextDay(day)}
-                          >
-                            <Ionicons name="copy" size={20} color={AppColors.primary} />
-                          </TouchableOpacity>
+
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={{ width: 70, fontSize: 12, color: AppColors.grey_200 }}>{split ? "Matin" : "Heures"}</Text>
+                      <TextInput
+                        style={[styles.timeInput, mErr && styles.timeInputError]}
+                        placeholder="09"
+                        value={m?.start ?? ""}
+                        onChangeText={(t) => setHour(day, "morning", "start", t)}
+                        keyboardType="numeric"
+                        maxLength={2}
+                      />
+                      <Text style={styles.timeSeparator}>h</Text>
+                      <TextInput
+                        style={[styles.timeInput, mErr && styles.timeInputError]}
+                        placeholder={split ? "12" : "19"}
+                        value={m?.end ?? ""}
+                        onChangeText={(t) => setHour(day, "morning", "end", t)}
+                        keyboardType="numeric"
+                        maxLength={2}
+                      />
+                      {mErr && <Text style={[styles.timeInputErrorText, { marginLeft: 8 }]}>Fin &gt; Début</Text>}
+                    </View>
+
+                    {split && (
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Text style={{ width: 70, fontSize: 12, color: AppColors.grey_200 }}>Après-midi</Text>
+                        <TextInput
+                          style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
+                          placeholder="14"
+                          value={a?.start ?? ""}
+                          onChangeText={(t) => setHour(day, "afternoon", "start", t)}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                        <Text style={styles.timeSeparator}>h</Text>
+                        <TextInput
+                          style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
+                          placeholder="19"
+                          value={a?.end ?? ""}
+                          onChangeText={(t) => setHour(day, "afternoon", "end", t)}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                        {(aErr || overlapErr) && (
+                          <Text style={[styles.timeInputErrorText, { marginLeft: 8 }]}>
+                            {aErr ? "Fin > Début" : "Chevauchement"}
+                          </Text>
                         )}
                       </View>
-                      {(hoursErrors[`${day}_morning_start`] === 'order' || hoursErrors[`${day}_morning_end`] === 'order') && (
-                        <Text style={styles.timeInputErrorText}>L'heure de fin doit être après l'heure de début</Text>
-                      )}
-                      {(hoursErrors[`${day}_morning_start`] === 'notNumber' || hoursErrors[`${day}_morning_end`] === 'notNumber') && (
-                        <Text style={styles.timeInputErrorText}>Veuillez entrer un nombre</Text>
-                      )}
-                      {(hoursErrors[`${day}_afternoon_start`] === 'order' || hoursErrors[`${day}_afternoon_end`] === 'order') && (
-                        <Text style={styles.timeInputErrorText}>L'heure de fin doit être après l'heure de début</Text>
-                      )}
-                      {(hoursErrors[`${day}_afternoon_start`] === 'notNumber' || hoursErrors[`${day}_afternoon_end`] === 'notNumber') && (
-                        <Text style={styles.timeInputErrorText}>Veuillez entrer un nombre</Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
+                    )}
+                  </View>
+                </>
               )}
             </View>
-          ))}
-        </View>
+          );
+        })}
 
         {user?.userType === "merchant" && (
           <>

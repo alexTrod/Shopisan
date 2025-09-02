@@ -686,6 +686,8 @@ export default function HomeScreen({ navigation, route }) {
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
+              blurOnSubmit={false}
+              onSubmitEditing={() => {}}
             />
           </View>
 

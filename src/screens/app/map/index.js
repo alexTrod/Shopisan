@@ -518,8 +518,9 @@ export default function Map({ navigation, route  }) {
           placeholder="Search for a city..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          onSubmitEditing={setSearchQuery}
           returnKeyType="search"
+          blurOnSubmit={false}
+          onSubmitEditing={() => {}}
         />
       </View>
 

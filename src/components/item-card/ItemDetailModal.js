@@ -226,157 +226,158 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>   
-              <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.headerContainer}>
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close" size={24} color={AppColors.primary} />
-                  </TouchableOpacity>
-                
-                  <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
-                    <Ionicons name="home-outline" size={15} color="white" />
-                  </TouchableOpacity>
-                  
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalContainer}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={onClose}
+          style={styles.backdrop}
+        />
+
+        <View style={styles.sheet}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator
+          >
+            <View style={styles.headerContainer}>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={AppColors.primary} />
+              </TouchableOpacity>
+            
+              <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
+                <Ionicons name="home-outline" size={15} color="white" />
+              </TouchableOpacity>
+              
+                <TouchableOpacity
+                  onPress={handleToggleFavoriteFromModal}
+                  style={styles.favoriteButton}
+                >
+                  <Ionicons
+                    name={isFavorite ? "heart" : "heart-outline"}
+                    size={height(2.5)}
+                    color={isFavorite ? "red" : "gray"}
+                  />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.title}>{item.title}</Text>
+            <AddressComponent address={address(item.address)} />
+
+            <View style={styles.tagsContainer}>
+              {item.tags.map((tag, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={[
+                    styles.tag,
+                    selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
+                  ]}
+                  onPress={() => handleCategoryPress(tag)}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.description}>{item.description || "aa"}</Text>
+
+            {item.openingHours && (
+              <View style={{ width: '100%', marginTop: 20 }}>
+                <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
+                {days.map((dayKey) => {
+                  const dayHours = item.openingHours[dayKey];
+                  const dayLabel = daysLabels[dayKey];
+
+                  let hoursText = "";
+
+                  if (dayHours?.morning && dayHours?.afternoon) {
+                    hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                  } else if (dayHours?.morning) {
+                    hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
+                  } else if (dayHours?.afternoon) {
+                    hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                  } else {
+                    hoursText = "Close";
+                  }
+
+                  return (
+                    <View key={dayKey} style={styles.openingHourRow}>
+                      <Text style={styles.openingHourDay}>{dayLabel} :</Text>
+                      <Text style={styles.openingHourText}>{hoursText}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={styles.ratingContainer}>
+              <View style={styles.ratingSection}>
+                <Text style={styles.sectionTitle}>Your rating</Text>
+                <View style={styles.rating}>
+                  {[...Array(5)].map((_, index) => (
                     <TouchableOpacity
-                      onPress={handleToggleFavoriteFromModal}
-                      style={styles.favoriteButton}
+                      key={index}
+                      onPress={() => submitRating(index + 1)}
+                      disabled={loading}
                     >
                       <Ionicons
-                        name={isFavorite ? "heart" : "heart-outline"}
+                        name={index < userRating ? "star" : "star-outline"}
                         size={height(2.5)}
-                        color={isFavorite ? "red" : "gray"}
+                        color={index < userRating ? "gold" : "gray"}
                       />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.title}>{item.title}</Text>
-                <AddressComponent address={address(item.address)} />
-
-                <View style={styles.tagsContainer}>
-                  {item.tags.map((tag, index) => (
-                    <TouchableOpacity 
-                      key={index} 
-                      style={[
-                        styles.tag,
-                        selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
-                      ]}
-                      onPress={() => handleCategoryPress(tag)}
-                    >
-                      <Text
-                        style={[
-                          styles.tagText,
-                          selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
-                        ]}
-                      >
-                        {tag}
-                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-
-                <Text style={styles.description}>{item.description || "aa"}</Text>
-
-                {item.openingHours && (
-                  <View style={{ width: '100%', marginTop: 20 }}>
-                    <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
-                    {days.map((dayKey) => {
-                      const dayHours = item.openingHours[dayKey];
-                      const dayLabel = daysLabels[dayKey];
-
-                      let hoursText = "";
-
-                      if (dayHours?.morning && dayHours?.afternoon) {
-                        hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
-                      } else if (dayHours?.morning) {
-                        hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
-                      } else if (dayHours?.afternoon) {
-                        hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
-                      } else {
-                        hoursText = "Close";
-                      }
-
-                      return (
-                        <View key={dayKey} style={styles.openingHourRow}>
-                          <Text style={styles.openingHourDay}>{dayLabel} :</Text>
-                          <Text style={styles.openingHourText}>{hoursText}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-
-                <View style={styles.ratingContainer}>
-                  <View style={styles.ratingSection}>
-                    <Text style={styles.sectionTitle}>Your rating</Text>
-                    <View style={styles.rating}>
-                      {[...Array(5)].map((_, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          onPress={() => submitRating(index + 1)}
-                          disabled={loading}
-                        >
-                          <Ionicons
-                            name={index < userRating ? "star" : "star-outline"}
-                            size={height(2.5)}
-                            color={index < userRating ? "gold" : "gray"}
-                          />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                
-                  <View style={styles.ratingSection}>
-                    <Text style={styles.sectionTitle}>Shopper's rating</Text>
-                    <View style={styles.rating}>
-                      {[...Array(5)].map((_, index) => (
-                        <Ionicons
-                          key={index}
-                          name={index < averageRating ? "star" : "star-outline"}
-                          size={height(2.5)}
-                          color={index < averageRating ? "gold" : "gray"}
-                        />
-                      ))}
-                      <Text style={styles.ratingText}>
-                        {loading ? 'Updating...' : 
-                        `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
-                      </Text>
-                    </View>
-                  </View>
+              </View>
+            
+              <View style={styles.ratingSection}>
+                <Text style={styles.sectionTitle}>Shopper's rating</Text>
+                <View style={styles.rating}>
+                  {[...Array(5)].map((_, index) => (
+                    <Ionicons
+                      key={index}
+                      name={index < averageRating ? "star" : "star-outline"}
+                      size={height(2.5)}
+                      color={index < averageRating ? "gold" : "gray"}
+                    />
+                  ))}
+                  <Text style={styles.ratingText}>
+                    {loading ? 'Updating...' : 
+                    `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
+                  </Text>
                 </View>
-
-                {postMedia.length > 0 && (
-                  <View style={styles.mediaContainer}>
-                    <Text style={styles.sectionTitle}>Annonces postées</Text>
-                    {postMedia.map((media, index) => (
-                      <View key={index} style={styles.mediaCard}>
-                        <Text style={styles.mediaText}>
-                          {media?.description?.en || media?.description?.fr || "Pas de description."}
-                        </Text>
-                        {media?.price !== null && (
-                          <Text style={styles.mediaPrice}>Prix : {media.price} €</Text>
-                        )}
-                        {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
-                          <Text style={styles.mediaLink}>
-                            {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
-                          </Text>
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </ScrollView>
+              </View>
             </View>
-          </TouchableWithoutFeedback>
+
+            {postMedia.length > 0 && (
+              <View style={styles.mediaContainer}>
+                <Text style={styles.sectionTitle}>Annonces postées</Text>
+                {postMedia.map((media, index) => (
+                  <View key={index} style={styles.mediaCard}>
+                    <Text style={styles.mediaText}>
+                      {media?.description?.en || media?.description?.fr || "Pas de description."}
+                    </Text>
+                    {media?.price !== null && (
+                      <Text style={styles.mediaPrice}>Prix : {media.price} €</Text>
+                    )}
+                    {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
+                      <Text style={styles.mediaLink}>
+                        {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };
@@ -396,6 +397,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sheet: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+    maxHeight: '70%',
   },
   ratingContainer:{
     flexDirection: 'row',

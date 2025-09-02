@@ -24,7 +24,6 @@ function createSlug(str) {
 
 async function migrateLocationData() {
   const countries = await postgresDB.query('SELECT * FROM countries');
-  console.log(countries);
   for (const country of countries) {
     await firestore.collection('countries').doc(country.code).set({
       name: country.name,
