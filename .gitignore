@@ -77,3 +77,4 @@ android/.idea/
 android/*.iml
 android/app/*.apk
 android/app/*.aab
+android/*
