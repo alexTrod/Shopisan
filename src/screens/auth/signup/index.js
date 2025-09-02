@@ -18,13 +18,12 @@ import Unlock_outline from "../../../../assets/icons/unlock";
 import { firestore } from "../../../../firebaseconfig";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import Toast from "react-native-toast-message";
-import i18n from "../../../translations/i18n";
+import { useTranslation } from "../../../utils/useTranslation";
 import { signUp, setNoAuthenticationWanted } from "../../../Redux/Actions/UserActions";
 
 export default function SignUp({ navigation }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const locale = useSelector(state => state.locale.currentLocale);
-  i18n.locale = locale;
   const dispatch = useDispatch();
   const errorMessage = useSelector(state => state.user.signUpError);
 
@@ -136,7 +135,7 @@ export default function SignUp({ navigation }) {
                   textProps={{ fontFamily: 'Mulish-Bold' }}
                   size={1.7}
                 >
-                  Sign up as a shopper
+                  {t('signup_as_shopper')}
                 </CustomText>
               </TouchableOpacity>
               <TouchableOpacity
@@ -157,7 +156,7 @@ export default function SignUp({ navigation }) {
                   textProps={{ fontFamily: 'Mulish-Bold' }}
                   size={1.7}
                 >
-                  Sign up as a merchant
+                  {t('signup_as_merchant')}
                 </CustomText>
               </TouchableOpacity>
             </View>
@@ -207,7 +206,7 @@ export default function SignUp({ navigation }) {
             textFieldInnerContainer={{ width: "100%" }}
             onSubmit={() => emailRef.current?.focus()}
             keytype="next"
-            placeholder={i18n.t("username_placeholder")}
+            placeholder={t("username_placeholder")}
             error={errors.username}
           />
           <InputField
