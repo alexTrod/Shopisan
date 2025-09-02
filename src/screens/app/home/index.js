@@ -24,10 +24,13 @@ import { height, width } from "../../../utils/dimension";
 import { useContext } from 'react';
 import { StoreContext } from '../../../context/StoreContext';
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
+import SearchBar from '../../../components/search-bar';
+import { useTranslation } from '../../../utils/useTranslation';
 
 const SEARCH_RADIUS_KM = 6;
 
 export default function HomeScreen({ navigation, route }) {
+  const { t } = useTranslation();
   const { filteredStores, allStores } = useContext(StoreContext);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,7 +44,7 @@ export default function HomeScreen({ navigation, route }) {
 
   const flatListRef = useRef(null);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+
 
 
   useEffect(() => {
@@ -80,7 +83,6 @@ export default function HomeScreen({ navigation, route }) {
           .filter((s) => s !== null);
 
         setStores(nearbyStores);
-        setSuggestions([]);
       } catch (error) {
         logging("Erreur lors du filtrage local des magasins :", error);
         setStores(filteredStores);
@@ -121,61 +123,7 @@ export default function HomeScreen({ navigation, route }) {
   );
   const selectedCities = useSelector(state => state.cities.selectedCities, shallowEqual);
 
-  useEffect(() => {
-    const getSuggestions = async () => {
-      if (!searchQuery.trim()) {
-        setSuggestions([]);
-        return;
-      }
 
-      if (searchQuery.length === 0) {
-        setSuggestions([]);
-        return;
-      }
-
-      const citySuggestions = await fetchCitySuggestions(searchQuery);
-      const storeSuggestions = await fetchStoreNameSuggestions(searchQuery);
-
-  
-      const formattedCities = citySuggestions.map(city => ({ label: city, type: "city" }));
-      const formattedStores = storeSuggestions.map(store => ({ label: store.name, id: store.id, location: store.location, type: "store" }));
-  
-      setSuggestions([...formattedCities, ...formattedStores]);
-    };
-  
-    const delayDebounce = setTimeout(() => {
-      getSuggestions();
-    }, 300);
-    
-    return () => clearTimeout(delayDebounce);
-  }, [searchQuery]);  
-
-  const fetchCitySuggestions = async (query) => {
-    if (!query.trim()) return [];
-    const lowerQuery = query.toLowerCase();
-  
-    const filtered = cities.filter(city =>
-      city.toLowerCase().startsWith(lowerQuery)
-    );
-  
-    return [...new Set(filtered)];
-  };    
-  
-  const fetchStoreNameSuggestions = (searchText) => {
-    if (!searchText.trim()) return [];
-
-    const lowerSearch = searchText.toLowerCase();
-
-    return allStores
-      .filter(store => store?.name?.toLowerCase().startsWith(lowerSearch))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 10)
-      .map(store => ({
-        id: store.id,
-        name: store.name,
-        location: store.address?.[0]?.location?.geopoint || null,
-      }));
-  };
 
   const loadingRef = useRef(loading);
 
@@ -530,8 +478,6 @@ export default function HomeScreen({ navigation, route }) {
   const handleSearch = async (item) => {
     if (!item) return;
 
-    setSuggestions([]);
-
     if (item.type === "city") {
       try {
         const locations = await Location.geocodeAsync(item.label);
@@ -562,7 +508,6 @@ export default function HomeScreen({ navigation, route }) {
         return;
       }
       setSearchQuery('');
-      setSuggestions([]);
 
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
 
@@ -578,7 +523,6 @@ export default function HomeScreen({ navigation, route }) {
   };
 
   const findClosestStore = async () => { 
-    setSuggestions([]);
     setSearchQuery("");
 
     if (!userLocation && !customLocation) {
@@ -636,9 +580,25 @@ export default function HomeScreen({ navigation, route }) {
     }
   };
 
+  const handleCitySearch = useCallback((cityName, coordinates) => {
+    dispatch(setCustomLocation(coordinates));
+  }, [dispatch]);
 
+  const handleStoreSearch = useCallback((storeSuggestion) => {
+    const filteredByName = filteredStores.filter(store =>
+      store.name.toLowerCase().includes(storeSuggestion.label.toLowerCase())
+    );
+    dispatch(setCustomLocation({ 
+      latitude: storeSuggestion.location.latitude, 
+      longitude: storeSuggestion.location.longitude 
+    }));
+    setStores(filteredByName);
+  }, [filteredStores, dispatch]);
 
-
+  const handleSearchChange = useCallback((query) => {
+    // This will be handled by the StoreContext
+    // The search component will manage its own state
+  }, []);
 
 
   if (loggingOut) {
@@ -670,48 +630,27 @@ export default function HomeScreen({ navigation, route }) {
             textDecorationLine="underline"
             textStyles={{ fontFamily: "Mulish-SemiBold" }}
           >
-            Go to signup
+            {t('sign_up')}
           </CustomText>
         </TouchableOpacity>
       )}
 
       <View style={styles.container}>
-        {/* Search Bar + Category Chip Group */}
+        {/* Search bar and category filter with proper z-index layering */}
         <View style={styles.searchGroupContainer}>
+          <SearchBar
+            placeholder={t('search_placeholder')}
+            onCitySelect={handleCitySearch}
+            onStoreSelect={handleStoreSearch}
+            onSearch={handleSearchChange}
+            allStores={allStores}
+            containerStyle={styles.searchBarContainer}
+          />
+        </View>
 
-          <View style={styles.searchBarRow}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search for a city or store"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
-          </View>
-
-          {/*suggestions.length > 0*/true && (
-            <View style={styles.suggestionsContainer}>
-              {suggestions.map((suggestion, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.suggestionItem}
-                  onPress={() => {
-                    setSearchQuery(suggestion.label);                
-                    handleSearch(suggestion);
-                    setSuggestions([]); 
-                  }}
-                >
-                  <Text style={styles.suggestionText}>
-                    {suggestion.label} {suggestion.type === "store" ? "(store)" : "(city)"}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.categoryChipRow}>
-            <CategoryFilter />
-          </View>
+        {/* Category filter */}
+        <View style={styles.categoryFilterContainer}>
+          <CategoryFilter />
         </View>
 
         {/* Filters */}
@@ -727,17 +666,17 @@ export default function HomeScreen({ navigation, route }) {
                 size={24} 
                 color={showMyStoresOnly ? AppColors.primary : AppColors.grey_200} 
               />
-              <Text style={styles.switchText}>{showMyStoresOnly ? "My stores" : "All stores"}</Text>
+              <Text style={styles.switchText}>{showMyStoresOnly ? t('my_stores') : t('all_categories')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {!loading && stores.length === 0 && (
           <View style={styles.noStoreContainer}>
-            <Text style={styles.noStoreText}>No stores found in this area.</Text>
+            <Text style={styles.noStoreText}>{t('no_stores_found')}</Text>
 
             <TouchableOpacity onPress={findClosestStore}>
-              <Text style={styles.closestStoreButtonText}>Find the nearest store</Text>
+              <Text style={styles.closestStoreButtonText}>{t('nearby')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -783,7 +722,7 @@ export default function HomeScreen({ navigation, route }) {
         <View style={modalStyles.container}>
           <View style={modalStyles.modal}>
             <ActivityIndicator size="large" color={AppColors.primary} />
-            <Text style={modalStyles.text}>Looking for stores around...</Text>
+            <Text style={modalStyles.text}>{t('loading')}</Text>
           </View>
         </View>
       </Modal>
@@ -791,51 +730,28 @@ export default function HomeScreen({ navigation, route }) {
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.white_100,
     paddingTop: 0,
   },
   searchGroupContainer: {
-    backgroundColor: '#fff',
-    borderColor: '#e0e0e0',
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 2,
-    borderBottomColor: '#e0e0e0',
-    borderRadius: 0,
-    width: '100%',
-    marginHorizontal: 0,
-    marginTop: 0,
-    marginBottom: 8,
-    paddingTop: 12,
-    paddingBottom: 8,
     paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
+    zIndex: 1002, // Higher than category filter
+    position: 'relative',
   },
-  searchBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'space-between',
-  },
-  searchInput: {
-    flex: 1,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#f0f0f0',
-    fontSize: 16,
-    paddingHorizontal: 12,
-    borderWidth: 0,
+  searchBarContainer: {
     marginBottom: 0,
   },
-  categoryChipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 0,
-    // No justifyContent, chip will be as wide as its content
+  categoryFilterContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    zIndex: 1000, // Lower than search bar's z-index
+    position: 'relative',
   },
   filtersRow: {
     flexDirection: "row",
@@ -994,7 +910,7 @@ const styles = {
     textAlign: "center",
     textDecorationLine: "underline",
   } 
-};
+});
 
 const modalStyles = StyleSheet.create({
   container: {
@@ -1025,24 +941,7 @@ const modalStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
   },
-  suggestionsContainer: {
-    position: "absolute",
-    top: 75,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    zIndex: 999999,
-    borderRadius: 5,
-    elevation: 3,
-  },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-  },
-  suggestionText: {
-    fontSize: 16,
-  },
+
 });
 
 
