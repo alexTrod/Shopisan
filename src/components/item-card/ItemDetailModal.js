@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import { AppColors } from "../../utils";
-import { height } from "../../utils/dimension";
+import { height, width } from "../../utils/dimension";
 import { collection, addDoc, updateDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../../firebaseconfig';
 import { getAuth } from 'firebase/auth';
@@ -54,11 +54,15 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
 
   const auth = getAuth();
   const address = (itemAddress) => {
-    const location = itemAddress.length > 0 ? itemAddress[0].location : {address: {street: ''}, city: {name:'', postal_code: ''}, geopoint: ''};
+    const location = itemAddress.length > 0 ? itemAddress[0].location : {
+      address: {street: ''}, 
+      city: {name:'', postal_code: ''}, 
+      geopoint: null  // Change from empty string to null for better validation
+    };
     const street = location?.address?.street || '';
     const city = location?.city?.name || '';
     const postalCode = location?.city?.postal_code || '';
-    const geoHash = location?.geopoint || '';
+    const geoHash = location?.geopoint || null;  // Change from empty string to null
     return {street, postalCode, city, geoHash};
   }
 
@@ -236,112 +240,160 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
         <View style={styles.modalContainer}>
           <TouchableWithoutFeedback>
             <View style={styles.modalContent}>   
-              <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.headerContainer}>
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={styles.headerTop}>
                   <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color={AppColors.primary} />
                   </TouchableOpacity>
-                
-                  <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
-                    <Ionicons name="home-outline" size={15} color="white" />
-                  </TouchableOpacity>
                   
+                  <View style={styles.headerActions}>
+                    <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
+                      <Ionicons name="home-outline" size={16} color="white" />
+                    </TouchableOpacity>
+                    
                     <TouchableOpacity
                       onPress={handleToggleFavoriteFromModal}
                       style={styles.favoriteButton}
                     >
                       <Ionicons
                         name={isFavorite ? "heart" : "heart-outline"}
-                        size={height(2.5)}
-                        color={isFavorite ? "red" : "gray"}
+                        size={22}
+                        color={isFavorite ? "#FF6B6B" : "#7F8C8D"}
                       />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.title}>{item.title}</Text>
-                <AddressComponent address={address(item.address)} />
-
-                <View style={styles.tagsContainer}>
-                  {item.tags.map((tag, index) => (
-                    <TouchableOpacity 
-                      key={index} 
-                      style={[
-                        styles.tag,
-                        selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
-                      ]}
-                      onPress={() => handleCategoryPress(tag)}
-                    >
-                      <Text
-                        style={[
-                          styles.tagText,
-                          selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
-                        ]}
-                      >
-                        {tag}
-                      </Text>
                     </TouchableOpacity>
-                  ))}
+                  </View>
+                </View>
+              </View>
+
+              <ScrollView 
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Store Title */}
+                <View style={styles.titleSection}>
+                  <Text style={styles.title}>{item.title}</Text>
                 </View>
 
-                <Text style={styles.description}>{item.description || "aa"}</Text>
+                {/* Address */}
+                <View style={styles.addressSection}>
+                  <AddressComponent address={address(item.address)} />
+                </View>
 
-                {item.openingHours && (
-                  <View style={{ width: '100%', marginTop: 20 }}>
-                    <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
-                    {days.map((dayKey) => {
-                      const dayHours = item.openingHours[dayKey];
-                      const dayLabel = daysLabels[dayKey];
-
-                      let hoursText = "";
-
-                      if (dayHours?.morning && dayHours?.afternoon) {
-                        hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
-                      } else if (dayHours?.morning) {
-                        hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
-                      } else if (dayHours?.afternoon) {
-                        hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
-                      } else {
-                        hoursText = "Close";
-                      }
-
-                      return (
-                        <View key={dayKey} style={styles.openingHourRow}>
-                          <Text style={styles.openingHourDay}>{dayLabel} :</Text>
-                          <Text style={styles.openingHourText}>{hoursText}</Text>
-                        </View>
-                      );
-                    })}
+                {/* Categories */}
+                {item.tags && item.tags.length > 0 && (
+                  <View style={styles.categoriesSection}>
+                    <Text style={styles.sectionTitle}>Categories</Text>
+                    <View style={styles.tagsContainer}>
+                      {item.tags.map((tag, index) => (
+                        <TouchableOpacity 
+                          key={index} 
+                          style={[
+                            styles.tag,
+                            selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
+                          ]}
+                          onPress={() => handleCategoryPress(tag)}
+                        >
+                          <Text
+                            style={[
+                              styles.tagText,
+                              selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
+                            ]}
+                          >
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
                 )}
 
-                <View style={styles.ratingContainer}>
-                  <View style={styles.ratingSection}>
-                    <Text style={styles.sectionTitle}>Your rating</Text>
-                    <View style={styles.rating}>
+                {/* Description */}
+                {item.description && (
+                  <View style={styles.descriptionSection}>
+                    <Text style={styles.sectionTitle}>Description</Text>
+                    <Text style={styles.description}>{item.description}</Text>
+                  </View>
+                )}
+
+                {/* Opening Hours */}
+                {item.openingHours && (
+                  <View style={styles.openingHoursSection}>
+                    <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
+                    <View style={styles.openingHoursContainer}>
+                      {days.map((dayKey) => {
+                        const dayHours = item.openingHours[dayKey];
+                        const dayLabel = daysLabels[dayKey];
+
+                        let hoursText = "";
+                        let isOpen = false;
+
+                        if (dayHours?.morning && dayHours?.afternoon) {
+                          hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                          isOpen = true;
+                        } else if (dayHours?.morning) {
+                          hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
+                          isOpen = true;
+                        } else if (dayHours?.afternoon) {
+                          hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                          isOpen = true;
+                        } else {
+                          hoursText = "Fermé";
+                          isOpen = false;
+                        }
+
+                        return (
+                          <View key={dayKey} style={styles.openingHourRow}>
+                            <Text style={styles.openingHourDay}>{dayLabel}</Text>
+                            <View style={styles.openingHourContent}>
+                              <View style={[styles.statusIndicator, { backgroundColor: isOpen ? '#4CAF50' : '#F44336' }]} />
+                              <Text style={[styles.openingHourText, { color: isOpen ? '#2C3E50' : '#7F8C8D' }]}>
+                                {hoursText}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {/* Ratings */}
+                <View style={styles.ratingsSection}>
+                  <Text style={styles.sectionTitle}>Ratings</Text>
+                  
+                  {/* User Rating */}
+                  <View style={styles.ratingCard}>
+                    <Text style={styles.ratingLabel}>Your rating</Text>
+                    <View style={styles.ratingStars}>
                       {[...Array(5)].map((_, index) => (
                         <TouchableOpacity
                           key={index}
                           onPress={() => submitRating(index + 1)}
                           disabled={loading}
+                          style={styles.starButton}
                         >
                           <Ionicons
                             name={index < userRating ? "star" : "star-outline"}
                             size={height(2.5)}
-                            color={index < userRating ? "gold" : "gray"}
+                            color={index < userRating ? "#FFD700" : "#E0E0E0"}
                           />
                         </TouchableOpacity>
                       ))}
                     </View>
                   </View>
                 
-                  <View style={styles.ratingSection}>
-                    <Text style={styles.sectionTitle}>Shopper's rating</Text>
-                    <View style={styles.rating}>
+                  {/* Community Rating */}
+                  <View style={styles.ratingCard}>
+                    <Text style={styles.ratingLabel}>Community rating</Text>
+                    <View style={styles.ratingStars}>
                       {[...Array(5)].map((_, index) => (
                         <Ionicons
                           key={index}
                           name={index < averageRating ? "star" : "star-outline"}
                           size={height(2.5)}
-                          color={index < averageRating ? "gold" : "gray"}
+                          color={index < averageRating ? "#FFD700" : "#E0E0E0"}
                         />
                       ))}
                       <Text style={styles.ratingText}>
@@ -352,24 +404,33 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                   </View>
                 </View>
 
+                {/* Posts/Media */}
                 {postMedia.length > 0 && (
-                  <View style={styles.mediaContainer}>
+                  <View style={styles.postsSection}>
                     <Text style={styles.sectionTitle}>Annonces postées</Text>
-                    {postMedia.map((media, index) => (
-                      <View key={index} style={styles.mediaCard}>
-                        <Text style={styles.mediaText}>
-                          {media?.description?.en || media?.description?.fr || "Pas de description."}
-                        </Text>
-                        {media?.price !== null && (
-                          <Text style={styles.mediaPrice}>Prix : {media.price} €</Text>
-                        )}
-                        {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
-                          <Text style={styles.mediaLink}>
-                            {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
+                    <View style={styles.postsContainer}>
+                      {postMedia.map((media, index) => (
+                        <View key={index} style={styles.postCard}>
+                          <Text style={styles.postDescription}>
+                            {media?.description?.en || media?.description?.fr || "Pas de description."}
                           </Text>
-                        )}
-                      </View>
-                    ))}
+                          {media?.price !== null && (
+                            <View style={styles.priceContainer}>
+                              <Text style={styles.priceLabel}>Prix:</Text>
+                              <Text style={styles.priceValue}>{media.price} €</Text>
+                            </View>
+                          )}
+                          {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
+                            <TouchableOpacity style={styles.linkContainer}>
+                              <Ionicons name="link-outline" size={16} color={AppColors.primary} />
+                              <Text style={styles.linkText}>
+                                {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 )}
               </ScrollView>
@@ -382,50 +443,97 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
 };
 
 const styles = StyleSheet.create({   
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-  },
-  address: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  ratingContainer:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
   modalContent: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    minHeight: '60%',
+  },
+  
+  // Header
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    maxHeight: '60%',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  goHomeButton: {
+    padding: 8,
+    backgroundColor: AppColors.black,
+    borderRadius: 20,
+  },
+  favoriteButton: {
+    padding: 8,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 20,
+  },
+  
+  // Scroll View
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
-    width: '100%',
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  
+  // Title Section
+  titleSection: {
+    marginTop: 20,
+    marginBottom: 15,
+  },
+  title: {
+    fontSize: height(2.8),
+    fontFamily: "Mulish-Bold",
+    color: "#2C3E50",
+    lineHeight: height(3.4),
+  },
+  
+  // Address Section
+  addressSection: {
+    marginBottom: 20,
+  },
+  
+  // Categories Section
+  categoriesSection: {
+    marginBottom: 25,
+  },
+  sectionTitle: {
+    fontSize: height(2),
+    fontFamily: "Mulish-Bold",
+    color: "#2C3E50",
+    marginBottom: 12,
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 15,
+    gap: 8,
   },
   tag: {
     backgroundColor: AppColors.primary_faded,
-    borderRadius: 15,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginRight: 5,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: "transparent",
   },
@@ -434,73 +542,144 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   tagText: {
-    fontSize: height(1.5),
-    fontFamily: "Mulish-Bold",
+    fontSize: height(1.4),
+    fontFamily: "Mulish-SemiBold",
     color: AppColors.primary,
   },
   selectedTagText: {
     color: AppColors.primary,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  
+  // Description Section
+  descriptionSection: {
+    marginBottom: 25,
   },
   description: {
-    fontSize: 14,
-    marginBottom: 20,
+    fontSize: height(1.6),
+    fontFamily: "Mulish-Regular",
+    color: "#7F8C8D",
+    lineHeight: height(2.4),
   },
-  rating: {
+  
+  // Opening Hours Section
+  openingHoursSection: {
+    marginBottom: 25,
+  },
+  openingHoursContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+  },
+  openingHourRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  openingHourDay: {
+    fontSize: height(1.5),
+    fontFamily: "Mulish-SemiBold",
+    color: "#2C3E50",
+    flex: 1,
+  },
+  openingHourContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 10,
+    flex: 2,
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  openingHourText: {
+    fontSize: height(1.4),
+    fontFamily: "Mulish-Regular",
+  },
+  
+  // Ratings Section
+  ratingsSection: {
+    marginBottom: 25,
+  },
+  ratingCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  ratingLabel: {
+    fontSize: height(1.6),
+    fontFamily: "Mulish-SemiBold",
+    color: "#2C3E50",
+    marginBottom: 8,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  starButton: {
+    marginRight: 4,
   },
   ratingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
+    marginLeft: 12,
+    fontSize: height(1.4),
+    fontFamily: "Mulish-Medium",
+    color: '#7F8C8D',
   },
-  closeButtonText: {
-    color: AppColors.primary,
-    fontWeight: 'bold',
+  
+  // Posts Section
+  postsSection: {
+    marginBottom: 20,
   },
-  goHomeButton: {
-    position: 'absolute',
-    top: 0,
-    right: 40,
-    padding: 10,
-    backgroundColor: AppColors.black,
-    borderRadius: 30,
-    elevation: 5,
+  postsContainer: {
+    gap: 12,
   },
-  mediaContainer: {
-    marginTop: 20,
-    width: '100%',
-  },
-  mediaCard: {
-    backgroundColor: AppColors.white_200,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+  postCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: AppColors.grey_200,
+    borderColor: '#E9ECEF',
   },
-  mediaText: {
-    fontSize: 14,
-    color: AppColors.black,
+  postDescription: {
+    fontSize: height(1.5),
+    fontFamily: "Mulish-Regular",
+    color: "#2C3E50",
+    marginBottom: 8,
+    lineHeight: height(2.2),
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 6,
   },
-  mediaPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  priceLabel: {
+    fontSize: height(1.4),
+    fontFamily: "Mulish-Medium",
+    color: "#7F8C8D",
+    marginRight: 6,
+  },
+  priceValue: {
+    fontSize: height(1.5),
+    fontFamily: "Mulish-Bold",
     color: AppColors.primary,
   },
-  mediaLink: {
-    fontSize: 13,
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  linkText: {
+    fontSize: height(1.3),
+    fontFamily: "Mulish-Regular",
     color: AppColors.primary,
     textDecorationLine: 'underline',
-    marginTop: 4,
-  }
+    marginLeft: 4,
+    flex: 1,
+  },
 });
 
 export default ItemDetailModal; 

@@ -6,7 +6,6 @@ import CardItem from "./CardItem";
 const FloatingCards = forwardRef(({ data, selectedStore, onCardSelect }, ref) => {
   const renderItem = ({ item, index }) => (
     <CardItem 
-      key={index} 
       item={item}
       isSelected={selectedStore?.id === item.id}
       onPress={() => onCardSelect(item)}
@@ -18,7 +17,7 @@ const FloatingCards = forwardRef(({ data, selectedStore, onCardSelect }, ref) =>
       <FlatList
         ref={ref}
         data={data ?? []}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item, index) => `${item.id}_${index}`}
         horizontal={true}
         showsHorizontalScrollIndicator={false}
         renderItem={renderItem}

@@ -4,7 +4,6 @@ import { AppColors } from '../../utils';
 
 const AddressComponent = ({ address }) => {
   const { street, postalCode, city } = address;
-  logging('AddressComponent', address);
   const _street = street.length > 0 ? street : '';
   const _postalCode = postalCode.length > 0 ? ', ' + postalCode : '';
   const _city = city.length > 0 ? ', ' + city : '';

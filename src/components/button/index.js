@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { TouchableOpacity, ActivityIndicator, View } from "react-native";
 import styles from "./styles";
-import LinearGradient from "react-native-linear-gradient";
 import { AppColors } from "../../utils";
 import CustomText, { SmallText } from "../text";
 

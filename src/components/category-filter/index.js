@@ -8,9 +8,11 @@ import { width, height } from '../../utils/dimension';
 import logging from '../../utils/logging';
 import { getCategoriesLocale } from '../../Redux/Reducers/CategoriesReducer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from '../../utils/useTranslation';
 
 
 const CategoryFilter = () => {
+  const { t } = useTranslation();
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
   const { categories, selectedCategories } = useSelector(state => state.categories);
@@ -41,11 +43,11 @@ const CategoryFilter = () => {
   };
 
   return (
-    <View style={[styles.container, { zIndex: 9999 }]}>
+    <View style={[styles.container, { zIndex: 1000 }]}>
       <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Text style={styles.selectedTextStyle}>
-          {selectedCategories.length > 0 ? '+' : '+ Category'}
+          {selectedCategories.length > 0 ? '+' : `+ ${t('category_filter')}`}
           </Text>
         </View>
       </TouchableOpacity>
@@ -71,7 +73,7 @@ const CategoryFilter = () => {
               style={styles.categoryItem}
             >
               <Text style={[styles.categoryText, { color: selectedCategories.length === 0 ? AppColors.primary : AppColors.black }]}>
-                Unselect
+                {t('clear_filters')}
               </Text>
             </TouchableOpacity>
 
@@ -85,7 +87,7 @@ const CategoryFilter = () => {
               )}
             />
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Finish</Text>
+              <Text style={styles.cancelButtonText}>{t('done')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -134,6 +136,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 10000, // Highest z-index for modal
   },
   modalContent: {
     width: '80%',
