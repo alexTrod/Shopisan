@@ -15,8 +15,10 @@ import { height, width } from "../../../utils/dimension";
 import Button from "../../../components/button";
 import Toast from "react-native-toast-message";
 import ForgotPasswordForm from "./valdiation";
+import { useTranslation } from "../../../utils/useTranslation";
 
 export default function ForgotPassword({ navigation }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -72,11 +74,11 @@ export default function ForgotPassword({ navigation }) {
       <View style={styles.mainViewContainer}>
         <View style={styles.inputContainer}>
           <LargeText textAlign="center" size={5} textProps={{ fontFamily: "bold" }}>
-            Forgot Password
+            {t('forgot_password')}
           </LargeText>
           <Spacer vertical={height(1)} />
           <SmallText textAlign="center" size={2}>
-            Enter your email to receive a password reset link.
+            {t('forgot_password_message')}
           </SmallText>
           <Spacer vertical={height(2)} />
 
@@ -97,7 +99,7 @@ export default function ForgotPassword({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            placeholder="Enter email"
+            placeholder={t('email_placeholder')}
             error={errors.email}
           />
 
