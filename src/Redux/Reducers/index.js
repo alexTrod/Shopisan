@@ -1,10 +1,11 @@
 import Auth from "./Auth";
 import Configuration from "./Configuration";
-import {localeReducer} from './LocaleReducer';
+import localeReducer from '../Slices/localeSlice';
 import { combineReducers } from "redux";
 import { categoriesReducer } from "./CategoriesReducer";
 import { citiesReducer } from "./CitiesReducer";
 import { userReducer } from "./UserReducer";
+
 import LocationReducer from "./LocationReducer";
 
 const rootReducer = combineReducers({

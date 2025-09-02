@@ -68,3 +68,10 @@ yarn-error.*
 
 # @end expo-cli
 .DS_Store
+
+# Android
+android/*
+
+# docs
+docs/*
+android/gradlew

@@ -10,37 +10,21 @@ import logging from "../../utils/logging";
 import { AppColors } from "../../utils";
 import ItemDetailModal from "../item-card/ItemDetailModal";
 
-
 const CardItem = ({ item, isSelected, onPress }) => {
   const dispatch = useDispatch();
   const favoriteStores = useSelector(selectFavoriteStores);
-  const [rating, setRating] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   
   const _id = item.id;
-  const _description = item.description.en;
+  const _description = item.description?.en || item.description?.fr || "";
   const _tags = item.tags ?? item.category ?? [];
   const _address = item.address;
   const _title = item.name;
-
-  logging('item content', item);
-  logging('_id', _id);
-  logging('_description', _description);
-  logging('_tags', _tags);
-  logging('_address', _address);
-  logging('_title', _title);
+  const _openingHours = item.openingHours;
 
   const isFavorite = useMemo(() => {
     return favoriteStores.includes(item.id);
   }, [favoriteStores, item.id]);
-
-  useEffect(() => {
-    const loadRating = async () => {
-      const currentRating = await fetchStoreRatings(item.id);
-      setRating(currentRating.averageRating);
-    };
-    loadRating();
-  }, [item.id]);
 
   const handlePress = () => {
     onPress(); // This will handle the map interaction
@@ -56,19 +40,10 @@ const CardItem = ({ item, isSelected, onPress }) => {
           isSelected && styles.selectedCard
         ]}
       >
-        <View style={styles.info}>
-          <Text style={styles.name}>{item.name}</Text>
-          <View style={styles.stars}>
-            {[...Array(5)].map((_, i) => (
-              <FontAwesome
-                key={i}
-                name="star"
-                size={16}
-                color={i < rating ? "#FFD700" : "#CCCCCC"}
-              />
-            ))}
-          </View>
-          <View style={styles.favoriteContainer}>
+        <View style={styles.cardContent}>
+          {/* Header Section */}
+          <View style={styles.headerSection}>
+            <Text style={styles.name} numberOfLines={1}>{_title}</Text>
             <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation(); // Prevent card press
@@ -78,11 +53,21 @@ const CardItem = ({ item, isSelected, onPress }) => {
             >
               <Ionicons
                 name={isFavorite ? "heart" : "heart-outline"}
-                size={height(2.5)}
-                color={isFavorite ? "red" : "gray"}
+                size={height(2.2)}
+                color={isFavorite ? "#FF6B6B" : "#7F8C8D"}
               />
             </TouchableOpacity>
           </View>
+
+          {/* Categories Preview */}
+          {_tags && _tags.length > 0 && (
+            <View style={styles.categoriesPreview}>
+              <Text style={styles.categoriesText} numberOfLines={1}>
+                {_tags.slice(0, 2).join(' • ')}
+                {_tags.length > 2 && ` +${_tags.length - 2} more`}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
 
@@ -95,7 +80,7 @@ const CardItem = ({ item, isSelected, onPress }) => {
           description: _description,
           tags: _tags,
           address: _address,
-          openingHours: item.openingHours || null,
+          openingHours: _openingHours || null,
         }}
       />
     </>
@@ -105,35 +90,52 @@ const CardItem = ({ item, isSelected, onPress }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "white",
-    borderRadius: 20,
-    paddingRight: height(2),
-    marginHorizontal: 10,
+    borderRadius: 16,
+    marginHorizontal: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 5,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  info: {
-    paddingLeft: 10,
-    flex: 1,
-    padding:10,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  stars: {
-    flexDirection: "row",
-    marginTop: 5,
+    minWidth: width(70),
+    maxWidth: width(75),
   },
   selectedCard: {
     borderWidth: 2,
     borderColor: AppColors.primary,
-    transform: [{ scale: 1.05 }],
+    transform: [{ scale: 1.02 }],
+  },
+  cardContent: {
+    padding: 12,
+  },
+  
+  // Header Section
+  headerSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  name: {
+    fontSize: height(1.8),
+    fontFamily: "Mulish-Bold",
+    color: "#2C3E50",
+    flex: 1,
+    marginRight: 8,
+  },
+  favoriteButton: {
+    padding: 2,
+  },
+  
+  // Categories Preview
+  categoriesPreview: {
+    marginTop: 2,
+  },
+  categoriesText: {
+    fontSize: height(1.3),
+    fontFamily: "Mulish-Regular",
+    color: "#7F8C8D",
+    lineHeight: height(1.8),
   },
 });
 

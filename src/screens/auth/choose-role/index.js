@@ -3,20 +3,22 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ScreenNames } from '../../../Routes/routes';
 import { AppColors } from '../../../utils';
 import { height, width } from '../../../utils/dimension';
-
-const roles = [
-  { key: 'shopper', label: 'Find amazing stores' },
-  { key: 'merchant', label: 'Manage my store' },
-];
+import { useTranslation } from '../../../utils/useTranslation';
 
 export default function ChooseRoleScreen({ navigation }) {
+  const { t } = useTranslation();
+  
+  const roles = [
+    { key: 'shopper', label: t('find_amazing_stores') },
+    { key: 'merchant', label: t('manage_my_store') },
+  ];
   const handleSelect = (role) => {
     navigation.navigate(ScreenNames.SIGN_UP, { role });
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What would you like to do?</Text>
+      <Text style={styles.title}>{t('what_would_you_like_to_do')}</Text>
       <View style={styles.rolesContainer}>
         {roles.map((role) => (
           <TouchableOpacity
@@ -33,7 +35,7 @@ export default function ChooseRoleScreen({ navigation }) {
         style={styles.loginButton}
         onPress={() => navigation.navigate(ScreenNames.SIGN_IN)}
       >
-        <Text style={styles.loginText}>Log in</Text>
+        <Text style={styles.loginText}>{t('log_in')}</Text>
       </TouchableOpacity>
     </View>
   );

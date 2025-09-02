@@ -9,8 +9,11 @@ import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "../../../utils/useTranslation";
+import { ScreenNames } from "../../../Routes/routes";
 
 export default function Profile({ navigation }) {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.userData);
 
@@ -43,21 +46,40 @@ export default function Profile({ navigation }) {
       <Header
         showLeft={true}
         showBack
-        title="Profile"
+        title={t('profile')}
         containerStyle={{ width: width(90), alignSelf: "center"}}
       />
       
       <ScrollView style={{ paddingHorizontal: 20, marginTop: 30 }}>
+        {/* Language Settings Section */}
+        <View style={styles.sectionContainer}>
+          <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
+            {t('language_settings')}
+          </CustomText>
+          <View style={{ height: 20 }} />
+          <TouchableOpacity
+            style={styles.optionTile}
+            onPress={() => navigation.navigate('LanguageSelection')}
+          >
+            <View style={styles.optionContent}>
+              <CustomText size={1.8} color={AppColors.black}>
+                {t('change_language')}
+              </CustomText>
+              <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Account Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            Account
+            {t('account_settings')}
           </CustomText>
           <View style={{ height: 20 }} />
           {[
-            { title: "Change email and name", screen: "ChangeEmailScreen" },
-            { title: "Recover password", screen: "RecoverPasswordScreen" },
-            { title: "Recover old account", screen: "RecoverAccountScreen" },
+            { title: t('change_email_name'), screen: "ChangeEmailScreen" },
+            { title: t('recover_password'), screen: "RecoverPasswordScreen" },
+            { title: t('recover_account'), screen: "RecoverAccountScreen" },
           ].map((option) => (
             <TouchableOpacity
               key={option.title}
@@ -78,7 +100,7 @@ export default function Profile({ navigation }) {
         {user?.userType === "merchant" && (
           <View style={styles.sectionContainer}>
             <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-              Support
+              {t('support')}
             </CustomText>
             <View style={{ height: 20 }} />
             <TouchableOpacity
@@ -87,7 +109,7 @@ export default function Profile({ navigation }) {
             >
               <View style={styles.optionContent}>
                 <CustomText size={1.8} color={AppColors.black}>
-                  Contact support
+                  {t('contact_support')}
                 </CustomText>
                 <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
               </View>
@@ -98,7 +120,7 @@ export default function Profile({ navigation }) {
         {/* Store Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            Store
+            {t('store')}
           </CustomText>
           <View style={{ height: 20 }} />
           <TouchableOpacity
@@ -107,7 +129,7 @@ export default function Profile({ navigation }) {
           >
             <View style={styles.optionContent}>
               <CustomText size={1.8} color={AppColors.black}>
-                Add a store
+                {t('add_store')}
               </CustomText>
               <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
             </View>
@@ -117,12 +139,12 @@ export default function Profile({ navigation }) {
         {/* Feedback Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            Feedback
+            {t('feedback')}
           </CustomText>
           <View style={{ height: 20 }} />
           {[
-            { title: "Report an issue", screen: "ReportIssueScreen" },
-            { title: "Suggest an idea / report a bug", screen: "SuggestIdeaScreen" },
+            { title: t('report_issue'), screen: "ReportIssueScreen" },
+            { title: t('suggest_feature'), screen: "SuggestIdeaScreen" },
           ].map((option) => (
             <TouchableOpacity
               key={option.title}
@@ -145,7 +167,7 @@ export default function Profile({ navigation }) {
         >
           <View style={styles.optionContent}>
             <CustomText size={1.8} color={AppColors.white}>
-              {user ? 'Log out' : 'Go to signup'}
+              {user ? t('logout') : t('sign_up')}
             </CustomText>
             <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
           </View>

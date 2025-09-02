@@ -15,8 +15,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { setSelectedCountry, setCountries } from '../Redux/Actions/UserActions';
 import { getCountries } from "../Redux/Reducers/UserReducer";
 import logging from "../utils/logging";
+import { useTranslation } from "../utils/useTranslation";
 
 export default function CountrySelector({ onSelectCountry }) {
+  const { t } = useTranslation();
   const countries = useSelector(state => state.user.countries);
   const selectedCountry = useSelector(state => state.user.selectedCountry);
 
@@ -51,7 +53,7 @@ export default function CountrySelector({ onSelectCountry }) {
         textStyles={styles.customText}
         size={2.2}
       >
-        Choose a country
+        {t('choose_country')}
       </CustomText>
       <FlatList
         data={countries_data}

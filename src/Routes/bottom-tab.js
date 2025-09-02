@@ -11,14 +11,17 @@ import ShopFilled from "../../assets/icons/shop-filled";
 import { ScreenNames } from "./routes";
 import Profile from "../screens/app/Profile";
 import HomeScreen from "../screens/app/home";
-import MapScreen from "../screens/app/map";
+import Map from "../screens/app/map"; // Changed from MapScreen to Map
 
 import { AppColors } from "../utils/";
 import { StoreProvider } from "../context/StoreContext.js";
+import { useTranslation } from "../utils/useTranslation";
 
 const Tab = createBottomTabNavigator();
 
 export default function BottomTabs() {
+  const { t } = useTranslation();
+
   return (
     <StoreProvider>
       <Tab.Navigator
@@ -54,12 +57,24 @@ export default function BottomTabs() {
         <Tab.Screen
           name={ScreenNames.HOME}
           component={HomeScreen}
+          options={{
+            tabBarLabel: t('home_title')
+          }}
         />
         <Tab.Screen
           name={ScreenNames.MAP}
-          component={MapScreen}
+          component={Map} // Changed from MapScreen to Map
+          options={{
+            tabBarLabel: t('map_title')
+          }}
         />
-        <Tab.Screen name={ScreenNames.PROFILE} component={Profile} />
+        <Tab.Screen 
+          name={ScreenNames.PROFILE} 
+          component={Profile}
+          options={{
+            tabBarLabel: t('profile_title')
+          }}
+        />
       </Tab.Navigator>
     </StoreProvider>
   );

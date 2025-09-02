@@ -16,17 +16,13 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
 import { useDispatch, useSelector } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
-import i18n from "../../../translations/i18n";
+import { useTranslation } from "../../../utils/useTranslation";
 
 export default function SignIn({ navigation }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const errorMessage = useSelector(state => state.user.signInError);
-  const locale = useSelector(state => state.locale.currentLocale);
   const dispatch = useDispatch();
-
-  useEffect(() => {
-    i18n.locale = locale;
-  }, [locale]);
 
   const passwordRef = useRef(null);
   const [passwordHide, setPasswordHide] = useState(true);
@@ -79,7 +75,7 @@ export default function SignIn({ navigation }) {
                 textProps={{ fontFamily: "Mulish-Bold" }}
                 size={2.2}
               >
-                Log In
+                {t('login_title')}
               </CustomText>
             </View>
           </View>
@@ -129,7 +125,7 @@ export default function SignIn({ navigation }) {
             textFieldInnerContainer={{ width: "100%" }}
             onSubmit={() => passwordRef.current?.focus()}
             keytype="next"
-            placeholder={i18n.t('login_placeholder')}
+            placeholder={t('login_placeholder')}
             error={errors.loginIdentifier}
             autoCapitalize="none"
             autoCorrect={false}
@@ -154,7 +150,7 @@ export default function SignIn({ navigation }) {
             textFieldInnerContainer={{ width: "100%" }}
             control={control}
             name="password"
-            placeholder={i18n.t('pwd_placeholder')}
+            placeholder={t('pwd_placeholder')}
             error={errors.password}
             secureTextEntry={passwordHide}
             suffix={
@@ -183,7 +179,7 @@ export default function SignIn({ navigation }) {
                 textProps={{ fontFamily: "Mulish-SemiBold" }}
                 size={1.7}
               >
-                Remember
+                {t('remember_me')}
               </CustomText>
             </View>
             <CustomText
@@ -194,7 +190,7 @@ export default function SignIn({ navigation }) {
               textProps={{ fontFamily: "Mulish-Bold" }}
               textStyles={{ fontFamily: "Mulish-Bold", color: AppColors.grey_200 }}
             >
-              Forgot Password ?
+              {t('forgot_password')}
             </CustomText>
           </View>
 
@@ -207,7 +203,7 @@ export default function SignIn({ navigation }) {
             containerStyle={styles.button}
             onPress={handleSubmit(signinHandler)}
           >
-            Log in
+            {t('log_in')}
           </Button>
         </View>
 
@@ -218,7 +214,7 @@ export default function SignIn({ navigation }) {
             size={1.5}
             textAlign="center"
           >
-            Create an account ?
+            {t('create_account')}
           </CustomText>
           <CustomText
             onPress={() => {
@@ -230,7 +226,7 @@ export default function SignIn({ navigation }) {
             size={2}
             textAlign="center"
           >
-            Sign up
+            {t('sign_up')}
           </CustomText>
         </View>
 
@@ -245,7 +241,7 @@ export default function SignIn({ navigation }) {
                 await dispatch(setNoAuthenticationWanted(true));
               }}
             >
-              Create an account later
+              {t('create_account_later')}
             </Button>
           </View>
       </View>

@@ -5,6 +5,7 @@ import { firestore } from '../../firebaseconfig';
 import * as Location from 'expo-location';
 import { useSelector } from 'react-redux';
 import cities from "../components/cities/cities.json";
+import { store, error, warn, info, debug } from '../utils/logger';
 
 export const StoreContext = createContext();
 
@@ -33,9 +34,19 @@ export const StoreProvider = ({ children }) => {
         id: doc.id,
         ...doc.data(),
       }));
+      store('Fetched stores', { count: stores.length });
+      if (stores.length > 0) {
+        store('Sample store structure', {
+          id: stores[0].id,
+          name: stores[0].name,
+          address: stores[0].address,
+          hasGeopoint: !!stores[0].address?.[0]?.location?.geopoint,
+          geopoint: stores[0].address?.[0]?.location?.geopoint
+        });
+      }
       setAllStores(stores);
     } catch (error) {
-      console.error('Erreur lors de la récupération des magasins :', error);
+      error('Erreur lors de la récupération des magasins', error);
     } finally {
       setLoadingStores(false);
     }
@@ -50,7 +61,7 @@ export const StoreProvider = ({ children }) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.warn('Permission de localisation refusée');
+        warn('Permission de localisation refusée');
         return;
       }
 
@@ -60,14 +71,25 @@ export const StoreProvider = ({ children }) => {
         longitude: location.coords.longitude,
       });
     } catch (err) {
-      console.error('Erreur lors de la récupération de la position utilisateur :', err);
+      error('Erreur lors de la récupération de la position utilisateur', err);
     }
   }, [customLocation]);
 
   useEffect(() => {
-    if (!userLocation) {
+    // Use customLocation if available, otherwise use userLocation
+    const currentLocation = customLocation || userLocation;
+    
+    if (!currentLocation) {
+      debug('No current location available');
       return;
     }
+
+    debug('Filtering stores with', {
+      currentLocation,
+      searchQuery,
+      allStoresCount: allStores.length,
+      selectedCategoriesCount: selectedCategories?.length || 0
+    });
 
     let filtered = [...allStores];
 
@@ -76,45 +98,57 @@ export const StoreProvider = ({ children }) => {
         Array.isArray(store.category) &&
         store.category.some(catId => selectedCategories.includes(catId))
       );
+      debug('After category filtering', { count: filtered.length });
     }
 
-    if (searchQuery && searchQuery.trim().length > 0) {
-      const trimmedQuery = searchQuery.trim().toLowerCase();
-      const matchedCity = cities.find(
-        city => city.toLowerCase() === trimmedQuery
+    // Apply search query filtering
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(store =>
+        store.name?.toLowerCase().includes(query) ||
+        store.category?.some(cat => 
+          typeof cat === 'string' && cat.toLowerCase().includes(query)
+        )
       );
-
-      if (matchedCity) {
-        /*filtered = filtered.filter(
-          store => store.cityName?.toLowerCase() === trimmedQuery
-        );*/
-      } else {
-        filtered = filtered.filter(
-          store => store.name?.toLowerCase().includes(trimmedQuery)
-        );
-      }
+      console.log('🔍 After search query filtering:', filtered.length, 'stores');
     }
 
     filtered = filtered
       .filter(store => {
-        const valid = store?.address?.[0]?.location?.geopoint;
-        return valid;
+        const geopoint = store?.address?.[0]?.location?.geopoint;
+        if (!geopoint) return false;
+        const latNum = Number(geopoint.latitude);
+        const lonNum = Number(geopoint.longitude);
+        return Number.isFinite(latNum) && Number.isFinite(lonNum);
       })
       .map(store => {
         const geopoint = store.address[0].location.geopoint;
+        const latNum = Number(geopoint.latitude);
+        const lonNum = Number(geopoint.longitude);
         const distance = getDistanceInKm(
-          userLocation.latitude,
-          userLocation.longitude,
-          geopoint.latitude,
-          geopoint.longitude
+          currentLocation.latitude,
+          currentLocation.longitude,
+          latNum,
+          lonNum
         );
-        return { ...store, distance };
+        return { 
+          ...store, 
+          latitude: latNum,
+          longitude: lonNum,
+          distance 
+        };
       });
 
-    filtered.sort((a, b) => a.distance - b.distance);
+    // Temporarily remove distance sorting to see all stores
+    // filtered.sort((a, b) => a.distance - b.distance);
+
+    console.log('🔍 Final filtered stores:', filtered.length, 'stores');
+    if (filtered.length > 0) {
+      console.log('🔍 First few stores:', filtered.slice(0, 3).map(s => ({ name: s.name, distance: s.distance })));
+    }
 
     setFilteredStores(filtered);
-  }, [allStores, selectedCategories, userLocation, searchQuery]);
+  }, [allStores, selectedCategories, userLocation, customLocation, searchQuery]);
 
   useEffect(() => {
     fetchAllStores();
@@ -140,10 +174,10 @@ export const StoreProvider = ({ children }) => {
         loadingStores,
         userLocation,
         customLocation,
-        refreshStores: fetchAllStores,
-        refreshLocation: fetchUserLocation,
         searchQuery,
         setSearchQuery,
+        refreshStores: fetchAllStores,
+        refreshLocation: fetchUserLocation,
       }}
     >
       {children}
