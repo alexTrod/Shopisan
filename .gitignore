@@ -78,3 +78,6 @@ android/*.iml
 android/app/*.apk
 android/app/*.aab
 android/*
+
+# docs
+docs/*
