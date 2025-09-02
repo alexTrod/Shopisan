@@ -94,9 +94,9 @@ packagingOptions {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.floriandc.mymapboxapp'
+    namespace 'com.ecomerce.shopisan'
     defaultConfig {
-        applicationId 'com.floriandc.mymapboxapp'
+        applicationId 'com.ecomerce.shopisan'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
