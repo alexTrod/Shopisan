@@ -402,7 +402,10 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                       </Text>
                     </View>
                   </View>
+
                 </View>
+              </View>
+            </View>
 
                 {/* Posts/Media */}
                 {postMedia.length > 0 && (
@@ -431,13 +434,14 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                         </View>
                       ))}
                     </View>
+
                   </View>
-                )}
-              </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
+                ))}
+              </View>
+            )}
+          </ScrollView>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };
@@ -465,6 +469,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   headerTop: {
+
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

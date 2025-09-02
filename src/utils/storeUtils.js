@@ -11,12 +11,10 @@ export const getStoreQuery = (selectedCategories, lastVisible, categories, selec
 
   if (selectedCategories && selectedCategories.length > 0) {
     queryConstraints.push(where('category', 'array-contains-any', selectedCategories));
-    console.log("-> Filtre catégorie ajouté:", selectedCategories);
   }
 
   if (selectedCities && selectedCities.length > 0) {
     queryConstraints.push(where('cityName', 'in', selectedCities));
-    console.log("-> Filtre ville ajouté:", selectedCities);
   }
 
   queryConstraints.push(orderBy('id', 'desc'));
@@ -143,7 +141,6 @@ export const getMerchantStoreQuery = (ownerId, lastVisible) => {
     baseQuery = query(baseQuery, startAfter(lastVisible));
   }
 
-  console.log("Requête générée pour les magasins du marchand :", baseQuery);
   return baseQuery;
 };
 
@@ -158,4 +155,66 @@ export const matchesFilters = (store, selectedCategories, selectedCities, search
     !searchQuery || store.name?.toLowerCase().includes(searchQuery.toLowerCase());
 
   return matchCategory && matchCity && matchSearch;
+};
+
+export const filterStoresLocally = (
+  stores,
+  selectedCategories,
+  selectedCities,
+  searchQuery,
+  userLocation
+) => {
+  const normalize = str => str?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  };
+
+  const filteredStores = stores.filter(store => {
+    const matchesCity =
+      !selectedCities?.length ||
+      selectedCities.some(city =>
+        typeof city === "string"
+          ? city === store.cityName
+          : city.name === store.cityName
+      );
+
+    const matchesCategory =
+      !selectedCategories?.length ||
+      (Array.isArray(store.category) &&
+        store.category.some(cat => selectedCategories.includes(cat)));
+
+    const normalizedQuery = normalize(searchQuery?.trim());
+    const matchesSearch =
+      !normalizedQuery ||
+      normalize(store.name).includes(normalizedQuery) ||
+      normalize(store.description?.fr || "").includes(normalizedQuery);
+
+    return matchesCity && matchesCategory && matchesSearch;
+  });
+
+  if (userLocation) {
+    filteredStores.sort((a, b) => {
+      const aGeo = a.address?.[0]?.location?.geopoint;
+      const bGeo = b.address?.[0]?.location?.geopoint;
+
+      if (!aGeo && !bGeo) return 0;
+      if (!aGeo) return 1;
+      if (!bGeo) return -1;
+
+      const distA = getDistanceInKm(userLocation.latitude, userLocation.longitude, aGeo.latitude, aGeo.longitude);
+      const distB = getDistanceInKm(userLocation.latitude, userLocation.longitude, bGeo.latitude, bGeo.longitude);
+
+      return distA - distB;
+    });
+  }
+
+  return filteredStores;
 };

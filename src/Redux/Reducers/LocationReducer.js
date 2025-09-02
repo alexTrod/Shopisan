@@ -45,3 +45,4 @@ const locationReducer = createReducer(initialState, (builder) => {
 });
 
 export default locationReducer;
+

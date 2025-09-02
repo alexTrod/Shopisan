@@ -542,11 +542,34 @@ function MapContent({ initialStore }) {
               zIndex: 10000,
             }}
           >
-            <CustomText
-              size={1.5}
-              color={AppColors.grey_200}
-              textDecorationLine="underline"
-              textStyles={{ fontFamily: "Mulish-SemiBold" }}
+
+            Go to signup
+          </CustomText>
+        </TouchableOpacity>
+      )}
+      <View style={styles.topBar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search for a city..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          blurOnSubmit={false}
+          onSubmitEditing={() => {}}
+        />
+      </View>
+
+      {suggestions.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          {suggestions.map((suggestion, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.suggestionItem}
+              onPress={() => {
+                setSearchQuery(suggestion.label);                
+                handleSearch(suggestion);
+                setSuggestions([]); 
+              }}
             >
               Go to signup
             </CustomText>

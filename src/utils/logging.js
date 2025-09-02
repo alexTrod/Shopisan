@@ -54,4 +54,5 @@ if (__DEV__) {
     'Please use the new logger from "./logger" instead of "./logging". ' +
     'This file will be removed in a future version.'
   );
+
 }

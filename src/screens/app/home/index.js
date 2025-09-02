@@ -648,9 +648,44 @@ export default function HomeScreen({ navigation, route }) {
           />
         </View>
 
-        {/* Category filter */}
-        <View style={styles.categoryFilterContainer}>
-          <CategoryFilter />
+
+          {/* Category filter - to check */}
+          <View style={styles.searchBarRow}>
+            <CategoryFilter />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search for a city or store"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              blurOnSubmit={false}
+              onSubmitEditing={() => {}}
+            />
+          </View>
+
+          {/*suggestions.length > 0*/true && (
+            <View style={styles.suggestionsContainer}>
+              {suggestions.map((suggestion, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.suggestionItem}
+                  onPress={() => {
+                    setSearchQuery(suggestion.label);                
+                    handleSearch(suggestion);
+                    setSuggestions([]); 
+                  }}
+                >
+                  <Text style={styles.suggestionText}>
+                    {suggestion.label} {suggestion.type === "store" ? "(store)" : "(city)"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.categoryChipRow}>
+            <CategoryFilter />
+          </View>
         </View>
 
         {/* Filters */}

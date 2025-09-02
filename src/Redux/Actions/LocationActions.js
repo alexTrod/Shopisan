@@ -57,3 +57,4 @@ export const validateCoordinates = (latitude, longitude) => {
     longitude <= 180
   );
 };
+

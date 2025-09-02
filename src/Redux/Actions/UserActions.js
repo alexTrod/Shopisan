@@ -1,4 +1,4 @@
-import {getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut  } from 'firebase/auth';
+import {getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut as firebaseSignOut  } from 'firebase/auth';
 import { firestore } from '../../../firebaseconfig';
 import logging, { logError } from '../../utils/logging';
 import { collection, doc, query, where, getDocs, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -29,7 +29,6 @@ export const checkAuthStatus = () => async (dispatch) => {
 export const setNoAuthenticationWanted = (intention) => async (dispatch) => {
   if (intention) {
     dispatch({ type: 'SET_NO_AUTHENTICATION_WANTED' });
-    console.log('intention is true');
   }
 };
 
@@ -119,24 +118,50 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
   try {
     dispatch({ type: 'AUTH_LOADING' });
 
-    const userCollection = collection(firestore, 'users');
+    const safeEmail = email.trim().toLowerCase();
 
-    await createUserWithEmailAndPassword(auth, email, password).then(async (user) => {
-      const new_id = user.user.uid;
-      const newUserDoc = doc(userCollection, new_id);
-      await setDoc(newUserDoc, {
-        userType,
+    const cred = await createUserWithEmailAndPassword(auth, safeEmail, password);
+    const new_id = cred.user.uid;
+
+    const userCollection = collection(firestore, 'users');
+    await setDoc(doc(userCollection, new_id), {
+      userType,
+      id: new_id,
+      email: safeEmail,
+      username,
+      date_of_birth: null,
+      is_active: true,
+      is_admin: false,
+      is_owner: userType !== 'shopper',
+      last_login: serverTimestamp(),
+      created: serverTimestamp(),
+      surname: null,
+      name: null,
+      picture_id: null,
+      reset_password_token: null,
+      reset_password_validity: null,
+      user_id: new_id,
+    });
+
+    try {
+      auth.languageCode = 'fr';
+      await sendEmailVerification(cred.user);
+    } catch (e) {
+      console.error('[signUp] sendEmailVerification failed:', e?.code || e?.message || e);
+    }
+
+    dispatch({
+      type: 'AUTH_SUCCESS',
+      payload: {
         id: new_id,
-        email,
+        email: safeEmail,
         username,
-        date_of_birth: null,
+        userType,
         is_active: true,
         is_admin: false,
-        is_owner: userType === 'shopper' ? false : true,
-        last_login: serverTimestamp(),
-        created: serverTimestamp(),
-        surname: null,
+        is_owner: userType !== 'shopper',
         name: null,
+        surname: null,
         picture_id: null,
         reset_password_token: null,
         reset_password_validity: null,
@@ -182,6 +207,7 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
     } else if (error.code === 'auth/weak-password') {
       message = 'The password is too weak.';
     }
+
     dispatch({ type: 'SIGN_UP_ERROR', payload: message });
     throw error;
   }

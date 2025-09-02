@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Image, StyleSheet, BackHandler } from 'react-native';
+import { useDispatch, useSelector, Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
-import { Provider } from 'react-redux';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
 import { store } from './src/Redux/index';
 import { checkAuthStatus } from './src/Redux/Actions/UserActions';
 import BottomTabs from './src/Routes/bottom-tab';
@@ -17,7 +16,6 @@ import AddStore from "./src/screens/app/add_store";
 import HandleStore from "./src/screens/app/handle_store";
 import ChooseRoleScreen from './src/screens/auth/choose-role';
 import { ToastProvider } from './src/context/ToastContext';
-
 import ChangeNameScreen from './src/screens/app/Profile/change-name/';
 import ChangeEmailScreen from './src/screens/app/Profile/change-email/';
 import SupportScreen from './src/screens/app/Profile/support/';
@@ -31,35 +29,67 @@ import initializeLogging from './src/utils/initLogging'; // Initialize logging s
 
 const Stack = createNativeStackNavigator();
 
+const SplashScreen = () => (
+  <View style={styles.splashContainer}>
+    <Image
+      source={require('./assets/LogoIcon.png')}
+      style={styles.logo}
+      resizeMode="contain"
+    />
+  </View>
+);
+
 const App = () => {
   const dispatch = useDispatch();
+  const navigationRef = useRef(null);
+  const [currentRoute, setCurrentRoute] = useState(null);
   const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
 
   useEffect(() => {
     dispatch(checkAuthStatus());
   }, [dispatch]);
 
+  useEffect(() => {
+    const backAction = () => {
+      if (currentRoute === ScreenNames.MAP) {
+        navigationRef.current?.navigate(ScreenNames.HOME);
+        return true;
+      }
+      if (currentRoute === ScreenNames.PROFILE) {
+        navigationRef.current?.navigate(ScreenNames.MAP);
+        return true;
+      }
+      if (currentRoute === ScreenNames.HOME) {
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, [currentRoute]);
+
   if (loading) {
     return <CustomText>Loading...</CustomText>;
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <NavigationContainer
+      ref={navigationRef}
+      onStateChange={() => {
+        const route = navigationRef.current?.getCurrentRoute();
+        setCurrentRoute(route?.name || null);
+      }}
+    >
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        key={isAuthenticated || noAuthenticationWanted ? 'main' : 'auth'}
+      >
         {isAuthenticated || noAuthenticationWanted ? (
           <>
             <Stack.Screen name="MainTabs" component={BottomTabs} />
-
-            <Stack.Screen 
-              name={ScreenNames.ADD_STORE} 
-              component={AddStore} 
-              options={{ presentation: "modal" }}
-            />
-            <Stack.Screen 
-              name={ScreenNames.HANDLE_STORE} 
-              component={HandleStore} 
-              options={{ presentation: "modal" }}
-            />
+            <Stack.Screen name={ScreenNames.ADD_STORE} component={AddStore} options={{ presentation: "modal" }} />
+            <Stack.Screen name={ScreenNames.HANDLE_STORE} component={HandleStore} options={{ presentation: "modal" }} />
             <Stack.Screen name="ChangeNameScreen" component={ChangeNameScreen} />
             <Stack.Screen name="ChangeEmailScreen" component={ChangeEmailScreen} />
             <Stack.Screen name="SupportScreen" component={SupportScreen} />
@@ -72,7 +102,6 @@ const App = () => {
           </>
         ) : (
           <>
-            <Stack.Screen name={ScreenNames.CHOOSE_ROLE} component={ChooseRoleScreen} />
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
             <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
             <Stack.Screen name={ScreenNames.FORGOT_PASSWORD} component={ForgotPassword} />
@@ -84,22 +113,39 @@ const App = () => {
 };
 
 const WrappedApp = () => {
-  // Initialize logging system
-  React.useEffect(() => {
+
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
     try {
       initializeLogging();
+      const timeout = setTimeout(() => setShowSplash(false), 3000);
+      return () => clearTimeout(timeout);
     } catch (error) {
       console.warn('Failed to initialize logging system:', error);
+      return
     }
+    
   }, []);
 
   return (
     <Provider store={store}>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      {showSplash ? <SplashScreen /> : <App />}
     </Provider>
   );
 };
 
 export default WrappedApp;
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  logo: {
+    width: 160,
+    height: 160,
+  },
+});
