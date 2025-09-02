@@ -70,14 +70,8 @@ yarn-error.*
 .DS_Store
 
 # Android
-android/.gradle/
-android/app/build/
-android/local.properties
-android/.idea/
-android/*.iml
-android/app/*.apk
-android/app/*.aab
 android/*
 
 # docs
 docs/*
+android/gradlew
