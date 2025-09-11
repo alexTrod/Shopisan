@@ -104,10 +104,10 @@ packagingOptions {
     }
     signingConfigs {
         debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            storeFile file('version2.keystore')
+            storePassword 'debugrelease'
+            keyAlias 'debug_v2'
+            keyPassword 'debugrelease'
         }
     }
     buildTypes {

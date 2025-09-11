@@ -8,13 +8,26 @@ export const useTranslation = () => {
 
   // Update i18n locale when Redux state changes (side-effect in effect, not render)
   useEffect(() => {
-    if (i18n.locale !== locale) {
-      i18n.locale = locale;
+    try {
+      if (i18n && i18n.locale && i18n.locale !== locale) {
+        i18n.locale = locale;
+      }
+    } catch (error) {
+      console.warn('Failed to update i18n locale:', error);
     }
   }, [locale]);
 
   const t = (key, options = {}) => {
-    return i18n.t(key, options);
+    try {
+      if (!i18n || !i18n.t) {
+        console.warn('i18n not initialized, returning key:', key);
+        return key;
+      }
+      return i18n.t(key, options) || key;
+    } catch (error) {
+      console.warn(`Translation failed for key: ${key}`, error);
+      return key;
+    }
   };
 
   return { t, locale, isRTL };

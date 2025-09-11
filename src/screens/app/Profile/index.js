@@ -11,7 +11,7 @@ import { signOut } from "../../../Redux/Actions/UserActions";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "../../../utils/useTranslation";
 import { ScreenNames } from "../../../Routes/routes";
-
+import EmailVerificationBanner from "../../../components/email-verification";
 export default function Profile({ navigation }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
@@ -49,6 +49,9 @@ export default function Profile({ navigation }) {
         title={t('profile')}
         containerStyle={{ width: width(90), alignSelf: "center"}}
       />
+      
+      {/* Email Verification Banner */}
+      <EmailVerificationBanner />
       
       <ScrollView style={{ paddingHorizontal: 20, marginTop: 30 }}>
         {/* Language Settings Section */}

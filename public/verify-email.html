@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email</title>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
+        const firebaseConfig = {
+            apiKey: "AIzaSyByXMG_whb-DXs1OuF1lyr6Ae6ISOKX2lg",
+            authDomain: "shopisan-bad76.firebaseapp.com",
+            projectId: "shopisan-bad76",
+            storageBucket: "shopisan-bad76.firebasestorage.app",
+            messagingSenderId: "1029832363092",
+            appId: "1:1029832363092:web:2ec1c50117888b1901b1c1",
+            measurementId: "G-F2R69DSTEP"
+        };
+        const app = initializeApp(firebaseConfig);
+        const functions = getFunctions(app);
+        window.firebaseFunctions = functions;
+        window.httpsCallable = httpsCallable;
+        document.addEventListener('DOMContentLoaded', function() {
+            verifyEmail();
+        });
+    </script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px #0001;
+            padding: 32px 20px;
+            max-width: 340px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: #444;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .status-icon {
+            font-size: 32px;
+            margin: 16px 0;
+        }
+        h1 {
+            color: #222;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+        .message {
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 15px;
+        }
+        .button {
+            background: #444;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 15px;
+            cursor: pointer;
+            text-decoration: none;
+            margin: 8px 0;
+            display: inline-block;
+        }
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .error-details {
+            background: #fbeaea;
+            border: 1px solid #f3bcbc;
+            color: #a33;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 14px 0;
+            font-size: 13px;
+        }
+        .loading-spinner {
+            border: 3px solid #eee;
+            border-top: 3px solid #444;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin 1s linear infinite;
+            margin: 16px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        .footer {
+            margin-top: 24px;
+            color: #aaa;
+            font-size: 13px;
+        }
+        .footer a {
+            color: #444;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">S</div>
+        <div id="loading-state">
+            <div class="loading-spinner"></div>
+            <h1>Verifying...</h1>
+            <p class="message">Checking your email.</p>
+        </div>
+        <div id="success-state" style="display: none;">
+            <div class="status-icon">✅</div>
+            <h1>Verified</h1>
+            <p class="message">Your email is confirmed.</p>
+            <a href="#" id="open-app-btn" class="button">Open App</a>
+        </div>
+        <div id="error-state" style="display: none;">
+            <div class="status-icon">❌</div>
+            <h1>Not Verified</h1>
+            <p class="message">Could not verify your email.</p>
+            <div id="error-details" class="error-details" style="display: none;"></div>
+            <a href="#" id="resend-btn" class="button">Resend Email</a>
+        </div>
+        <div class="footer">
+            <p>Need help? <a href="mailto:support@shopisan.com">Contact support</a></p>
+        </div>
+    </div>
+    <script>
+        async function verifyEmail() {
+            const token = new URLSearchParams(window.location.search).get('token');
+            if (!token) {
+                showError('No token found.');
+                return;
+            }
+            try {
+                const verifyEmailFunction = window.httpsCallable(window.firebaseFunctions, 'verifyEmail');
+                await verifyEmailFunction({ token });
+                showSuccess();
+            } catch (error) {
+                let errorMessage = 'Verification failed.';
+                if (error.code === 'functions/failed-precondition') {
+                    errorMessage = 'Link expired.';
+                } else if (error.code === 'functions/not-found') {
+                    errorMessage = 'Invalid link.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                showError(errorMessage);
+            }
+        }
+        function showSuccess() {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('success-state').style.display = 'block';
+            document.getElementById('open-app-btn').addEventListener('click', function() {
+                window.location.href = 'shopisan://open';
+                setTimeout(() => {
+                    window.location.href = 'https://apps.apple.com/app/shopisan';
+                }, 2000);
+            });
+        }
+        function showError(message) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'block';
+            if (message) {
+                document.getElementById('error-details').textContent = message;
+                document.getElementById('error-details').style.display = 'block';
+            }
+            document.getElementById('resend-btn').addEventListener('click', function() {
+                window.location.href = 'shopisan://resend-verification';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -150,7 +150,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
           user_profile_id: auth.currentUser.uid,
           score: score,
           created: serverTimestamp(),
-          updated: null,
+          updated: serverTimestamp(),
           comment: null,
           is_active: true,
           is_deleted: false,
@@ -159,7 +159,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
         const ratingDoc = userRatingSnapshot.docs[0].ref;
         await updateDoc(ratingDoc, {
           score: score,
-          updated_at: serverTimestamp(),
+          updated: serverTimestamp(),
         });
       }
   
@@ -174,11 +174,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   };  
 
   useEffect(() => {
-    if (visible) {
+    if (visible && item?.id) {
       fetchStoreRatings();
       fetchPostMedia();
     }
-  }, [visible]);
+  }, [visible, item?.id]);
 
   const handleGoToHome = (store) => {
     onClose();
@@ -238,7 +238,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalContent}>   
               {/* Header */}
               <View style={styles.header}>
@@ -397,15 +397,13 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                         />
                       ))}
                       <Text style={styles.ratingText}>
-                        {loading ? 'Updating...' : 
-                        `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
+                        {loading
+                          ? 'Updating...'
+                          : `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
                       </Text>
                     </View>
                   </View>
-
                 </View>
-              </View>
-            </View>
 
                 {/* Posts/Media */}
                 {postMedia.length > 0 && (
@@ -434,17 +432,16 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                         </View>
                       ))}
                     </View>
-
                   </View>
-                ))}
-              </View>
-            )}
-          </ScrollView>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
-};
+}
 
 const styles = StyleSheet.create({   
   modalContainer: {

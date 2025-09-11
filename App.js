@@ -24,8 +24,20 @@ import RecoverAccountScreen from './src/screens/app/Profile/recover-account/';
 import ReportIssueScreen from './src/screens/app/Profile/report-issue';
 import SuggestIdeaScreen from './src/screens/app/Profile/suggest-idea';
 import LanguageSelectionScreen from './src/screens/app/language-selection';
-import './src/translations/i18n'; // Initialize i18n
 import initializeLogging from './src/utils/initLogging'; // Initialize logging system
+
+// Initialize i18n with error handling
+try {
+  console.log('App.js: About to require i18n module...');
+  require('./src/translations/i18n'); // Initialize i18n
+  console.log('App.js: i18n module required successfully');
+  console.log('App.js: global.i18n available:', !!global.i18n);
+  if (global.i18n) {
+    console.log('App.js: global.i18n properties:', Object.keys(global.i18n));
+  }
+} catch (error) {
+  console.error('App.js: Failed to require i18n module:', error);
+}
 
 const Stack = createNativeStackNavigator();
 
@@ -43,10 +55,44 @@ const App = () => {
   const dispatch = useDispatch();
   const navigationRef = useRef(null);
   const [currentRoute, setCurrentRoute] = useState(null);
+  const [i18nReady, setI18nReady] = useState(false);
   const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
 
   useEffect(() => {
+    // Check if i18n is ready
+    const checkI18n = () => {
+      try {
+        console.log('App.js: Checking i18n readiness...');
+        console.log('App.js: global.i18n exists:', !!global.i18n);
+        if (global.i18n) {
+          console.log('App.js: global.i18n properties:', Object.keys(global.i18n));
+          console.log('App.js: global.i18n.isInitialized exists:', !!global.i18n.isInitialized);
+        }
+        
+        if (global.i18n && global.i18n.isInitialized && global.i18n.isInitialized()) {
+          console.log('App.js: i18n is ready!');
+          setI18nReady(true);
+        } else {
+          console.log('App.js: i18n not ready yet, retrying...');
+          // Retry after a short delay
+          setTimeout(checkI18n, 100);
+        }
+      } catch (error) {
+        console.warn('App.js: Error checking i18n readiness:', error);
+        setTimeout(checkI18n, 100);
+      }
+    };
+    
+    // Set a timeout to prevent infinite waiting
+    const timeout = setTimeout(() => {
+      console.warn('i18n initialization timeout, proceeding anyway');
+      setI18nReady(true);
+    }, 5000); // 5 second timeout
+    
+    checkI18n();
     dispatch(checkAuthStatus());
+    
+    return () => clearTimeout(timeout);
   }, [dispatch]);
 
   useEffect(() => {
@@ -69,7 +115,7 @@ const App = () => {
     return () => backHandler.remove();
   }, [currentRoute]);
 
-  if (loading) {
+  if (loading || !i18nReady) {
     return <CustomText>Loading...</CustomText>;
   }
 

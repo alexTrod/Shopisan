@@ -27,7 +27,7 @@ import SearchBar from "../../../components/search-bar";
 import ErrorBoundary from "../../../components/ErrorBoundary";
 import { useTranslation } from "../../../utils/useTranslation";
 import { map, error, warn, info, debug } from "../../../utils/logger";
-
+import EmailVerificationBanner from "../../../components/email-verification";
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
 const SEARCH_RADIUS_KM = 6;
@@ -62,6 +62,9 @@ function MapContent({ initialStore }) {
   const searchQuery = storeContext?.searchQuery;
   const setSearchQuery = storeContext?.setSearchQuery;
   const [userLocationMarker, setUserLocationMarker] = useState(null);
+  
+  // Add missing suggestions state
+  const [suggestions, setSuggestions] = useState([]);
   
   // Global animation control - kept for future use, default to false for instant movement
   // To enable smooth flying animations, change this to: useState(true)
@@ -483,7 +486,10 @@ function MapContent({ initialStore }) {
 
     map('Dispatching setCustomLocation', coordinates);
     dispatch(setCustomLocation(coordinates));
-  }, [dispatch]);
+    
+    // Update the search query to show what was searched
+    setSearchQuery(cityName);
+  }, [dispatch, setSearchQuery]);
 
   const handleStoreSearch = useCallback((storeSuggestion) => {
     if (storeSuggestion.location) {
@@ -498,7 +504,7 @@ function MapContent({ initialStore }) {
           Math.abs(longitude) > 180) {
         warn('Invalid coordinates received for store search', { latitude, longitude });
         return;
-    }
+      }
       
       setCameraCoordinates({
         latitude,
@@ -516,12 +522,38 @@ function MapContent({ initialStore }) {
       }
 
       dispatch(setCustomLocation({ latitude, longitude }));
+      
+      // Update the search query to show what was searched
+      setSearchQuery(storeSuggestion.label);
     }
-  }, [dispatch]);
+  }, [dispatch, setSearchQuery]);
 
   const handleSearchChange = useCallback((query) => {
-    // This will be handled by the StoreContext
-    // The search component will manage its own state
+    // Update the search query in StoreContext so it's synchronized across screens
+    setSearchQuery(query);
+  }, [setSearchQuery]);
+
+  // Add a simple search handler for the text input
+  const handleSimpleSearch = useCallback((query) => {
+    if (!query || query.trim().length === 0) {
+      setSuggestions([]);
+      return;
+    }
+    
+    // Simple city search from cities data
+    const citySuggestions = cities
+      .filter(city => 
+        city.name.toLowerCase().includes(query.toLowerCase()) ||
+        city.country.toLowerCase().includes(query.toLowerCase())
+      )
+      .slice(0, 5)
+      .map(city => ({
+        label: `${city.name}, ${city.country}`,
+        type: 'city',
+        coordinates: { latitude: city.lat, longitude: city.lng }
+      }));
+    
+    setSuggestions(citySuggestions);
   }, []);
 
   return (
@@ -542,39 +574,48 @@ function MapContent({ initialStore }) {
               zIndex: 10000,
             }}
           >
-
-            Go to signup
-          </CustomText>
-        </TouchableOpacity>
-      )}
-      <View style={styles.topBar}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search for a city..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          blurOnSubmit={false}
-          onSubmitEditing={() => {}}
-        />
-      </View>
-
-      {suggestions.length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          {suggestions.map((suggestion, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.suggestionItem}
-              onPress={() => {
-                setSearchQuery(suggestion.label);                
-                handleSearch(suggestion);
-                setSuggestions([]); 
-              }}
-            >
+            <CustomText>
               Go to signup
             </CustomText>
           </TouchableOpacity>
         )}
+        <View style={styles.topBar}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a city..."
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              handleSimpleSearch(text);
+            }}
+            returnKeyType="search"
+            blurOnSubmit={false}
+            onSubmitEditing={() => {}}
+          />
+        </View>
+
+        {suggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            {suggestions.map((suggestion, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.suggestionItem}
+                onPress={() => {
+                  setSearchQuery(suggestion.label);
+                  if (suggestion.type === 'city' && suggestion.coordinates) {
+                    handleCitySearch(suggestion.label, suggestion.coordinates);
+                  }
+                  setSuggestions([]);
+                }}
+              >
+                <CustomText>
+                  {suggestion.label} {suggestion.type === "store" ? "(store)" : "(city)"}
+                </CustomText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <View style={styles.topBar}>
           <SearchBar
             placeholder={t('search_placeholder')}
@@ -585,7 +626,8 @@ function MapContent({ initialStore }) {
           />
         </View>
 
-
+        {/* Email Verification Banner */}
+        <EmailVerificationBanner />
 
         <View style={styles.container}>
           {cameraCoordinates ? (

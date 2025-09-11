@@ -123,6 +123,10 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
     const cred = await createUserWithEmailAndPassword(auth, safeEmail, password);
     const new_id = cred.user.uid;
 
+    // Generate verification token and expiration
+    const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const verificationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
     const userCollection = collection(firestore, 'users');
     await setDoc(doc(userCollection, new_id), {
       userType,
@@ -130,7 +134,7 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
       email: safeEmail,
       username,
       date_of_birth: null,
-      is_active: true,
+      is_active: false, // Changed to false until email verification
       is_admin: false,
       is_owner: userType !== 'shopper',
       last_login: serverTimestamp(),
@@ -141,13 +145,30 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
       reset_password_token: null,
       reset_password_validity: null,
       user_id: new_id,
+      // New validation fields
+      emailVerificationStatus: 'pending',
+      verificationToken: verificationToken,
+      verificationExpiresAt: verificationExpiresAt,
+      lastVerificationSent: serverTimestamp(),
     });
 
+    // Send verification email
     try {
-      auth.languageCode = 'fr';
-      await sendEmailVerification(cred.user);
+      await sendVerificationEmail(safeEmail, username, verificationToken, userType);
+      
+      // Send admin notification
+      await sendAdminNotification(safeEmail, username, userType);
+      
+      dispatch({
+        type: 'SET_EMAIL_VERIFICATION_STATUS',
+        payload: {
+          status: 'pending',
+          token: verificationToken,
+          expiresAt: verificationExpiresAt,
+        }
+      });
     } catch (e) {
-      console.error('[signUp] sendEmailVerification failed:', e?.code || e?.message || e);
+      console.warn('[signUp] sendVerificationEmail failed:', e?.code || e?.message || e);
     }
 
     dispatch({
@@ -157,7 +178,7 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
         email: safeEmail,
         username,
         userType,
-        is_active: true,
+        is_active: false, // Changed to false
         is_admin: false,
         is_owner: userType !== 'shopper',
         name: null,
@@ -166,38 +187,16 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
         reset_password_token: null,
         reset_password_validity: null,
         user_id: new_id,
-      });
-
-      dispatch({
-        type: 'AUTH_SUCCESS',
-        payload: {
-          id: new_id,
-          email: email,
-          username: username,
-          date_of_birth:null,
-          is_active:true,
-          is_admin:false,
-          is_validated:false,
-          is_owner : userType == 'shopper' ? false : true,        
-          last_login: serverTimestamp(),
-          created: serverTimestamp(),
-          surname:null,
-          name:null,
-          //password: password,
-          picture_id:null,
-          reset_password_token: null,
-          reset_password_validity:null,
-          user_id:new_id,
-      }})
-        .then((result) => logging('result', result))
-        .catch((error) => logging('error setDoc', error))
-        ;
+        emailVerificationStatus: 'pending',
+        verificationToken: verificationToken,
+        verificationExpiresAt: verificationExpiresAt,
       }
-    );
-  }
-  catch (error) {
+    });
+
+  } catch (error) {
     logError('Shopper signup failed', error);
 
+    let message = 'An error occurred during sign up.';
     if (error.code === 'auth/email-already-in-use') {
       message = 'The email address is already in use by another account.';
     } else if (error.code === 'auth/invalid-email') {
@@ -210,6 +209,160 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
 
     dispatch({ type: 'SIGN_UP_ERROR', payload: message });
     throw error;
+  }
+};
+
+// New email verification actions
+export const resendVerificationEmail = (email, username, userType) => async (dispatch) => {
+  try {
+    const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const verificationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Update user document with new token
+    const userRef = doc(firestore, 'users', auth.currentUser.uid);
+    await updateDoc(userRef, {
+      verificationToken: verificationToken,
+      verificationExpiresAt: verificationExpiresAt,
+      lastVerificationSent: serverTimestamp(),
+    });
+
+    // Send new verification email
+    await sendVerificationEmail(email, username, verificationToken, userType);
+    
+    dispatch({
+      type: 'SET_EMAIL_VERIFICATION_STATUS',
+      payload: {
+        status: 'pending',
+        token: verificationToken,
+        expiresAt: verificationExpiresAt,
+      }
+    });
+
+    dispatch({
+      type: 'SET_VERIFICATION_RESEND_STATUS',
+      payload: {
+        canResend: false,
+        lastSent: new Date(),
+      }
+    });
+
+    // Re-enable resend after 1 minute
+    setTimeout(() => {
+      dispatch({
+        type: 'SET_VERIFICATION_RESEND_STATUS',
+        payload: {
+          canResend: true,
+          lastSent: new Date(),
+        }
+      });
+    }, 0);
+
+  } catch (error) {
+    logError('Resend verification email failed', error);
+    throw error;
+  }
+};
+
+export const verifyEmail = (token) => async (dispatch) => {
+  try {
+    const userRef = doc(firestore, 'users', auth.currentUser.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+
+    const userData = userDoc.data();
+    
+    if (userData.verificationToken !== token) {
+      throw new Error('Invalid verification token');
+    }
+
+    if (new Date() > userData.verificationExpiresAt.toDate()) {
+      throw new Error('Verification token has expired');
+    }
+
+    // Mark email as verified
+    await updateDoc(userRef, {
+      emailVerificationStatus: 'verified',
+      is_active: true,
+      verificationToken: null,
+      verificationExpiresAt: null,
+    });
+
+    dispatch({
+      type: 'UPDATE_VERIFICATION_STATUS',
+      payload: 'verified'
+    });
+
+    // Update user data in state
+    dispatch({
+      type: 'AUTH_SUCCESS',
+      payload: {
+        ...userData,
+        emailVerificationStatus: 'verified',
+        is_active: true,
+        verificationToken: null,
+        verificationExpiresAt: null,
+      }
+    });
+
+  } catch (error) {
+    logError('Email verification failed', error);
+    throw error;
+  }
+};
+
+export const checkVerificationStatus = () => async (dispatch) => {
+  try {
+    if (!auth.currentUser) return;
+
+    const userRef = doc(firestore, 'users', auth.currentUser.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) return;
+
+    const userData = userDoc.data();
+    const now = new Date();
+    
+    // Check if verification has expired
+    if (userData.verificationExpiresAt && now > userData.verificationExpiresAt.toDate()) {
+      await updateDoc(userRef, {
+        emailVerificationStatus: 'expired',
+        is_active: false,
+      });
+      
+      dispatch({
+        type: 'UPDATE_VERIFICATION_STATUS',
+        payload: 'expired'
+      });
+    } else {
+      dispatch({
+        type: 'SET_EMAIL_VERIFICATION_STATUS',
+        payload: {
+          status: userData.emailVerificationStatus || 'pending',
+          token: userData.verificationToken,
+          expiresAt: userData.verificationExpiresAt,
+        }
+      });
+    }
+
+    // Check if user can resend verification
+    if (userData.lastVerificationSent) {
+      const lastSent = userData.lastVerificationSent.toDate();
+      const canResend = (now - lastSent) > 60000; // 1 minute cooldown
+      
+      dispatch({
+        type: 'SET_VERIFICATION_RESEND_STATUS',
+        payload: {
+          canResend,
+          lastSent: lastSent,
+        }
+      });
+    }
+
+  } catch (error) {
+    logError('Check verification status failed', error);
   }
 };
 
@@ -302,10 +455,55 @@ const fetchUserDataByLoginIdentifier = (loginIdentifier, password) => async (dis
   }
 };
 
-export const setCountries = (countries) => ({
-  type: 'SET_COUNTRIES',
-  payload: countries
-});
+export const setCountries = (countries) => (dispatch) => {
+  dispatch({
+    type: 'SET_COUNTRIES',
+    payload: countries
+  });
+};
+
+// Helper functions for sending emails
+const sendVerificationEmail = async (email, username, token, userType) => {
+  try {
+    const { getFunctions, httpsCallable } = await import('firebase/functions');
+    const functions = getFunctions();
+    
+    const sendVerificationEmailFunction = httpsCallable(functions, 'sendVerificationEmail');
+    const result = await sendVerificationEmailFunction({
+      email,
+      username,
+      token,
+      userType
+    });
+    
+    console.log('Verification email sent successfully:', result.data);
+    return result.data;
+  } catch (error) {
+    console.error('Failed to send verification email:', error);
+    throw error;
+  }
+};
+
+const sendAdminNotification = async (email, username, userType) => {
+  try {
+    const { getFunctions, httpsCallable } = await import('firebase/functions');
+    const functions = getFunctions();
+    
+    const sendAdminNotificationFunction = httpsCallable(functions, 'sendAdminNotification');
+    const result = await sendAdminNotificationFunction({
+      email,
+      username,
+      userType
+    });
+    
+    console.log('Admin notification sent successfully:', result.data);
+    return result.data;
+  } catch (error) {
+    console.error('Failed to send admin notification:', error);
+    throw error;
+  }
+};
+
 export const setSelectedCountry = (country) => ({
   type: 'SET_SELECTED_COUNTRY',
   payload: country

@@ -27,7 +27,6 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="com.ecomerce.shopisan"/>
-        <data android:scheme="exp+my-mapbox-app"/>
       </intent-filter>
     </activity>
   </application>

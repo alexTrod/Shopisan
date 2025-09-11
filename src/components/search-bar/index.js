@@ -31,12 +31,12 @@ const SearchBar = ({
 }) => {
   const { t } = useTranslation();
   const { searchQuery, setSearchQuery } = useContext(StoreContext);
-  const defaultPlaceholder = placeholder || t('search_placeholder');
+  const defaultPlaceholder = placeholder || t('search_placeholder') || 'Search stores or cities (press Enter)';
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-
   const debounceRef = useRef(null);
+
 
   // Clear suggestions when search query is empty
   useEffect(() => {
@@ -47,7 +47,7 @@ const SearchBar = ({
     }
   }, [searchQuery]);
 
-  // Debounced search suggestions
+  // Show suggestions as user types, but don't perform search until Enter is pressed
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -66,6 +66,7 @@ const SearchBar = ({
       return;
     }
 
+    // Debounced search for suggestions (but not for actual search)
     debounceRef.current = setTimeout(() => {
       fetchSuggestions(searchQuery);
     }, 300);
@@ -112,6 +113,7 @@ const SearchBar = ({
       console.log('  - Total suggestions:', allSuggestions.length);
       
       setSuggestions(allSuggestions);
+      // Show suggestions after user has pressed Enter to search
       setShowSuggestions(allSuggestions.length > 0);
     } catch (error) {
       console.error('❌ Error fetching suggestions:', error);
@@ -305,16 +307,24 @@ const SearchBar = ({
   const handleSearchSubmit = () => {
     if (!searchQuery.trim()) return;
 
-    const matchedSuggestion = suggestions.find(
-      sugg => sugg.label.toLowerCase() === searchQuery.trim().toLowerCase()
-    );
+    console.log('🔍 Search submitted:', searchQuery.trim());
+    
+    // Fetch suggestions when user presses Enter
+    fetchSuggestions(searchQuery.trim());
+    
+    // After fetching, try to find a match
+    setTimeout(() => {
+      const matchedSuggestion = suggestions.find(
+        sugg => sugg.label.toLowerCase() === searchQuery.trim().toLowerCase()
+      );
 
-    if (matchedSuggestion) {
-      handleSuggestionPress(matchedSuggestion);
-    } else {
-      // If no exact match, try to treat as city search
-      handleCitySelect({ label: searchQuery.trim() });
-    }
+      if (matchedSuggestion) {
+        handleSuggestionPress(matchedSuggestion);
+      } else {
+        // If no exact match, try to treat as city search
+        handleCitySelect({ label: searchQuery.trim() });
+      }
+    }, 300); // Increased delay to ensure suggestions are loaded
   };
 
   const clearSearch = () => {
@@ -349,7 +359,7 @@ const SearchBar = ({
               }
             }}
             onBlur={() => {
-              // Delay hiding suggestions to allow for taps
+              // Hide suggestions when input loses focus
               setTimeout(() => setShowSuggestions(false), 200);
             }}
           />
@@ -360,10 +370,17 @@ const SearchBar = ({
               style={styles.loadingIcon}
             />
           )}
-          {showClearButton && searchQuery.length > 0 && (
-            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-              <Ionicons name="close-circle" size={20} color={AppColors.grey_200} />
-            </TouchableOpacity>
+          {searchQuery.length > 0 && (
+            <>
+              <TouchableOpacity onPress={handleSearchSubmit} style={styles.searchButton}>
+                <Ionicons name="search" size={20} color={AppColors.primary} />
+              </TouchableOpacity>
+              {showClearButton && (
+                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                  <Ionicons name="close-circle" size={20} color={AppColors.grey_200} />
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       </View>
@@ -446,6 +463,12 @@ const styles = StyleSheet.create({
   },
   loadingIcon: {
     marginLeft: 8,
+  },
+  searchButton: {
+    marginLeft: 8,
+    padding: 4,
+    backgroundColor: AppColors.primary_faded || '#f0f8ff',
+    borderRadius: 16,
   },
   clearButton: {
     marginLeft: 8,
