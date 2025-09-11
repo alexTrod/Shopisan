@@ -26,8 +26,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="com.floriandc.mymapboxapp"/>
-        <data android:scheme="exp+my-mapbox-app"/>
+        <data android:scheme="com.shopisan.beta"/>
+        <data android:scheme="exp+shopisan-beta"/>
       </intent-filter>
     </activity>
   </application>

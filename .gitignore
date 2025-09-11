@@ -68,3 +68,4 @@ yarn-error.*
 
 # @end expo-cli
 .DS_Store
+android/app/version2.keystore
