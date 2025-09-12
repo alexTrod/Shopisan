@@ -1,0 +1,13 @@
+# This is a template for local.properties
+# Copy this file to local.properties and fill in your values
+# local.properties should NOT be committed to version control
+
+# Android SDK location (usually auto-detected)
+# sdk.dir=/path/to/android/sdk
+
+# Mapbox token for downloading map resources
+MAPBOX_DOWNLOADS_TOKEN=your_mapbox_token_here
+
+# Release keystore configuration
+MYAPP_RELEASE_STORE_PASSWORD=your_store_password_here
+MYAPP_RELEASE_KEY_PASSWORD=your_key_password_here

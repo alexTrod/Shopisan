@@ -1,4 +1,4 @@
-package com.floriandc.mymapboxapp
+package com.shopisan.beta
 
 import android.os.Build
 import android.os.Bundle

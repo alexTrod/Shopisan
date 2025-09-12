@@ -69,3 +69,9 @@ yarn-error.*
 # @end expo-cli
 .DS_Store
 android/app/version2.keystore
+
+android/local.properties
+
+# Android generated bundles
+android/app/src/main/assets/index.android.bundle
+android/app/src/main/assets/*.bundle
