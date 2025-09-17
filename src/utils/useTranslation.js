@@ -1,6 +1,6 @@
 import { useSelector } from 'react-redux';
 import { useEffect } from 'react';
-import i18n from 'i18n-js';
+import i18n from '../translations/i18n';
 
 export const useTranslation = () => {
   const locale = useSelector(state => state.locale.currentLocale);
@@ -18,7 +18,7 @@ export const useTranslation = () => {
   }, [locale]);
 
   const t = (key, options = {}) => {
-    try {
+    try {  
       if (!i18n || !i18n.t) {
         console.warn('i18n not initialized, returning key:', key);
         return key;
