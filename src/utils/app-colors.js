@@ -33,5 +33,11 @@ const AppColors = {
   purple: "rgba(83,52,131,1)",
   pink: "rgba(215,107,152,1)",
   cardColor: "rgba(84,161,203,0.3)",
+
+  // Email Verification Colors
+  warning: "rgba(255, 193, 7, 1)", // Amber/Yellow for pending
+  error: "rgba(220, 53, 69, 1)",   // Red for expired/error
+  success: "rgba(40, 167, 69, 1)", // Green for success
+  textSecondary: "rgba(108, 117, 125, 1)", // Secondary text color
 };
 export default AppColors;

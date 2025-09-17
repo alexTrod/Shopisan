@@ -16,5 +16,6 @@ export const ScreenNames = {
   SETTINGS: "Settings",
   ADD_STORE: "AddStore",
   HANDLE_STORE: "HandleStore",
-  CHOOSE_ROLE: "ChooseRole"
+  CHOOSE_ROLE: "ChooseRole",
+  VERIFY_EMAIL: "VerifyEmail"
 };

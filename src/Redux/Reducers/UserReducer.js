@@ -12,7 +12,12 @@ const initialState = {
   loading: false,
   noAuthenticationWanted: false,
   selectedCountry: 'FR',
-  countries: []
+  countries: [],
+  emailVerificationStatus: null,
+  verificationToken: null,
+  verificationExpiresAt: null,
+  canResendVerification: false,
+  lastVerificationSent: null,
 };
 
 export const getCountryLocale = async (current_doc) => {
@@ -116,6 +121,28 @@ export const userReducer = (state = initialState, action) => {
         ...state, 
         countries: action.payload
       }
+
+    // New email verification actions
+    case 'SET_EMAIL_VERIFICATION_STATUS':
+      return {
+        ...state,
+        emailVerificationStatus: action.payload.status,
+        verificationToken: action.payload.token,
+        verificationExpiresAt: action.payload.expiresAt,
+      };
+
+    case 'SET_VERIFICATION_RESEND_STATUS':
+      return {
+        ...state,
+        canResendVerification: action.payload.canResend,
+        lastVerificationSent: action.payload.lastSent,
+      };
+
+    case 'UPDATE_VERIFICATION_STATUS':
+      return {
+        ...state,
+        emailVerificationStatus: action.payload,
+      };
 
     default:
       return state;

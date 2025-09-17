@@ -146,7 +146,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
           user_profile_id: auth.currentUser.uid,
           score: score,
           created: serverTimestamp(),
-          updated: null,
+          updated: serverTimestamp(),
           comment: null,
           is_active: true,
           is_deleted: false,
@@ -155,7 +155,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
         const ratingDoc = userRatingSnapshot.docs[0].ref;
         await updateDoc(ratingDoc, {
           score: score,
-          updated_at: serverTimestamp(),
+          updated: serverTimestamp(),
         });
       }
   
@@ -170,11 +170,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   };  
 
   useEffect(() => {
-    if (visible) {
+    if (visible && item?.id) {
       fetchStoreRatings();
       fetchPostMedia();
     }
-  }, [visible]);
+  }, [visible, item?.id]);
 
   const handleGoToHome = (store) => {
     onClose();
@@ -316,71 +316,87 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </View>
             )}
 
-            <View style={styles.ratingContainer}>
-              <View style={styles.ratingSection}>
-                <Text style={styles.sectionTitle}>Your rating</Text>
-                <View style={styles.rating}>
-                  {[...Array(5)].map((_, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => submitRating(index + 1)}
-                      disabled={loading}
-                    >
-                      <Ionicons
-                        name={index < userRating ? "star" : "star-outline"}
-                        size={height(2.5)}
-                        color={index < userRating ? "gold" : "gray"}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            
-              <View style={styles.ratingSection}>
-                <Text style={styles.sectionTitle}>Shopper's rating</Text>
-                <View style={styles.rating}>
-                  {[...Array(5)].map((_, index) => (
-                    <Ionicons
-                      key={index}
-                      name={index < averageRating ? "star" : "star-outline"}
-                      size={height(2.5)}
-                      color={index < averageRating ? "gold" : "gray"}
-                    />
-                  ))}
-                  <Text style={styles.ratingText}>
-                    {loading ? 'Updating...' : 
-                    `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {postMedia.length > 0 && (
-              <View style={styles.mediaContainer}>
-                <Text style={styles.sectionTitle}>Annonces postées</Text>
-                {postMedia.map((media, index) => (
-                  <View key={index} style={styles.mediaCard}>
-                    <Text style={styles.mediaText}>
-                      {media?.description?.en || media?.description?.fr || "Pas de description."}
-                    </Text>
-                    {media?.price !== null && (
-                      <Text style={styles.mediaPrice}>Prix : {media.price} €</Text>
-                    )}
-                    {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
-                      <Text style={styles.mediaLink}>
-                        {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
-                      </Text>
-                    )}
+                {/* Ratings */}
+                <View style={styles.ratingsSection}>
+                  <Text style={styles.sectionTitle}>Ratings</Text>
+                  
+                  {/* User Rating */}
+                  <View style={styles.ratingCard}>
+                    <Text style={styles.ratingLabel}>Your rating</Text>
+                    <View style={styles.ratingStars}>
+                      {[...Array(5)].map((_, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => submitRating(index + 1)}
+                          disabled={loading}
+                          style={styles.starButton}
+                        >
+                          <Ionicons
+                            name={index < userRating ? "star" : "star-outline"}
+                            size={height(2.5)}
+                            color={index < userRating ? "#FFD700" : "#E0E0E0"}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                ))}
-              </View>
-            )}
+                
+                  {/* Community Rating */}
+                  <View style={styles.ratingCard}>
+                    <Text style={styles.ratingLabel}>Community rating</Text>
+                    <View style={styles.ratingStars}>
+                      {[...Array(5)].map((_, index) => (
+                        <Ionicons
+                          key={index}
+                          name={index < averageRating ? "star" : "star-outline"}
+                          size={height(2.5)}
+                          color={index < averageRating ? "#FFD700" : "#E0E0E0"}
+                        />
+                      ))}
+                      <Text style={styles.ratingText}>
+                        {loading
+                          ? 'Updating...'
+                          : `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Posts/Media */}
+                {postMedia.length > 0 && (
+                  <View style={styles.postsSection}>
+                    <Text style={styles.sectionTitle}>Annonces postées</Text>
+                    <View style={styles.postsContainer}>
+                      {postMedia.map((media, index) => (
+                        <View key={index} style={styles.postCard}>
+                          <Text style={styles.postDescription}>
+                            {media?.description?.en || media?.description?.fr || "Pas de description."}
+                          </Text>
+                          {media?.price !== null && (
+                            <View style={styles.priceContainer}>
+                              <Text style={styles.priceLabel}>Prix:</Text>
+                              <Text style={styles.priceValue}>{media.price} €</Text>
+                            </View>
+                          )}
+                          {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
+                            <TouchableOpacity style={styles.linkContainer}>
+                              <Ionicons name="link-outline" size={16} color={AppColors.primary} />
+                              <Text style={styles.linkText}>
+                                {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
           </ScrollView>
         </View>
-      </View>
+      </View>   
     </Modal>
   );
-};
+}
 
 const styles = StyleSheet.create({   
   headerContainer: {

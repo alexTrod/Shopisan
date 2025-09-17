@@ -9,7 +9,9 @@ import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import { Ionicons } from "@expo/vector-icons";
-
+import { useTranslation } from "../../../utils/useTranslation";
+import { ScreenNames } from "../../../Routes/routes";
+import EmailVerificationBanner from "../../../components/email-verification";
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.userData);
@@ -46,6 +48,9 @@ export default function Profile({ navigation }) {
         title="Profile"
         containerStyle={{ width: width(90), alignSelf: "center"}}
       />
+      
+      {/* Email Verification Banner */}
+      <EmailVerificationBanner />
       
       <ScrollView style={{ paddingHorizontal: 20, marginTop: 30 }}>
         {/* Account Section */}

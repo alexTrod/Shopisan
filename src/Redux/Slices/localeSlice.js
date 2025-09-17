@@ -12,7 +12,15 @@ const localeSlice = createSlice({
     setLocale: (state, action) => {
       const locale = action.payload === 'fr' ? 'fr' : 'en';
       state.currentLocale = locale;
-      i18n.locale = locale;
+      
+      try {
+        if (i18n && i18n.locale) {
+          i18n.locale = locale;
+        }
+      } catch (error) {
+        console.warn('Failed to update i18n locale:', error);
+      }
+      
       state.isRTL = locale.startsWith('ar') || locale.startsWith('he'); // for RTL languages
     },
   },

@@ -3,14 +3,19 @@ import { firestore } from '../../../firebaseconfig';
 import { collection, getDocs } from 'firebase/firestore';
 
 export const getCityLocale = (current_doc) => {
-    const locale = i18n.locale;
-    switch(locale){
-        case 'fr':
-            return current_doc.fr;
-        case 'en':
-            return current_doc.en;
-        default:
-            return current_doc.en;
+    try {
+        const locale = i18n?.locale || 'en';
+        switch(locale){
+            case 'fr':
+                return current_doc.fr;
+            case 'en':
+                return current_doc.en;
+            default:
+                return current_doc.en;
+        }
+    } catch (error) {
+        console.warn('Failed to get city locale, defaulting to English:', error);
+        return current_doc.en;
     }
 }
 
