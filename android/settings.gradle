@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'Shopisan'
+rootProject.name = 'Shopisan_v1'
 
 dependencyResolutionManagement {
   versionCatalogs {
