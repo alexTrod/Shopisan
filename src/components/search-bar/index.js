@@ -457,9 +457,10 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: height(2),
     color: AppColors.black,
     paddingVertical: 8,
+    lineHeight: height(2.5),
   },
   loadingIcon: {
     marginLeft: 8,
@@ -507,7 +508,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: height(2),
     color: AppColors.black,
     flexShrink: 1, // Allow text to shrink
   },

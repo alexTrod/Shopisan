@@ -5,11 +5,13 @@ import { AppColors } from "../../utils";
 const styles = StyleSheet.create({
   container: {
     borderRadius: width(10),
-    paddingVertical: height(0.5),
+    paddingVertical: height(1.5), // Increased for better touch target
+    paddingHorizontal: width(4), // Added horizontal padding
     justifyContent: "center",
     alignItems: "center",
     alignSelf: "center",
-    // paddingHorizontal: width(20),
+    minHeight: height(6), // Minimum height for accessibility
+    flexShrink: 1, // Allow shrinking if needed
   },
   primaryContainer: {
     backgroundColor: AppColors.primary,
@@ -28,7 +30,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-
     elevation: 5,
   },
 });

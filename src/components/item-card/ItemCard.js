@@ -228,7 +228,14 @@ const ItemCard = React.memo(({
                 </View>
               </View>
             )}
-            <Text style={[styles.title, !image && styles.titleNoImage]} numberOfLines={2}>{title}</Text>
+            <Text 
+              style={[styles.title, !image && styles.titleNoImage]} 
+              numberOfLines={2}
+              allowFontScaling={true}
+              adjustsFontSizeToFit={false}
+            >
+              {title}
+            </Text>
 
             <View style={styles.rating}>
               {[...Array(5)].map((_, index) => (
@@ -239,7 +246,11 @@ const ItemCard = React.memo(({
                   color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
                 />
               ))}
-              <Text style={styles.ratingText}>
+              <Text 
+                style={styles.ratingText}
+                allowFontScaling={true}
+                numberOfLines={1}
+              >
                 {rating.ratingCount > 0 
                   ?  `${rating.averageRating.toFixed(2)} (${rating.ratingCount})`
                   : 'No ratings yet'}
@@ -262,6 +273,8 @@ const ItemCard = React.memo(({
                         styles.tagText,
                         selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
                       ]}
+                      allowFontScaling={true}
+                      numberOfLines={1}
                     >
                       {tag}
                     </Text>
@@ -272,7 +285,11 @@ const ItemCard = React.memo(({
 
             {
               <>
-                <Text style={styles.description} numberOfLines={2}>
+                <Text 
+                  style={styles.description} 
+                  numberOfLines={2}
+                  allowFontScaling={true}
+                >
                   {description.length > 150 ? `${description.substring(0, 150)}...` : description}
                 </Text>
               </>
@@ -375,10 +392,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     flexShrink: 1,
     paddingRight: 100, // Make space for the icons
+    lineHeight: height(2.5), // Better line height for readability
   },
   titleNoImage: {
     fontSize: height(2.2),
     paddingRight: 100, // Make space for the icons
+    lineHeight: height(2.7), // Better line height for readability
   },
   descriptionHeading: {
     fontSize: height(1.8),
@@ -399,6 +418,8 @@ const styles = StyleSheet.create({
   ratingText: {
     marginLeft: 5,
     color: "gray",
+    flexShrink: 1, // Allow text to shrink if needed
+    fontSize: height(1.6), // Use responsive font size
   },
   tags: {
     flexDirection: "row",
@@ -429,11 +450,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "gray",
     minHeight: 0,
+    lineHeight: height(2.2), // Better line height for readability
+    fontSize: height(1.7), // Use responsive font size
   },
   posts: {
     marginTop: 15,
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: height(2), // Use responsive font size
   },
   topIconsRowNoImage: {
     flexDirection: 'row',

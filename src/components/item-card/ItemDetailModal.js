@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   address: {
-    fontSize: 14,
+    fontSize: height(1.8),
     marginBottom: 20,
   },
   modalContainer: {
@@ -470,12 +470,12 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
   },
   title: {
-    fontSize: 18,
+    fontSize: height(2.3),
     fontWeight: 'bold',
     marginBottom: 10,
   },
   description: {
-    fontSize: 14,
+    fontSize: height(1.8),
     marginBottom: 20,
   },
   rating: {
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     marginLeft: 8,
-    fontSize: 14,
+    fontSize: height(1.8),
     color: '#666',
   },
   closeButtonText: {

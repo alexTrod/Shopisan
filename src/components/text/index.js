@@ -12,6 +12,9 @@ const CustomText = ({
   textProps,
   onPress,
   textDecorationLine = "none",
+  allowFontScaling = true,
+  numberOfLines,
+  adjustsFontSizeToFit = false,
 }) => {
   const styles = StyleSheet.create({
     text: {
@@ -24,7 +27,13 @@ const CustomText = ({
 
   return (
     <Pressable disabled={!onPress} onPress={onPress}>
-      <Text style={[styles.text, textStyles]} {...textProps}>
+      <Text 
+        style={[styles.text, textStyles]} 
+        allowFontScaling={allowFontScaling}
+        numberOfLines={numberOfLines}
+        adjustsFontSizeToFit={adjustsFontSizeToFit}
+        {...textProps}
+      >
         {children}
       </Text>
     </Pressable>

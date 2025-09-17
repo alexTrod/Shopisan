@@ -19,6 +19,9 @@ const Button = ({
   colors = [AppColors.primary, AppColors.primary2],
   loading = false,
   size = 2, // Default size is
+  allowFontScaling = true,
+  adjustsFontSizeToFit = true,
+  numberOfLines = 1,
 }) => {
   const getStyles = useMemo(() => {
     return {
@@ -49,6 +52,9 @@ const Button = ({
           textStyles={textStyle}
           textProps={textProps}
           size={size}
+          allowFontScaling={allowFontScaling}
+          adjustsFontSizeToFit={adjustsFontSizeToFit}
+          numberOfLines={numberOfLines}
         >
           {children}
         </CustomText>

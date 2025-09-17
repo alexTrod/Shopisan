@@ -82,6 +82,7 @@ const Input = (
                     textAlignVertical={textAlignVertical}
                     onBlur={onBlur}
                     secureTextEntry={secureTextEntry}
+                    allowFontScaling={true}
                     {...restProps}
                   />
                 </>

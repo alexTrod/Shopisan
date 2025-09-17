@@ -15,8 +15,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: width(2),
-    paddingVertical: height(0.5),
+    paddingVertical: height(1), // Increased for better touch target
     marginBottom: height(0.5),
+    minHeight: height(7), // Minimum height for accessibility
   },
   textFieldInnerContainer: {
     width: "90%",
@@ -29,6 +30,8 @@ const styles = StyleSheet.create({
     width: "85%",
     height: Platform.OS === "ios" ? height(6) : height(6.5),
     color: AppColors.black,
+    fontSize: height(2), // Use responsive font size
+    lineHeight: height(2.5), // Better line height
   },
   error: {
     color: AppColors.red,
