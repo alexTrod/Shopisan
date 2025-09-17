@@ -686,10 +686,10 @@ export default function HomeScreen({ navigation, route }) {
             }}
           >
             <CustomText
-              size={1.5}
+              size={3}
               color={AppColors.grey_200}
               textDecorationLine="underline"
-              textStyles={{ fontFamily: "Mulish-SemiBold" }}
+              textStyles={{ fontFamily: "Mulish-SemiBold", fontWeight: "bold" }}
             >
               {t('sign_up')}
             </CustomText>

@@ -25,11 +25,13 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
+import { useTranslation } from "../../../utils/useTranslation";
 import * as Location from 'expo-location';
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
 export default function AddStoreScreen({ navigation }) {
+  const { t } = useTranslation();
   const user = useSelector((state) => state.user.userData);
   const [name, setName] = useState("");
   const [streetNumber, setStreetNumber] = useState("");
@@ -46,6 +48,10 @@ export default function AddStoreScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [managerFirstName, setManagerFirstName] = useState('');
   const [managerLastName, setManagerLastName] = useState('');
+  
+  // Validation states
+  const [validationErrors, setValidationErrors] = useState({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -366,9 +372,58 @@ export default function AddStoreScreen({ navigation }) {
     return data.result.variants[0];
   };
 
+  const validateField = (fieldName, value) => {
+    const requiredFields = ['name', 'street', 'city', 'postalCode', 'description'];
+    const isRequired = requiredFields.includes(fieldName);
+    
+    if (isRequired && (!value || value.trim() === '')) {
+      return true; // Has error
+    }
+    return false; // No error
+  };
+
+  const validateAllFields = () => {
+    const errors = {};
+    const requiredFields = [
+      { key: 'name', value: name },
+      { key: 'street', value: street },
+      { key: 'city', value: city },
+      { key: 'postalCode', value: postalCode },
+      { key: 'description', value: description }
+    ];
+
+    requiredFields.forEach(field => {
+      if (validateField(field.key, field.value)) {
+        errors[field.key] = true;
+      }
+    });
+
+    if (selectedCategories.length === 0) {
+      errors.categories = true;
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const getInputStyle = (fieldName) => {
+    const hasError = hasAttemptedSubmit && validationErrors[fieldName];
+    return [
+      styles.input,
+      hasError && styles.inputError
+    ];
+  };
+
   const handleAddStore = async () => {
+    setHasAttemptedSubmit(true);
+    
+    if (!validateAllFields()) {
+      Alert.alert(t('error'), t('required_fields_error'));
+      return;
+    }
+
     if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
-      Alert.alert("Erreur", "Tous les champs sont obligatoires, ainsi qu'une catégorie !");
+      Alert.alert("Erreur", "Les champs obligatoires sont : nom, adresse, ville, code postal, description et au moins une catégorie.");
       return;
     }
 
@@ -635,53 +690,129 @@ export default function AddStoreScreen({ navigation }) {
       nestedScrollEnabled={true}
     >
       <View style={styles.container}>
-        <Text style={styles.label}>Nom du magasin</Text>
-        <TextInput style={styles.input} placeholder="Entrez le nom" value={name} onChangeText={setName} />
+        <Text style={styles.label}>{t('store_name')}</Text>
+        <TextInput
+          style={getInputStyle('name')}
+          placeholder={t('store_name')}
+          value={name}
+          onChangeText={setName}
+        />
 
-        <Text style={styles.label}>Adresse</Text>
-        <View style={styles.addressContainer}>
-          <View style={styles.addressInputWrapper}>
+        <Text style={styles.label}>{t('street_number')}</Text>
+        <TextInput
+          style={styles.input}
+          placeholder={t('street_number')}
+          value={streetNumber}
+          onChangeText={setStreetNumber}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>{t('street')}</Text>
+        <TextInput
+          style={getInputStyle('street')}
+          placeholder={t('street')}
+          value={street}
+          onChangeText={setStreet}
+        />
+
+        <Text style={styles.label}>{t('city')}</Text>
+        <TextInput
+          style={getInputStyle('city')}
+          placeholder={t('city')}
+          value={city}
+          onChangeText={setCity}
+        />
+
+        <Text style={styles.label}>{t('postal_code')}</Text>
+        <TextInput
+          style={getInputStyle('postalCode')}
+          placeholder={t('postal_code')}
+          value={postalCode}
+          onChangeText={setPostalCode}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>{t('description')}</Text>
+        <TextInput
+          style={[getInputStyle('description'), styles.textArea]}
+          placeholder={t('description')}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={4}
+        />
+
+        {user?.userType === "merchant" && (
+          <>
+            <Text style={styles.label}>{t('store_email')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
             <TextInput
               style={styles.input}
-              value={query}
-              onChangeText={fetchAddressSuggestions}
-              placeholder="Adresse"
-              onBlur={() => setSuggestions([])} 
+              placeholder={t('store_email')}
+              value={storeEmail}
+              onChangeText={setStoreEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
 
-            {suggestions.length > 0 && (
-              <View style={{
-                height: 200,
-                borderWidth: 1,
-                borderColor: '#ccc',
-                backgroundColor: '#fff',
-              }}>
-                <FlatList
-                  data={suggestions}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => handleAddressSelect(item)}
-                      style={styles.suggestionItem}
-                    >
-                      <Text style={styles.suggestionText}>{item.place_name}</Text>
-                    </TouchableOpacity>
-                  )}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled={true}
-                  scrollEnabled={true}
-                />
-              </View>
-            )}
-          </View>
+            <Text style={styles.label}>{t('website')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t('website')}
+              value={website}
+              onChangeText={setWebsite}
+              autoCapitalize="none"
+            />
 
-          <TouchableOpacity 
-            style={styles.locationButton}
-            onPress={handleUseCurrentLocation}
-          >
-            <Ionicons name="location" size={24} color={AppColors.primary} />
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.label}>{t('phone')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t('phone')}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={styles.label}>{t('manager_first_name')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t('manager_first_name')}
+              value={managerFirstName}
+              onChangeText={setManagerFirstName}
+            />
+
+            <Text style={styles.label}>{t('manager_last_name')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder={t('manager_last_name')}
+              value={managerLastName}
+              onChangeText={setManagerLastName}
+            />
+          </>
+        )}
+
+        <Text style={styles.label}>{t('categories')}</Text>
+        <TouchableOpacity 
+          style={[
+            styles.categoryButton, 
+            hasAttemptedSubmit && validationErrors.categories && styles.categoryButtonError
+          ]} 
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.categoryButtonText}>
+            {selectedCategories.length > 0 ? `${selectedCategories.length} catégorie(s) sélectionnée(s)` : t('select_categories')}
+          </Text>
+        </TouchableOpacity>
+
+        <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}>
+          {selectedCategories.map((categoryID) => (
+            <View key={categoryID} style={styles.selectedCategoryItem}>
+              <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
+              <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
+                <Icon name="close" size={20} color={AppColors.black} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
 
         {showMap && selectedLocation && (
           <View style={styles.mapContainer}>
@@ -698,16 +829,7 @@ export default function AddStoreScreen({ navigation }) {
           </View>
         )}
 
-        <Text style={styles.label}>Ville</Text>
-        <TextInput style={styles.input} placeholder="Ville" value={city} onChangeText={setCity} />
-
-        <Text style={styles.label}>Code postal</Text>
-        <TextInput style={styles.input} placeholder="Code postal" value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" />
-
-        <Text style={styles.label}>Description</Text>
-        <TextInput style={[styles.input, styles.textArea]} placeholder="Décrivez votre magasin" value={description} onChangeText={setDescription} multiline />
-
-        <Text style={styles.label}>Horaires d'ouverture</Text>
+        <Text style={styles.label}>{t('opening_hours')}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           {timePresets.map((p) => (
             <TouchableOpacity
@@ -933,72 +1055,6 @@ export default function AddStoreScreen({ navigation }) {
           );
         })}
 
-        {user?.userType === "merchant" && (
-          <>
-            <Text style={styles.label}>Email du magasin</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Email du magasin"
-              value={storeEmail}
-              onChangeText={setStoreEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.label}>Site web</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="URL du site web"
-              value={website}
-              onChangeText={setWebsite}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.label}>Téléphone</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Numéro de téléphone"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
-
-            <Text style={styles.label}>Prénom du gérant</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Prénom"
-              value={managerFirstName}
-              onChangeText={setManagerFirstName}
-            />
-
-            <Text style={styles.label}>Nom du gérant</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nom"
-              value={managerLastName}
-              onChangeText={setManagerLastName}
-            />
-          </>
-        )}
-
-        <Text style={styles.label}>Catégories</Text>
-        <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
-          <Text style={styles.categoryButtonText}>
-            {selectedCategories.length > 0 ? `${selectedCategories.length} catégorie(s) sélectionnée(s)` : "Sélectionner des catégories"}
-          </Text>
-        </TouchableOpacity>
-
-        <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}>
-          {selectedCategories.map((categoryID) => (
-            <View key={categoryID} style={styles.selectedCategoryItem}>
-              <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
-              <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
-                <Icon name="close" size={20} color={AppColors.black} />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-
         {!selectedImage ? (
           <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
             <Text style={styles.imageButtonText}>Ajouter une image</Text>
@@ -1013,7 +1069,7 @@ export default function AddStoreScreen({ navigation }) {
         )}
 
         <TouchableOpacity style={styles.addButton} onPress={handleAddStore}>
-          <Text style={styles.addButtonText}>Ajouter le magasin</Text>
+          <Text style={styles.addButtonText}>{t('add_store')}</Text>
         </TouchableOpacity>
 
         <Modal animationType="slide" transparent={true} visible={modalVisible}>
@@ -1074,19 +1130,28 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     backgroundColor: "#f8f8f8", 
   },
+  inputError: {
+    borderColor: AppColors.red,
+    backgroundColor: "#fff0f0",
+  },
   textArea: {
     height: 80,
     textAlignVertical: "top"
   },
   categoryButton: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.primary_faded,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
-    marginBottom: 15
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: AppColors.primary,
+  },
+  categoryButtonError: {
+    borderColor: AppColors.red,
   },
   categoryButtonText: {
-    color: "#fff",
+    color: AppColors.primary,
     fontSize: 16
   },
   selectedCategoriesContainer: {
@@ -1155,10 +1220,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingBottom: 20,
-  },
-  container: { 
-    padding: width(4),
-    backgroundColor: AppColors.white_100
   },
   dayContainer: {
     marginBottom: 0,
@@ -1471,5 +1532,11 @@ const styles = StyleSheet.create({
   },
   minuteInput: {
     width: 36,
+  },
+  optionalText: {
+    fontSize: 14,
+    fontWeight: "normal",
+    color: AppColors.grey_200,
+    fontStyle: "italic",
   },
 });

@@ -149,7 +149,7 @@ export default function Profile({ navigation }) {
           onPress={handleLogout}
         >
           <View style={styles.optionContent}>
-            <CustomText size={1.8} color={AppColors.white}>
+            <CustomText size={3} color={AppColors.white} >
               {user ? 'Log out' : 'Go to signup'}
             </CustomText>
             <Ionicons name="log-out-outline" size={20} color={AppColors.white} />

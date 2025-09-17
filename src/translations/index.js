@@ -30,6 +30,24 @@ export default {
         no_stores_found: 'No stores found',
         nearby: 'Nearby',
         
+        // Store Form Fields
+        store_name: 'Store Name',
+        store_address: 'Address',
+        street_number: 'Street Number',
+        street: 'Street',
+        city: 'City',
+        postal_code: 'Postal Code',
+        description: 'Description',
+        store_email: 'Store Email',
+        website: 'Website',
+        phone: 'Phone',
+        manager_first_name: 'Manager First Name',
+        manager_last_name: 'Manager Last Name',
+        categories: 'Categories',
+        opening_hours: 'Opening Hours',
+        optional: 'optional',
+        required_fields_error: 'Please make sure you fill all the required fields',
+        
         // Actions & Buttons
         save: 'Save',
         cancel: 'Cancel',
@@ -37,6 +55,8 @@ export default {
         edit: 'Edit',
         add: 'Add',
         remove: 'Remove',
+        add_store: 'Add Store',
+        select_categories: 'Select Categories',
         
         // Messages & Status
         loading: 'Loading...',
@@ -76,6 +96,24 @@ export default {
         no_stores_found: 'Aucun magasin trouvé',
         nearby: 'À proximité',
         
+        // Store Form Fields
+        store_name: 'Nom du magasin',
+        store_address: 'Adresse',
+        street_number: 'Numéro de rue',
+        street: 'Rue',
+        city: 'Ville',
+        postal_code: 'Code postal',
+        description: 'Description',
+        store_email: 'Email du magasin',
+        website: 'Site web',
+        phone: 'Téléphone',
+        manager_first_name: 'Prénom du gérant',
+        manager_last_name: 'Nom du gérant',
+        categories: 'Catégories',
+        opening_hours: 'Horaires d\'ouverture',
+        optional: 'optionnel',
+        required_fields_error: 'Veuillez vous assurer de remplir tous les champs obligatoires',
+        
         // Actions & Buttons
         save: 'Enregistrer',
         cancel: 'Annuler',
@@ -83,6 +121,8 @@ export default {
         edit: 'Modifier',
         add: 'Ajouter',
         remove: 'Retirer',
+        add_store: 'Ajouter le magasin',
+        select_categories: 'Sélectionner des catégories',
         
         // Messages & Status
         loading: 'Chargement...',
