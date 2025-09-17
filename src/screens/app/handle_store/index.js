@@ -469,15 +469,98 @@ export default function HandleStoreScreen({ route, navigation }) {
   const formatHours = (hours) => {
     if (!hours.morning && !hours.afternoon) return "Fermé";
     
+    const formatTimeDisplay = (timeStr) => {
+      if (!timeStr) return "";
+      const parts = timeStr.split(':');
+      const hour = parts[0];
+      const minute = parts[1];
+      return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
+    };
+    
     let result = "";
     if (hours.morning) {
-      result += `${hours.morning.start}h-${hours.morning.end}h`;
+      result += `${formatTimeDisplay(hours.morning.start)}-${formatTimeDisplay(hours.morning.end)}`;
     }
     if (hours.afternoon) {
       if (result) result += " / ";
-      result += `${hours.afternoon.start}h-${hours.afternoon.end}h`;
+      result += `${formatTimeDisplay(hours.afternoon.start)}-${formatTimeDisplay(hours.afternoon.end)}`;
     }
     return result;
+  };
+
+  const clampHour = (v) => {
+    if (v === "" || v == null) return "";
+    const n = Math.max(0, Math.min(23, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
+    return String(n);
+  };
+
+  const clampMinute = (v) => {
+    if (v === "" || v == null) return "";
+    const n = Math.max(0, Math.min(59, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
+    return String(n);
+  };
+
+  const parseTime = (timeStr) => {
+    if (!timeStr) return { hour: "", minute: "" };
+    const parts = timeStr.split(':');
+    return {
+      hour: parts[0] || "",
+      minute: parts[1] || "00"
+    };
+  };
+
+  const formatTime = (hour, minute) => {
+    if (!hour) return "";
+    const min = minute === "00" || !minute ? "" : `:${minute}`;
+    return `${hour}${min}`;
+  };
+
+  const setDayClosed = (day, closed) => {
+    setOpeningHours(prev => {
+      const next = { ...prev };
+      next[day] = closed
+        ? { morning: null, afternoon: null }
+        : { morning: { start: "9:00", end: "19:00" }, afternoon: null };
+      return next;
+    });
+  };
+
+  const normalizeDay = (dayObj = {}) => {
+    const norm = { ...dayObj };
+    if (isPeriodEmpty(norm.morning)) norm.morning = null;
+    if (isPeriodEmpty(norm.afternoon)) norm.afternoon = null;
+    return norm;
+  };
+
+  const setDayMode = (day, mode) => {
+    setOpeningHours(prev => {
+      const cur = normalizeDay(prev[day] || { morning: null, afternoon: null });
+      if (mode === "day") {
+        const start = cur.morning?.start ?? "9:00";
+        const end = (cur.afternoon?.end ?? cur.morning?.end) ?? "19:00";
+        return { ...prev, [day]: normalizeDay({ morning: { start, end }, afternoon: null }) };
+      } else {
+        const mStart = cur.morning?.start ?? "9:00";
+        const mEnd = "12:00";
+        return {
+          ...prev,
+          [day]: normalizeDay({
+            morning: { start: mStart, end: mEnd },
+            afternoon: { start: "14:00", end: cur.morning?.end ?? "19:00" },
+          }),
+        };
+      }
+    });
+  };
+
+  const setTime = (day, period, field, hour, minute = "00") => {
+    const timeValue = formatTime(hour, minute);
+    setOpeningHours(prev => {
+      const cur = prev[day] || { morning: null, afternoon: null };
+      const p = cur[period] ? { ...cur[period], [field]: timeValue } : { [field]: timeValue, ...(field === "start" ? { end: "" } : { start: "" }) };
+      const next = { ...prev, [day]: normalizeDay({ ...cur, [period]: p }) };
+      return next;
+    });
   };
 
   const [hoursErrors, setHoursErrors] = useState({});
@@ -671,44 +754,120 @@ export default function HandleStoreScreen({ route, navigation }) {
                         <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
                         <View style={styles.block}>
                           <View style={styles.timeInputs}>
-                            <TextInput
-                              style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
-                              placeholder="09"
-                              value={openingHours[day].morning?.start || ""}
-                              onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'start', text.replace(/[^0-9]/g, ''))}
-                              keyboardType="numeric"
-                              maxLength={2}
-                            />
-                            <Text style={styles.timeSeparator}>h</Text>
-                            <TextInput
-                              style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
-                              placeholder="12"
-                              value={openingHours[day].morning?.end || ""}
-                              onChangeText={(text) => updateOpeningHourValidated(day, 'morning', 'end', text.replace(/[^0-9]/g, ''))}
-                              keyboardType="numeric"
-                              maxLength={2}
-                            />
+                            <View style={styles.timeInputContainer}>
+                              <TextInput
+                                style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
+                                placeholder="09"
+                                value={parseTime(openingHours[day].morning?.start).hour}
+                                onChangeText={(text) => {
+                                  const hour = clampHour(text);
+                                  const minute = parseTime(openingHours[day].morning?.start).minute;
+                                  updateOpeningHourValidated(day, 'morning', 'start', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                              <Text style={styles.timeSeparator}>h</Text>
+                              <TextInput
+                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
+                                placeholder="00"
+                                value={parseTime(openingHours[day].morning?.start).minute}
+                                onChangeText={(text) => {
+                                  const minute = clampMinute(text);
+                                  const hour = parseTime(openingHours[day].morning?.start).hour;
+                                  updateOpeningHourValidated(day, 'morning', 'start', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                            </View>
+                            <Text style={styles.timeSeparator}>-</Text>
+                            <View style={styles.timeInputContainer}>
+                              <TextInput
+                                style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
+                                placeholder="12"
+                                value={parseTime(openingHours[day].morning?.end).hour}
+                                onChangeText={(text) => {
+                                  const hour = clampHour(text);
+                                  const minute = parseTime(openingHours[day].morning?.end).minute;
+                                  updateOpeningHourValidated(day, 'morning', 'end', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                              <Text style={styles.timeSeparator}>h</Text>
+                              <TextInput
+                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
+                                placeholder="00"
+                                value={parseTime(openingHours[day].morning?.end).minute}
+                                onChangeText={(text) => {
+                                  const minute = clampMinute(text);
+                                  const hour = parseTime(openingHours[day].morning?.end).hour;
+                                  updateOpeningHourValidated(day, 'morning', 'end', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                            </View>
                           </View>
                         </View>
                         <View style={styles.block}>
                           <View style={styles.timeInputs}>
-                            <TextInput
-                              style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
-                              placeholder="14"
-                              value={openingHours[day].afternoon?.start || ""}
-                              onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'start', text.replace(/[^0-9]/g, ''))}
-                              keyboardType="numeric"
-                              maxLength={2}
-                            />
-                            <Text style={styles.timeSeparator}>h</Text>
-                            <TextInput
-                              style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
-                              placeholder="19"
-                              value={openingHours[day].afternoon?.end || ""}
-                              onChangeText={(text) => updateOpeningHourValidated(day, 'afternoon', 'end', text.replace(/[^0-9]/g, ''))}
-                              keyboardType="numeric"
-                              maxLength={2}
-                            />
+                            <View style={styles.timeInputContainer}>
+                              <TextInput
+                                style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
+                                placeholder="14"
+                                value={parseTime(openingHours[day].afternoon?.start).hour}
+                                onChangeText={(text) => {
+                                  const hour = clampHour(text);
+                                  const minute = parseTime(openingHours[day].afternoon?.start).minute;
+                                  updateOpeningHourValidated(day, 'afternoon', 'start', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                              <Text style={styles.timeSeparator}>h</Text>
+                              <TextInput
+                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
+                                placeholder="00"
+                                value={parseTime(openingHours[day].afternoon?.start).minute}
+                                onChangeText={(text) => {
+                                  const minute = clampMinute(text);
+                                  const hour = parseTime(openingHours[day].afternoon?.start).hour;
+                                  updateOpeningHourValidated(day, 'afternoon', 'start', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                            </View>
+                            <Text style={styles.timeSeparator}>-</Text>
+                            <View style={styles.timeInputContainer}>
+                              <TextInput
+                                style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
+                                placeholder="19"
+                                value={parseTime(openingHours[day].afternoon?.end).hour}
+                                onChangeText={(text) => {
+                                  const hour = clampHour(text);
+                                  const minute = parseTime(openingHours[day].afternoon?.end).minute;
+                                  updateOpeningHourValidated(day, 'afternoon', 'end', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                              <Text style={styles.timeSeparator}>h</Text>
+                              <TextInput
+                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
+                                placeholder="00"
+                                value={parseTime(openingHours[day].afternoon?.end).minute}
+                                onChangeText={(text) => {
+                                  const minute = clampMinute(text);
+                                  const hour = parseTime(openingHours[day].afternoon?.end).hour;
+                                  updateOpeningHourValidated(day, 'afternoon', 'end', formatTime(hour, minute));
+                                }}
+                                keyboardType="numeric"
+                                maxLength={2}
+                              />
+                            </View>
                           </View>
                         </View>
                         {/* Actions */}
@@ -1292,6 +1451,13 @@ const styles = StyleSheet.create({
   },
   locationButton: {
     marginLeft: 8,
+  },
+  timeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  minuteInput: {
+    width: 36,
   },
 });
 

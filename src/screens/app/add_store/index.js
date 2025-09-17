@@ -76,12 +76,35 @@ export default function AddStoreScreen({ navigation }) {
     return String(n);
   };
 
+  const clampMinute = (v) => {
+    if (v === "" || v == null) return "";
+    const n = Math.max(0, Math.min(59, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
+    return String(n);
+  };
+
+  // Helper function to parse time string (e.g., "9:30" or "9")
+  const parseTime = (timeStr) => {
+    if (!timeStr) return { hour: "", minute: "" };
+    const parts = timeStr.split(':');
+    return {
+      hour: parts[0] || "",
+      minute: parts[1] || "00"
+    };
+  };
+
+  // Helper function to format time string
+  const formatTime = (hour, minute) => {
+    if (!hour) return "";
+    const min = minute === "00" || !minute ? "" : `:${minute}`;
+    return `${hour}${min}`;
+  };
+
   const setDayClosed = (day, closed) => {
     setOpeningHours(prev => {
       const next = { ...prev };
       next[day] = closed
         ? { morning: null, afternoon: null }
-        : { morning: { start: "9", end: "19" }, afternoon: null };
+        : { morning: { start: "9:00", end: "19:00" }, afternoon: null };
       return next;
     });
   };
@@ -89,7 +112,6 @@ export default function AddStoreScreen({ navigation }) {
   const normalizeDay = (dayObj = {}) => {
     const norm = { ...dayObj };
     if (isPeriodEmpty(norm.morning)) norm.morning = null;
-
     if (isPeriodEmpty(norm.afternoon)) norm.afternoon = null;
     return norm;
   };
@@ -98,28 +120,28 @@ export default function AddStoreScreen({ navigation }) {
     setOpeningHours(prev => {
       const cur = normalizeDay(prev[day] || { morning: null, afternoon: null });
       if (mode === "day") {
-        const start = cur.morning?.start ?? "9";
-        const end = (cur.afternoon?.end ?? cur.morning?.end) ?? "19";
+        const start = cur.morning?.start ?? "9:00";
+        const end = (cur.afternoon?.end ?? cur.morning?.end) ?? "19:00";
         return { ...prev, [day]: normalizeDay({ morning: { start, end }, afternoon: null }) };
       } else {
-        const mStart = cur.morning?.start ?? "9";
-        const mEnd = Math.min(parseInt(cur.morning?.end ?? "12", 10), 12).toString();
+        const mStart = cur.morning?.start ?? "9:00";
+        const mEnd = "12:00";
         return {
           ...prev,
           [day]: normalizeDay({
             morning: { start: mStart, end: mEnd },
-            afternoon: { start: "14", end: cur.morning?.end ?? "19" },
+            afternoon: { start: "14:00", end: cur.morning?.end ?? "19:00" },
           }),
         };
       }
     });
   };
 
-  const setHour = (day, period, field, raw) => {
-    const value = clampHour(raw);
+  const setTime = (day, period, field, hour, minute = "00") => {
+    const timeValue = formatTime(hour, minute);
     setOpeningHours(prev => {
       const cur = prev[day] || { morning: null, afternoon: null };
-      const p = cur[period] ? { ...cur[period], [field]: value } : { [field]: value, ...(field === "start" ? { end: "" } : { start: "" }) };
+      const p = cur[period] ? { ...cur[period], [field]: timeValue } : { [field]: timeValue, ...(field === "start" ? { end: "" } : { start: "" }) };
       const next = { ...prev, [day]: normalizeDay({ ...cur, [period]: p }) };
       return next;
     });
@@ -524,13 +546,21 @@ export default function AddStoreScreen({ navigation }) {
   const formatHours = (hours) => {
     if (!hours.morning && !hours.afternoon) return "Fermé";
     
+    const formatTimeDisplay = (timeStr) => {
+      if (!timeStr) return "";
+      const parts = timeStr.split(':');
+      const hour = parts[0];
+      const minute = parts[1];
+      return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
+    };
+    
     let result = "";
     if (hours.morning) {
-      result += `${hours.morning.start}h-${hours.morning.end}h`;
+      result += `${formatTimeDisplay(hours.morning.start)}-${formatTimeDisplay(hours.morning.end)}`;
     }
     if (hours.afternoon) {
       if (result) result += " / ";
-      result += `${hours.afternoon.start}h-${hours.afternoon.end}h`;
+      result += `${formatTimeDisplay(hours.afternoon.start)}-${formatTimeDisplay(hours.afternoon.end)}`;
     }
     return result;
   };
@@ -773,46 +803,122 @@ export default function AddStoreScreen({ navigation }) {
                   <View style={{ marginTop: 10, gap: 8 }}>
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
                       <Text style={{ width: 70, fontSize: 12, color: AppColors.grey_200 }}>{split ? "Matin" : "Heures"}</Text>
-                      <TextInput
-                        style={[styles.timeInput, mErr && styles.timeInputError]}
-                        placeholder="09"
-                        value={m?.start ?? ""}
-                        onChangeText={(t) => setHour(day, "morning", "start", t)}
-                        keyboardType="numeric"
-                        maxLength={2}
-                      />
-                      <Text style={styles.timeSeparator}>h</Text>
-                      <TextInput
-                        style={[styles.timeInput, mErr && styles.timeInputError]}
-                        placeholder={split ? "12" : "19"}
-                        value={m?.end ?? ""}
-                        onChangeText={(t) => setHour(day, "morning", "end", t)}
-                        keyboardType="numeric"
-                        maxLength={2}
-                      />
+                      <View style={styles.timeInputContainer}>
+                        <TextInput
+                          style={[styles.timeInput, mErr && styles.timeInputError]}
+                          placeholder="09"
+                          value={parseTime(m?.start).hour}
+                          onChangeText={(t) => {
+                            const hour = clampHour(t);
+                            const minute = parseTime(m?.start).minute;
+                            setTime(day, "morning", "start", hour, minute);
+                          }}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                        <Text style={styles.timeSeparator}>h</Text>
+                        <TextInput
+                          style={[styles.timeInput, styles.minuteInput, mErr && styles.timeInputError]}
+                          placeholder="00"
+                          value={parseTime(m?.start).minute}
+                          onChangeText={(t) => {
+                            const minute = clampMinute(t);
+                            const hour = parseTime(m?.start).hour;
+                            setTime(day, "morning", "start", hour, minute);
+                          }}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                      </View>
+                      <Text style={styles.timeSeparator}>-</Text>
+                      <View style={styles.timeInputContainer}>
+                        <TextInput
+                          style={[styles.timeInput, mErr && styles.timeInputError]}
+                          placeholder={split ? "12" : "19"}
+                          value={parseTime(m?.end).hour}
+                          onChangeText={(t) => {
+                            const hour = clampHour(t);
+                            const minute = parseTime(m?.end).minute;
+                            setTime(day, "morning", "end", hour, minute);
+                          }}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                        <Text style={styles.timeSeparator}>h</Text>
+                        <TextInput
+                          style={[styles.timeInput, styles.minuteInput, mErr && styles.timeInputError]}
+                          placeholder="00"
+                          value={parseTime(m?.end).minute}
+                          onChangeText={(t) => {
+                            const minute = clampMinute(t);
+                            const hour = parseTime(m?.end).hour;
+                            setTime(day, "morning", "end", hour, minute);
+                          }}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                      </View>
                       {mErr && <Text style={[styles.timeInputErrorText, { marginLeft: 8 }]}>Fin &gt; Début</Text>}
                     </View>
 
                     {split && (
                       <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <Text style={{ width: 70, fontSize: 12, color: AppColors.grey_200 }}>Après-midi</Text>
-                        <TextInput
-                          style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
-                          placeholder="14"
-                          value={a?.start ?? ""}
-                          onChangeText={(t) => setHour(day, "afternoon", "start", t)}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                        <Text style={styles.timeSeparator}>h</Text>
-                        <TextInput
-                          style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
-                          placeholder="19"
-                          value={a?.end ?? ""}
-                          onChangeText={(t) => setHour(day, "afternoon", "end", t)}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
+                        <View style={styles.timeInputContainer}>
+                          <TextInput
+                            style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
+                            placeholder="14"
+                            value={parseTime(a?.start).hour}
+                            onChangeText={(t) => {
+                              const hour = clampHour(t);
+                              const minute = parseTime(a?.start).minute;
+                              setTime(day, "afternoon", "start", hour, minute);
+                            }}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                          <Text style={styles.timeSeparator}>h</Text>
+                          <TextInput
+                            style={[styles.timeInput, styles.minuteInput, (aErr || overlapErr) && styles.timeInputError]}
+                            placeholder="00"
+                            value={parseTime(a?.start).minute}
+                            onChangeText={(t) => {
+                              const minute = clampMinute(t);
+                              const hour = parseTime(a?.start).hour;
+                              setTime(day, "afternoon", "start", hour, minute);
+                            }}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                        </View>
+                        <Text style={styles.timeSeparator}>-</Text>
+                        <View style={styles.timeInputContainer}>
+                          <TextInput
+                            style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
+                            placeholder="19"
+                            value={parseTime(a?.end).hour}
+                            onChangeText={(t) => {
+                              const hour = clampHour(t);
+                              const minute = parseTime(a?.end).minute;
+                              setTime(day, "afternoon", "end", hour, minute);
+                            }}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                          <Text style={styles.timeSeparator}>h</Text>
+                          <TextInput
+                            style={[styles.timeInput, styles.minuteInput, (aErr || overlapErr) && styles.timeInputError]}
+                            placeholder="00"
+                            value={parseTime(a?.end).minute}
+                            onChangeText={(t) => {
+                              const minute = clampMinute(t);
+                              const hour = parseTime(a?.end).hour;
+                              setTime(day, "afternoon", "end", hour, minute);
+                            }}
+                            keyboardType="numeric"
+                            maxLength={2}
+                          />
+                        </View>
                         {(aErr || overlapErr) && (
                           <Text style={[styles.timeInputErrorText, { marginLeft: 8 }]}>
                             {aErr ? "Fin > Début" : "Chevauchement"}
@@ -1358,5 +1464,12 @@ const styles = StyleSheet.create({
   },
   locationButton: {
     marginLeft: 8,
+  },
+  timeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  minuteInput: {
+    width: 36,
   },
 });

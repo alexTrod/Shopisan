@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert, TextInput } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import { AppColors } from "../../utils";
 import { height } from "../../utils/dimension";
@@ -297,13 +297,35 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                   let hoursText = "";
 
                   if (dayHours?.morning && dayHours?.afternoon) {
-                    hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h / ${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                    const formatTimeDisplay = (timeStr) => {
+                      if (!timeStr) return "";
+                      const parts = timeStr.split(':');
+                      const hour = parts[0];
+                      const minute = parts[1];
+                      return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
+                    };
+                    
+                    hoursText = `${formatTimeDisplay(dayHours.morning.start)} - ${formatTimeDisplay(dayHours.morning.end)} / ${formatTimeDisplay(dayHours.afternoon.start)} - ${formatTimeDisplay(dayHours.afternoon.end)}`;
                   } else if (dayHours?.morning) {
-                    hoursText = `${dayHours.morning.start}h - ${dayHours.morning.end}h`;
+                    const formatTimeDisplay = (timeStr) => {
+                      if (!timeStr) return "";
+                      const parts = timeStr.split(':');
+                      const hour = parts[0];
+                      const minute = parts[1];
+                      return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
+                    };
+                    hoursText = `${formatTimeDisplay(dayHours.morning.start)} - ${formatTimeDisplay(dayHours.morning.end)}`;
                   } else if (dayHours?.afternoon) {
-                    hoursText = `${dayHours.afternoon.start}h - ${dayHours.afternoon.end}h`;
+                    const formatTimeDisplay = (timeStr) => {
+                      if (!timeStr) return "";
+                      const parts = timeStr.split(':');
+                      const hour = parts[0];
+                      const minute = parts[1];
+                      return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
+                    };
+                    hoursText = `${formatTimeDisplay(dayHours.afternoon.start)} - ${formatTimeDisplay(dayHours.afternoon.end)}`;
                   } else {
-                    hoursText = "Close";
+                    hoursText = "Fermé";
                   }
 
                   return (
@@ -528,7 +550,14 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     textDecorationLine: 'underline',
     marginTop: 4,
-  }
+  },
+  timeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  minuteInput: {
+    width: 36,
+  },
 });
 
 export default ItemDetailModal; 
