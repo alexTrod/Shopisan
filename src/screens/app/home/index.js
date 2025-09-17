@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef, useContext } from "react";
 import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert, TextInput } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
 import { getUserFavoriteStoreIds, getFavoriteStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
@@ -13,22 +13,24 @@ import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
 import { MaterialIcons } from "@expo/vector-icons";
 import Button from '../../../components/button';
 import { ScreenNames } from "../../../Routes/routes";
-import { doc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { firestore } from '../../../../firebaseconfig';
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import cities from "../../../components/cities/cities.json";
 import * as Location from 'expo-location';
 import { height, width } from "../../../utils/dimension";
-
-import { useContext } from 'react';
 import { StoreContext } from '../../../context/StoreContext';
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
+import SearchBar from '../../../components/search-bar';
+import { useTranslation } from '../../../utils/useTranslation';
+import EmailVerificationBanner from "../../../components/email-verification";
 
 const SEARCH_RADIUS_KM = 6;
 
 export default function HomeScreen({ navigation, route }) {
-  const { filteredStores, allStores } = useContext(StoreContext);
+  const { t } = useTranslation();
+  const { filteredStores, allStores, searchQuery, setSearchQuery, userLocation, customLocation } = useContext(StoreContext);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,13 +38,12 @@ export default function HomeScreen({ navigation, route }) {
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [isNearbyActive, setIsNearbyActive] = useState(false);
   const initialStoreFromMap = route?.params?.initialStoreFromMap;
-  const { searchQuery, setSearchQuery } = useContext(StoreContext);
-  const { userLocation, customLocation } = useContext(StoreContext);
 
   const flatListRef = useRef(null);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
 
+  // Suggestions state for the search bar
+  const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
     const applyRadiusFilter = async () => {
@@ -88,12 +89,12 @@ export default function HomeScreen({ navigation, route }) {
         setLoading(false);
       }
     };
-    
+
     applyRadiusFilter();
     if (showMyStoresOnly) {
       loadMyStores(true);
     }
-  }, [filteredStores, showFavoritesOnly, showMyStoresOnly, searchQuery, customLocation]);
+  }, [filteredStores, showFavoritesOnly, showMyStoresOnly, searchQuery, customLocation]); // showMyStoresOnly is defined below
 
   const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
@@ -633,13 +634,33 @@ export default function HomeScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error("Erreur lors de la recherche du magasin le plus proche :", error);
-    }
+    };
+
   };
 
+  const handleCitySearch = useCallback((cityName, coordinates) => {
+    dispatch(setCustomLocation(coordinates));
+    // Update the search query to show what was searched
+    setSearchQuery(cityName);
+  }, [dispatch, setSearchQuery]);
 
+  const handleStoreSearch = useCallback((storeSuggestion) => {
+    const filteredByName = filteredStores.filter(store =>
+      store.name.toLowerCase().includes(storeSuggestion.label.toLowerCase())
+    );
+    dispatch(setCustomLocation({
+      latitude: storeSuggestion.location.latitude,
+      longitude: storeSuggestion.location.longitude
+    }));
+    setStores(filteredByName);
+    // Update the search query to show what was searched
+    setSearchQuery(storeSuggestion.label);
+  }, [filteredStores, dispatch, setSearchQuery]);
 
-
-
+  const handleSearchChange = useCallback((query) => {
+    // Update the search query in StoreContext so it's synchronized across screens
+    setSearchQuery(query);
+  }, [setSearchQuery]);
 
   if (loggingOut) {
     return (
@@ -649,35 +670,49 @@ export default function HomeScreen({ navigation, route }) {
     );
   }
 
-  return (
-    <ScreenWrapper
-      backgroundColor={AppColors.white_100}
-      statusBarColor={AppColors.white_100}
-      barStyle="dark-content"
-    >
-      {!user && (
-        <TouchableOpacity
-          onPress={handleDirectLogout}
-          style={{
-            alignSelf: 'flex-end',
-            marginTop: 0,
-            marginRight: 20,
-          }}
-        >
-          <CustomText
-            size={1.5}
-            color={AppColors.grey_200}
-            textDecorationLine="underline"
-            textStyles={{ fontFamily: "Mulish-SemiBold" }}
+    return (
+      <ScreenWrapper
+        backgroundColor={AppColors.white_100}
+        statusBarColor={AppColors.white_100}
+        barStyle="dark-content"
+      >
+        {!user && (
+          <TouchableOpacity
+            onPress={handleDirectLogout}
+            style={{
+              alignSelf: 'flex-end',
+              marginTop: 0,
+              marginRight: 20,
+            }}
           >
-            Go to signup
-          </CustomText>
-        </TouchableOpacity>
-      )}
+            <CustomText
+              size={1.5}
+              color={AppColors.grey_200}
+              textDecorationLine="underline"
+              textStyles={{ fontFamily: "Mulish-SemiBold" }}
+            >
+              {t('sign_up')}
+            </CustomText>
+          </TouchableOpacity>
+        )}
 
-      <View style={styles.container}>
-        {/* Search Bar + Category Chip Group */}
-        <View style={styles.searchGroupContainer}>
+        <View style={styles.container}>
+          {/* Search bar and category filter with proper z-index layering */}
+          <View style={styles.searchGroupContainer}>
+            <SearchBar
+              placeholder={t('search_placeholder')}
+              onCitySelect={handleCitySearch}
+              onStoreSelect={handleStoreSearch}
+              onSearch={handleSearchChange}
+              allStores={allStores}
+              containerStyle={styles.searchBarContainer}
+            />
+          </View>
+
+          {/* Email Verification Banner */}
+          <EmailVerificationBanner />
+
+          {/* Category filter - to check 
 
           <View style={styles.searchBarRow}>
             <TextInput
@@ -691,16 +726,17 @@ export default function HomeScreen({ navigation, route }) {
             />
           </View>
 
-          {/*suggestions.length > 0*/true && (
+           Suggestions */}
+          {suggestions.length > 0 && (
             <View style={styles.suggestionsContainer}>
               {suggestions.map((suggestion, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.suggestionItem}
                   onPress={() => {
-                    setSearchQuery(suggestion.label);                
+                    setSearchQuery(suggestion.label);
                     handleSearch(suggestion);
-                    setSuggestions([]); 
+                    setSuggestions([]);
                   }}
                 >
                   <Text style={styles.suggestionText}>
@@ -714,84 +750,83 @@ export default function HomeScreen({ navigation, route }) {
           <View style={styles.categoryChipRow}>
             <CategoryFilter />
           </View>
-        </View>
 
-        {/* Filters */}
-        <View style={styles.filtersRow}>
-        </View>
+          {/* Filters */}
+          <View style={styles.filtersRow}>
+          </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsRow}>
-          {user?.userType === 'merchant' && (
-            <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
-              <MaterialIcons 
-                name={showMyStoresOnly ? "store" : "storefront"} 
-                size={24} 
-                color={showMyStoresOnly ? AppColors.primary : AppColors.grey_200} 
-              />
-              <Text style={styles.switchText}>{showMyStoresOnly ? "My stores" : "All stores"}</Text>
-            </TouchableOpacity>
+          {/* Action Buttons */}
+          <View style={styles.actionsRow}>
+            {user?.userType === 'merchant' && (
+              <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
+                <MaterialIcons
+                  name={showMyStoresOnly ? "store" : "storefront"}
+                  size={24}
+                  color={showMyStoresOnly ? AppColors.primary : AppColors.grey_200}
+                />
+                <Text style={styles.switchText}>{showMyStoresOnly ? t('my_stores') : t('all_categories')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {!loading && stores.length === 0 && (
+            <View style={styles.noStoreContainer}>
+              <Text style={styles.noStoreText}>{t('no_stores_found')}</Text>
+
+              <TouchableOpacity onPress={findClosestStore}>
+                <Text style={styles.closestStoreButtonText}>{t('nearby')}</Text>
+              </TouchableOpacity>
+            </View>
           )}
+
+          {/* Store List */}
+          <FlatList {...flatListProps} ref={flatListRef} style={styles.list} />
+
+          {/* Floating Location Button (single tap only) */}
+          <TouchableOpacity
+            onPress={updateLocationToCurrent}
+            style={styles.fabLocation}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="location-outline" size={28} color={AppColors.primary} />
+          </TouchableOpacity>
+
+          {/* Floating Add New Store Button */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
+            style={styles.fabAdd}
+          >
+            <MaterialIcons
+              name="add"
+              size={32}
+              color="#fff"
+            />
+          </TouchableOpacity>
+
+          {/* Floating Favorite Button */}
+          <TouchableOpacity
+            onPress={handleToggleShowFavorites}
+            style={styles.fabFavorite}
+          >
+            <MaterialIcons
+              name={showFavoritesOnly ? "favorite" : "favorite-border"}
+              size={28}
+              color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200}
+            />
+          </TouchableOpacity>
         </View>
-
-        {!loading && stores.length === 0 && (
-          <View style={styles.noStoreContainer}>
-            <Text style={styles.noStoreText}>No stores found in this area.</Text>
-
-            <TouchableOpacity onPress={findClosestStore}>
-              <Text style={styles.closestStoreButtonText}>Find the nearest store</Text>
-            </TouchableOpacity>
+        <CityFilter onSelect={() => setShowCityModal(false)} isVisible={showCityModal} />
+        <Modal visible={showNearbyModal} transparent animationType="fade">
+          <View style={modalStyles.container}>
+            <View style={modalStyles.modal}>
+              <ActivityIndicator size="large" color={AppColors.primary} />
+              <Text style={modalStyles.text}>{t('loading')}</Text>
+            </View>
           </View>
-        )}
-
-        {/* Store List */}
-        <FlatList {...flatListProps} ref={flatListRef} style={styles.list} />
-
-        {/* Floating Location Button (single tap only) */}
-        <TouchableOpacity
-          onPress={updateLocationToCurrent}
-          style={styles.fabLocation}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="location-outline" size={28} color={AppColors.primary} />
-        </TouchableOpacity>
-
-        {/* Floating Add New Store Button */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate(ScreenNames.ADD_STORE)}
-          style={styles.fabAdd}
-        >
-          <MaterialIcons
-            name="add"
-            size={32}
-            color="#fff"
-          />
-        </TouchableOpacity>
-
-        {/* Floating Favorite Button */}
-        <TouchableOpacity
-          onPress={handleToggleShowFavorites}
-          style={styles.fabFavorite}
-        >
-          <MaterialIcons
-            name={showFavoritesOnly ? "favorite" : "favorite-border"}
-            size={28}
-            color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200}
-          />
-        </TouchableOpacity>
-      </View>
-      <CityFilter onSelect={() => setShowCityModal(false)} isVisible={showCityModal} />
-      <Modal visible={showNearbyModal} transparent animationType="fade">
-        <View style={modalStyles.container}>
-          <View style={modalStyles.modal}>
-            <ActivityIndicator size="large" color={AppColors.primary} />
-            <Text style={modalStyles.text}>Looking for stores around...</Text>
-          </View>
-        </View>
-      </Modal>
-    </ScreenWrapper>
-  );
-}
+        </Modal>
+      </ScreenWrapper>
+    );
+  }
 
 const styles = {
   container: {
@@ -832,12 +867,26 @@ const styles = {
     borderWidth: 0,
     marginBottom: 0,
   },
-  categoryChipRow: {
+  categoryChipRow_test: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 6,
     marginBottom: 0,
     // No justifyContent, chip will be as wide as its content
+  },
+  categoryChipRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    zIndex: 1000,
+    position: 'relative',
+  },
+  categoryChipRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    zIndex: 1000,
+    position: 'relative',
   },
   filtersRow: {
     flexDirection: "row",
@@ -1046,5 +1095,3 @@ const modalStyles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
-
