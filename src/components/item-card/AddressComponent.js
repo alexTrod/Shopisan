@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { AppColors } from '../../utils';
+import logging, { logError } from '../../utils/logging';
+
 
 const AddressComponent = ({ address }) => {
   const { street, postalCode, city } = address;
