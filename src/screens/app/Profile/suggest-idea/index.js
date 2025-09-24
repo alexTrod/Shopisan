@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, Alert } from 'react-native';
+import { useSelector } from 'react-redux';
 import ScreenWrapper from '../../../../components/screen-wrapper';
 import Header from '../../../../components/header';
 import Button from '../../../../components/button';
@@ -8,15 +9,45 @@ import { width, height } from '../../../../utils/dimension';
 
 export default function SuggestIdea({ navigation }) {
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const user = useSelector((state) => state.user.userData);
 
-  const handleSendReport = () => {
+  const handleSendReport = async () => {
     if (!message.trim()) {
       Alert.alert('Error', 'Please enter a message.');
       return;
     }
 
-    Alert.alert('Sent', 'Thank you, your message has been sent.');
-    navigation.goBack();
+    setLoading(true);
+    try {
+      const response = await fetch('https://us-central1-shopisan-bad76.cloudfunctions.net/sendFeedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message.trim(),
+          type: 'Suggest an Idea / Report a Bug',
+          userEmail: user?.email || null,
+          userName: user?.username || null
+        })
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        Alert.alert('Sent', 'Thank you, your message has been sent to our team.');
+        setMessage('');
+        navigation.goBack();
+      } else {
+        throw new Error(result.error || 'Failed to send feedback');
+      }
+    } catch (error) {
+      console.error('Error sending feedback:', error);
+      Alert.alert('Error', 'Failed to send your message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,9 +71,15 @@ export default function SuggestIdea({ navigation }) {
           multiline
           numberOfLines={8}
           textAlignVertical="top"
+          editable={!loading}
         />
-        <Button onPress={handleSendReport} containerStyle={styles.button}>
-          Send
+        <Button 
+          onPress={handleSendReport} 
+          containerStyle={styles.button}
+          loading={loading}
+          disabled={loading}
+        >
+          {loading ? 'Sending...' : 'Send'}
         </Button>
       </View>
     </ScreenWrapper>
