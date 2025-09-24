@@ -28,6 +28,7 @@ export default {
         my_stores: 'My Stores',
         all_categories: 'All Categories',
         no_stores_found: 'No stores found',
+        no_stores_description: 'Try adjusting your search or location to find stores nearby.',
         nearby: 'Nearby',
         
         // Store Form Fields
@@ -63,7 +64,19 @@ export default {
         error: 'Error',
         success: 'Success',
         warning: 'Warning',
-        no_results: 'No results found'
+        no_results: 'No results found',
+        store_added_successfully: 'Store added successfully! Your store will be visible after validation.',
+        store_validation_pending: 'Your store is pending validation and will be visible soon.',
+        
+        // Profile Screen
+        account: 'Account',
+        feedback: 'Feedback',
+        log_out: 'Log out',
+        go_to_signup: 'Go to signup',
+        change_email_name: 'Change email and name',
+        recover_old_account: 'Recover old account',
+        report_issue: 'Report an issue',
+        suggest_idea: 'Suggest an idea / report a bug'
     },
     fr: {
         // Navigation & Titles
@@ -94,6 +107,7 @@ export default {
         my_stores: 'Mes Magasins',
         all_categories: 'Toutes les Catégories',
         no_stores_found: 'Aucun magasin trouvé',
+        no_stores_description: 'Essayez d\'ajuster votre recherche ou votre localisation pour trouver des magasins à proximité.',
         nearby: 'À proximité',
         
         // Store Form Fields
@@ -129,6 +143,18 @@ export default {
         error: 'Erreur',
         success: 'Succès',
         warning: 'Avertissement',
-        no_results: 'Aucun résultat trouvé'
+        no_results: 'Aucun résultat trouvé',
+        store_added_successfully: 'Magasin ajouté avec succès ! Votre magasin sera visible après validation.',
+        store_validation_pending: 'Votre magasin est en cours de validation et sera bientôt visible.',
+        
+        // Profile Screen
+        account: 'Compte',
+        feedback: 'Commentaires',
+        log_out: 'Se déconnecter',
+        go_to_signup: 'Aller à l\'inscription',
+        change_email_name: 'Changer l\'email et le nom',
+        recover_old_account: 'Récupérer l\'ancien compte',
+        report_issue: 'Signaler un problème',
+        suggest_idea: 'Suggérer une idée / signaler un bug'
     }
 }
