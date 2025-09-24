@@ -82,7 +82,7 @@ export default function FavoritesScreen() {
       let batchIds = favoriteStoreIds.slice(0, STORES_PER_PAGE);
 
       const storePromises = batchIds.map(async (storeId) => {
-        const storeQuery = query(storesRef, where("id", "==", storeId));
+        const storeQuery = query(storesRef, where("id", "==", storeId), where("is_validated", "==", true));
         const snapshot = await getDocs(storeQuery);
         return snapshot.empty ? null : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
       });

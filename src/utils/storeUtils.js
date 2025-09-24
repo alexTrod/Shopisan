@@ -9,6 +9,9 @@ export const getStoreQuery = (selectedCategories, lastVisible, categories, selec
   const storeCollection = collection(firestore, 'stores');
   const queryConstraints = [];
 
+  // Always filter for validated stores only
+  queryConstraints.push(where('is_validated', '==', true));
+
   if (selectedCategories && selectedCategories.length > 0) {
     queryConstraints.push(where('category', 'array-contains-any', selectedCategories));
   }
@@ -131,6 +134,8 @@ export const getMerchantStoreQuery = (ownerId, lastVisible) => {
   const storeCollection = collection(firestore, "stores");
   const queryConstraints = [
     where("owner_id", "==", ownerId),
+    // Note: For merchant's own stores, we show both validated and non-validated
+    // so they can see the status of their submissions
     orderBy("id", "desc"),
     limit(STORES_PER_PAGE)
   ];

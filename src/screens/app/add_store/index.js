@@ -27,6 +27,7 @@ import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
 import { useTranslation } from "../../../utils/useTranslation";
 import * as Location from 'expo-location';
+import Toast from "react-native-toast-message";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
@@ -502,6 +503,7 @@ export default function AddStoreScreen({ navigation }) {
         website: "",
         openingHours: openingHours,
         imageUrl: imageUrl || "",
+        is_validated: false,
         ...(user?.userType === "merchant" && {
           email: storeEmail || "",
           phone: phone || "",
@@ -514,7 +516,13 @@ export default function AddStoreScreen({ navigation }) {
 
       DeviceEventEmitter.emit('stores:refresh');
       dispatch(setSelectedCategories([]));
-      Alert.alert("Succès", "Magasin ajouté avec succès !");
+      
+      Toast.show({
+        text1: t('success'),
+        text2: t('store_added_successfully'),
+        type: 'success',
+      });
+      
       navigation.goBack();
     } catch (error) {
       console.error("Erreur lors de l'ajout du magasin :", error);

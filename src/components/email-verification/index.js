@@ -112,9 +112,9 @@ const EmailVerificationBanner = () => {
   return (
     <View style={{
       backgroundColor: AppColors.white,
-      padding: height(2.5),
+      padding: height(1.5),
       marginHorizontal: width(4),
-      marginVertical: height(1),
+      marginVertical: height(0.5),
       borderRadius: width(1.5),
       borderWidth: 1,
       borderColor: AppColors.lightGray || '#E5E5E5',
@@ -127,7 +127,7 @@ const EmailVerificationBanner = () => {
       <CustomText
         color={AppColors.text || '#333333'}
         textStyles={{ fontFamily: 'Mulish-Bold' }}
-        size={1.8}
+        size={2.0}
         textAlign="center"
       >
         Email Verification Required
@@ -137,57 +137,60 @@ const EmailVerificationBanner = () => {
         color={AppColors.textSecondary || '#666666'}
         textStyles={{ 
           fontFamily: 'Mulish-Regular',
-          marginTop: height(1),
+          marginTop: height(0.5),
           textAlign: 'center'
         }}
-        size={1.4}
+        size={1.6}
       >
         {getStatusMessage()}
       </CustomText>
 
-      <Button
-        onPress={handleResendVerification}
-        disabled={!canResendVerification || loading}
-        loading={loading}
-        textStyle={{
-          fontFamily: 'Mulish-Bold',
-          color: AppColors.white
-        }}
-        containerStyle={{
-          backgroundColor: AppColors.primary || '#007AFF',
-          marginTop: height(1.5),
-          paddingVertical: height(1.2),
-          paddingHorizontal: width(3),
-          borderRadius: width(1),
-        }}
-      >
-        {getButtonText()}
-      </Button>
-
       <View style={{
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         marginTop: height(1),
         gap: width(2),
       }}>
+        <Button
+          onPress={handleResendVerification}
+          disabled={!canResendVerification || loading}
+          loading={loading}
+          textStyle={{
+            fontFamily: 'Mulish-Bold',
+            color: AppColors.white,
+            fontSize: height(1.7)
+          }}
+          containerStyle={{
+            backgroundColor: AppColors.primary || '#007AFF',
+            paddingVertical: height(0.8),
+            paddingHorizontal: width(2),
+            borderRadius: width(0.8),
+            flex: 1,
+          }}
+        >
+          {getButtonText()}
+        </Button>
+
         <Button
           onPress={handleRefreshVerification}
           disabled={loading}
           loading={loading}
           textStyle={{
             fontFamily: 'Mulish-Regular',
-            color: AppColors.textSecondary || '#666666'
+            color: AppColors.textSecondary || '#666666',
+            fontSize: height(1.7)
           }}
           containerStyle={{
             backgroundColor: 'transparent',
             paddingVertical: height(0.8),
-            paddingHorizontal: width(2.5),
-            borderRadius: width(1),
+            paddingHorizontal: width(2),
+            borderRadius: width(0.8),
             borderWidth: 1,
             borderColor: AppColors.lightGray || '#E5E5E5',
+            flex: 0.6,
           }}
         >
-          Refresh Status
+          Refresh
         </Button>
       </View>
 
@@ -196,7 +199,7 @@ const EmailVerificationBanner = () => {
           color={AppColors.textSecondary || '#999999'}
           textStyles={{
             fontFamily: 'Mulish-Regular',
-            marginTop: height(1),
+            marginTop: height(0.8),
             textAlign: 'center',
             fontSize: 12,
           }}
