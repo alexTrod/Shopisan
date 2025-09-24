@@ -1,6 +1,6 @@
-# Email Verification System Setup Guide (Mailgun)
+# Email Verification System Setup Guide
 
-This guide explains how to set up and configure the comprehensive email verification system for Shopisan using **Mailgun**.
+This guide explains how to set up and configure the comprehensive email verification system for Shopisan using **Gmail SMTP**.
 
 ## Overview
 
@@ -15,7 +15,7 @@ The email verification system includes:
 
 1. **Firebase Project**: Ensure you have a Firebase project set up
 2. **Firebase CLI**: Install Firebase CLI globally: `npm install -g firebase-tools`
-3. **Mailgun Account**: Create a Mailgun account for email delivery
+3. **Gmail Account**: Use Gmail SMTP for email delivery
 
 ## Setup Steps
 
@@ -34,40 +34,31 @@ cd functions
 npm install
 ```
 
-### 2. Mailgun Account Setup
+### 2. Gmail SMTP Setup
 
-#### Step 1: Create Mailgun Account
-1. Go to [https://www.mailgun.com/](https://www.mailgun.com/)
-2. Sign up for a free account (5,000 emails/month free)
-3. Verify your email address
+#### Step 1: Enable 2-Factor Authentication
+1. Go to your Google Account settings
+2. Enable 2-Factor Authentication if not already enabled
 
-#### Step 2: Add and Verify Your Domain
-1. In Mailgun dashboard, click "Add Domain"
-2. Enter your domain (e.g., `yourdomain.com`)
-3. Choose "Custom Domain" option
-4. Follow the DNS setup instructions:
-   - Add MX records
-   - Add SPF records
-   - Add DKIM records
-5. Wait for domain verification (24-48 hours)
+#### Step 2: Generate App Password
+1. Go to Google Account → Security → App passwords
+2. Generate a new app password for "Mail"
+3. Copy the generated password (16 characters)
 
-#### Step 3: Get Your API Key
-1. Go to Settings → API Keys in Mailgun dashboard
-2. Copy your Private API Key
-3. Note your domain (e.g., `yourdomain.mailgun.org`)
-
-### 3. Configure Firebase Environment Variables
+#### Step 3: Configure Firebase Environment Variables
 
 ```bash
-# Set Mailgun configuration
-firebase functions:config:set mailgun.api_key="your-mailgun-api-key"
-firebase functions:config:set mailgun.domain="your-domain.mailgun.org"
+# Set Gmail SMTP configuration
+firebase functions:config:set email.host="smtp.gmail.com"
+firebase functions:config:set email.port="587"
+firebase functions:config:set email.user="your-email@gmail.com"
+firebase functions:config:set email.pass="your-app-password"
 
 # Set admin email for notifications
 firebase functions:config:set admin.email="alexandra.fd1000@gmail.com"
 ```
 
-### 4. Update Email Templates
+### 3. Update Email Templates
 
 Edit `functions/index.js` and update:
 - `verificationUrl` in the `sendVerificationEmail` function
@@ -83,7 +74,7 @@ const verificationUrl = `shopisan://verify-email?token=${token}`;
 const verificationUrl = `https://your-web-domain.com/verify-email?token=${token}`;
 ```
 
-### 5. Deploy Functions
+### 4. Deploy Functions
 
 ```bash
 # Deploy all functions
@@ -94,7 +85,7 @@ firebase deploy --only functions:sendVerificationEmail
 firebase deploy --only functions:sendAdminNotification
 ```
 
-### 6. Test the System
+### 5. Test the System
 
 1. **Create a new user account**
 2. **Check your email** for the verification link
@@ -125,20 +116,20 @@ You'll receive emails for:
 - New merchant registrations
 - Registration details (username, email, user type, date)
 
-## Mailgun-Specific Features
+## Gmail SMTP Features
 
-### Benefits of Mailgun
-- **High Deliverability**: Professional email infrastructure
-- **Analytics**: Track email opens, clicks, bounces
-- **Webhooks**: Real-time delivery status updates
-- **Scalability**: Handle high email volumes
-- **Free Tier**: 5,000 emails/month free
+### Benefits of Gmail SMTP
+- **Reliability**: Google's robust email infrastructure
+- **Easy Setup**: Simple SMTP configuration
+- **Free**: No additional costs for email sending
+- **Security**: Built-in Google security features
+- **Familiar**: Uses your existing Gmail account
 
-### Mailgun Dashboard Features
-- **Email Logs**: See all sent emails
-- **Bounce Management**: Handle failed deliveries
-- **Spam Reports**: Monitor reputation
-- **API Usage**: Track API calls and limits
+### Gmail SMTP Configuration
+- **Host**: smtp.gmail.com
+- **Port**: 587 (TLS)
+- **Authentication**: App password required
+- **Rate Limits**: 500 emails per day (free account)
 
 ## Troubleshooting
 
@@ -146,8 +137,8 @@ You'll receive emails for:
 
 1. **Emails not sending**
    - Check Firebase Functions logs: `firebase functions:log`
-   - Verify Mailgun API key and domain
-   - Ensure domain is verified in Mailgun
+   - Verify Gmail app password is correct
+   - Ensure 2FA is enabled on Gmail account
    - Check network connectivity
 
 2. **Verification links not working**
@@ -160,10 +151,10 @@ You'll receive emails for:
    - Verify dependencies are installed
    - Check Firebase project configuration
 
-4. **Mailgun-specific issues**
-   - Domain not verified: Wait 24-48 hours after DNS setup
-   - API key invalid: Check Mailgun dashboard
-   - Rate limiting: Check your Mailgun plan limits
+4. **Gmail-specific issues**
+   - App password not working: Generate new app password
+   - Rate limiting: Check Gmail daily sending limits
+   - Authentication failed: Verify app password format
 
 ### Debug Mode
 
@@ -171,7 +162,7 @@ Enable detailed logging in functions:
 ```javascript
 // Add to functions/index.js
 console.log('Debug info:', { email, username, token, userType });
-console.log('Mailgun config:', { domain: MAILGUN_DOMAIN, adminEmail: ADMIN_EMAIL });
+console.log('Gmail config:', { host: 'smtp.gmail.com', adminEmail: ADMIN_EMAIL });
 ```
 
 ## Security Considerations
@@ -189,11 +180,11 @@ console.log('Mailgun config:', { domain: MAILGUN_DOMAIN, adminEmail: ADMIN_EMAIL
 - Function performance metrics
 - Error tracking
 
-### Mailgun Dashboard
-- Email delivery rates
-- Bounce and spam reports
-- API usage statistics
-- Domain reputation
+### Gmail Account
+- Sent emails in Gmail
+- Email delivery status
+- Bounce notifications
+- Spam folder monitoring
 
 ### Custom Metrics
 - Verification success rates
@@ -203,32 +194,32 @@ console.log('Mailgun config:', { domain: MAILGUN_DOMAIN, adminEmail: ADMIN_EMAIL
 ## Cost Considerations
 
 - **Firebase Functions**: Pay per execution (first 125K/month free)
-- **Mailgun**: Free tier includes 5,000 emails/month
-  - Additional emails: $0.80 per 1,000
-  - Professional features: $35/month
+- **Gmail SMTP**: Free with Gmail account
+  - Rate limit: 500 emails per day (free account)
+  - No additional costs for email sending
 - **Firestore**: Pay per read/write (first 50K reads, 20K writes/month free)
 
 ## Best Practices
 
-1. **Start with Free Tier**: Use Mailgun's free tier for testing
-2. **Monitor Deliverability**: Check Mailgun dashboard regularly
-3. **Handle Bounces**: Set up bounce handling for better deliverability
+1. **Start with Gmail**: Use Gmail SMTP for simple setup
+2. **Monitor Deliverability**: Check Gmail sent folder regularly
+3. **Handle Bounces**: Monitor bounce notifications in Gmail
 4. **Test Thoroughly**: Verify all flows before going live
 5. **Backup Plan**: Have fallback verification methods
 6. **Regular Updates**: Keep dependencies and security patches current
 
 ## Support Resources
 
-- **Mailgun Dashboard**: [https://app.mailgun.com/](https://app.mailgun.com/)
-- **Mailgun Documentation**: [https://documentation.mailgun.com/](https://documentation.mailgun.com/)
-- **Mailgun Support**: [https://help.mailgun.com/](https://help.mailgun.com/)
+- **Gmail Help**: [https://support.google.com/mail/](https://support.google.com/mail/)
+- **Gmail SMTP Settings**: [https://support.google.com/mail/answer/7126229](https://support.google.com/mail/answer/7126229)
+- **App Passwords**: [https://support.google.com/accounts/answer/185833](https://support.google.com/accounts/answer/185833)
 - **Firebase Functions**: [https://firebase.google.com/docs/functions](https://firebase.google.com/docs/functions)
 
 ## Next Steps
 
 After setup:
 1. **Test thoroughly** with multiple email addresses
-2. **Monitor delivery rates** in Mailgun dashboard
-3. **Set up webhooks** for real-time delivery tracking
+2. **Monitor delivery rates** in Gmail sent folder
+3. **Check bounce notifications** in Gmail
 4. **Customize email templates** with your branding
 5. **Scale up** as your user base grows

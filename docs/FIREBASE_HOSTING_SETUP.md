@@ -65,7 +65,7 @@ firebase deploy --only functions
 
 ### **1. User Flow**
 ```
-User signs up → Mailgun sends email → User clicks link → 
+User signs up → Gmail sends email → User clicks link → 
 Opens web page → Firebase verifies token → User account activated
 ```
 
@@ -181,10 +181,10 @@ console.log('Functions:', functions);
 - **Functions**: Execution logs, errors
 - **Analytics**: User behavior (if enabled)
 
-### **Mailgun Dashboard**
-- **Email delivery rates**
-- **Bounce reports**
-- **Spam complaints**
+### **Gmail Account**
+- **Sent emails** in Gmail
+- **Bounce notifications**
+- **Spam folder** monitoring
 
 ### **Custom Metrics**
 Track in your app:
@@ -211,12 +211,12 @@ Track in your app:
 ### **Free Tier Limits**
 - **Hosting**: 10GB storage, 360MB/day bandwidth
 - **Functions**: 125K invocations/month
-- **Mailgun**: 5,000 emails/month
+- **Gmail**: 500 emails/day (free account)
 
 ### **Upgrade Path**
 - **Hosting**: Upgrade to Blaze plan
 - **Functions**: Pay per execution after free tier
-- **Mailgun**: Upgrade to paid plan for more emails
+- **Gmail**: Upgrade to Google Workspace for higher limits
 
 ## 📚 **Additional Resources**
 
@@ -225,14 +225,14 @@ Track in your app:
 - [Functions Guide](https://firebase.google.com/docs/functions)
 - [Security Rules](https://firebase.google.com/docs/hosting/manage-cache)
 
-### **Mailgun Documentation**
-- [API Reference](https://documentation.mailgun.com/)
-- [Best Practices](https://help.mailgun.com/)
-- [Webhooks](https://documentation.mailgun.com/en/latest/user_manual.html#webhooks)
+### **Gmail Documentation**
+- [SMTP Settings](https://support.google.com/mail/answer/7126229)
+- [App Passwords](https://support.google.com/accounts/answer/185833)
+- [Gmail Help](https://support.google.com/mail/)
 
 ### **Support**
 - **Firebase**: [Firebase Support](https://firebase.google.com/support)
-- **Mailgun**: [Mailgun Support](https://help.mailgun.com/)
+- **Gmail**: [Gmail Help Center](https://support.google.com/mail/)
 
 ## 🎉 **Next Steps**
 

@@ -198,7 +198,7 @@ firebase functions:config:set admin.email="your-admin-email@domain.com"
 ### Email Service Setup
 - **Gmail**: Enable 2FA, generate App Password
 - **SendGrid**: Create account, get API key
-- **Mailgun**: Create account, get credentials
+- **Other SMTP**: Configure any SMTP service
 
 ### App Configuration
 - Update verification URLs in Cloud Functions
@@ -228,7 +228,7 @@ firebase functions:config:set admin.email="your-admin-email@domain.com"
 ## Next Steps
 
 ### Immediate
-1. **Configure Email Service**: Set up Gmail, SendGrid, or Mailgun
+1. **Configure Email Service**: Set up Gmail, SendGrid, or other SMTP
 2. **Deploy Functions**: Deploy Cloud Functions to Firebase
 3. **Test System**: Create test accounts and verify flow
 4. **Customize Templates**: Update branding and messaging
