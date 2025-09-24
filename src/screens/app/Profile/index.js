@@ -12,9 +12,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "../../../utils/useTranslation";
 import { ScreenNames } from "../../../Routes/routes";
 import EmailVerificationBanner from "../../../components/email-verification";
+import { setLocale } from "../../../Redux/Slices/localeSlice";
+import LanguageSelector from "../../../components/language-selector";
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.userData);
+  const { t, locale } = useTranslation();
 
   const profileOptions = [
     { title: "Change email and name", screen: "ChangeEmailScreen" },
@@ -34,6 +37,10 @@ export default function Profile({ navigation }) {
 
   const handleLogout = () => {
     dispatch(signOut());
+  };
+
+  const handleLanguageChange = (selectedValue) => {
+    dispatch(setLocale(selectedValue));
   };
 
   return (
@@ -56,30 +63,38 @@ export default function Profile({ navigation }) {
         {/* Account Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            Account
+            {t('account')}
           </CustomText>
           <View style={{ height: 20 }} />
           {[
-            { title: "Change email and name", screen: "ChangeEmailScreen" },
-            { title: "Recover password", screen: "RecoverPasswordScreen" },
-            { title: "Recover old account", screen: "RecoverAccountScreen" },
+            { titleKey: "change_email_name", screen: "ChangeEmailScreen" },
+            { titleKey: "forgot_password", screen: "RecoverPasswordScreen" },
+            { titleKey: "recover_old_account", screen: "RecoverAccountScreen" },
           ].map((option) => (
             <TouchableOpacity
-              key={option.title}
+              key={option.titleKey}
               style={styles.optionTile}
               onPress={() => handlePress(option.screen)}
             >
               <View style={styles.optionContent}>
                 <CustomText size={1.8} color={AppColors.black}>
-                  {option.title}
+                  {t(option.titleKey)}
                 </CustomText>
                 <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
               </View>
             </TouchableOpacity>
           ))}
+
+          {/* Language Selector */}
+          <View style={styles.languageDropdownContainer}>
+            <LanguageSelector
+              currentLocale={locale}
+              onLanguageChange={handleLanguageChange}
+            />
+          </View>
         </View>
 
-        {/* Support Section */}
+        {/* Support Section *
         {user?.userType === "merchant" && (
           <View style={styles.sectionContainer}>
             <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
@@ -99,6 +114,7 @@ export default function Profile({ navigation }) {
             </TouchableOpacity>
           </View>
         )}
+        */}
 
         {/* Store Section */}
         <View style={styles.sectionContainer}>
@@ -122,21 +138,21 @@ export default function Profile({ navigation }) {
         {/* Feedback Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            Feedback
+            {t('feedback')}
           </CustomText>
           <View style={{ height: 20 }} />
           {[
-            { title: "Report an issue", screen: "ReportIssueScreen" },
-            { title: "Suggest an idea / report a bug", screen: "SuggestIdeaScreen" },
+            { titleKey: "report_issue", screen: "ReportIssueScreen" },
+            { titleKey: "suggest_idea", screen: "SuggestIdeaScreen" },
           ].map((option) => (
             <TouchableOpacity
-              key={option.title}
+              key={option.titleKey}
               style={styles.optionTile}
               onPress={() => handlePress(option.screen)}
             >
               <View style={styles.optionContent}>
                 <CustomText size={1.8} color={AppColors.black}>
-                  {option.title}
+                  {t(option.titleKey)}
                 </CustomText>
                 <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
               </View>
@@ -150,7 +166,7 @@ export default function Profile({ navigation }) {
         >
           <View style={styles.optionContent}>
             <CustomText size={3} color={AppColors.white} >
-              {user ? 'Log out' : 'Go to signup'}
+              {user ? t('log_out') : t('go_to_signup')}
             </CustomText>
             <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
           </View>
@@ -184,5 +200,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     width: "100%",
+  },
+  languageIndicator: {
+    backgroundColor: AppColors.grey_100,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  languageDropdownContainer: {
+    backgroundColor: AppColors.white_100,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 2,
   },
 });
