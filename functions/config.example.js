@@ -22,13 +22,13 @@ module.exports = {
     //   pass: 'your-sendgrid-api-key'
     // }
     
-    // Alternative: Mailgun configuration
-    // host: 'smtp.mailgun.org',
+    // Alternative: Custom SMTP configuration
+    // host: 'your-smtp-server.com',
     // port: 587,
     // secure: false,
     // auth: {
-    //   user: 'your-mailgun-username',
-    //   pass: 'your-mailgun-password'
+    //   user: 'your-username',
+    //   pass: 'your-password'
     // }
   },
   
@@ -65,6 +65,6 @@ module.exports = {
 // 2. Update all placeholder values with your actual configuration
 // 3. For Gmail: Enable 2FA and generate an App Password
 // 4. For SendGrid: Get your API key from the dashboard
-// 5. For Mailgun: Get credentials from your account
+// 5. For Custom SMTP: Configure your SMTP server details
 // 6. Update your app domain for verification links
 // 7. Set your admin email for notifications
