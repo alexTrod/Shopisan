@@ -15,6 +15,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const ADMIN_EMAIL = functions.config().admin?.email || 'alexandra.fd1000@gmail.com';
+const SENDER_EMAIL = functions.config().email?.sender || 'alex.n.feldman@gmail.com';
 
 // Simplified Email templates (minimal styling, less text, no colors)
 const verificationEmailTemplate = `
@@ -98,7 +99,7 @@ exports.sendVerificationEmail = functions.https.onCall(async (data, context) => 
 
     // Send email using Nodemailer with Gmail
     const mailOptions = {
-      from: '"Shopisan" <alexandra.fd1000@gmail.com>',
+      from: `"Shopisan" <${SENDER_EMAIL}>`,
       to: email,
       subject: 'Verify your email',
       html: htmlContent
@@ -135,7 +136,7 @@ exports.sendAdminNotification = functions.https.onCall(async (data, context) => 
 
     // Send admin notification using Nodemailer with Gmail
     const mailOptions = {
-      from: '"Shopisan System" <alexandra.fd1000@gmail.com>',
+      from: `"Shopisan System" <${SENDER_EMAIL}>`,
       to: ADMIN_EMAIL,
       subject: `New ${userType} registration`,
       html: htmlContent
@@ -273,7 +274,7 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
     });
 
     const mailOptions = {
-      from: '"Shopisan" <alexandra.fd1000@gmail.com>',
+      from: `"Shopisan" <${SENDER_EMAIL}>`,
       to: email,
       subject: 'Verify your email',
       html: htmlContent
@@ -291,5 +292,94 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
   } catch (error) {
     console.error('Error resending verification email via Gmail:', error);
     throw new functions.https.HttpsError('internal', 'Failed to resend verification email');
+  }
+});
+
+// Add this new function after the existing functions
+exports.sendFeedback = functions.https.onRequest(async (req, res) => {
+  try {
+    // Enable CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    if (req.method !== 'POST') {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+    
+    const { message, type, userEmail, userName } = req.body;
+    
+    if (!message || !type) {
+      res.status(400).json({ error: 'Missing required parameters' });
+      return;
+    }
+
+    // Create feedback email template
+    const feedbackTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Feedback from Shopisan App</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .container { max-width: 500px; margin: 0 auto; padding: 24px; }
+    .header { background-color: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+    .content { background-color: #fff; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+    .footer { margin-top: 24px; font-size: 12px; text-align: center; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>New Feedback from Shopisan App</h2>
+      <p><strong>Type:</strong> {{type}}</p>
+      <p><strong>From:</strong> {{userName}} ({{userEmail}})</p>
+      <p><strong>Date:</strong> {{date}}</p>
+    </div>
+    <div class="content">
+      <h3>Message:</h3>
+      <p>{{message}}</p>
+    </div>
+    <div class="footer">
+      <p>This message was sent from the Shopisan mobile app</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    // Compile feedback template
+    const template = handlebars.compile(feedbackTemplate);
+    const htmlContent = template({
+      message,
+      type,
+      userName: userName || 'Anonymous',
+      userEmail: userEmail || 'Not provided',
+      date: new Date().toLocaleString()
+    });
+
+    // Send feedback email to info@shopisan.com
+    const mailOptions = {
+      from: `"Shopisan App" <${SENDER_EMAIL}>`,
+      to: 'info@shopisan.com',
+      subject: `Shopisan Feedback: ${type}`,
+      html: htmlContent
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    
+    console.log('Feedback email sent successfully:', result);
+    res.status(200).json({ success: true, message: 'Feedback sent successfully', messageId: result.messageId });
+    
+  } catch (error) {
+    console.error('Error sending feedback email:', error);
+    res.status(500).json({ error: 'Failed to send feedback' });
   }
 });
