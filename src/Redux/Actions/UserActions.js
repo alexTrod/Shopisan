@@ -198,7 +198,7 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
 
     let message = 'An error occurred during sign up.';
     if (error.code === 'auth/email-already-in-use') {
-      message = 'The email address is already in use by another account.';
+      message = 'The email address is already in use.';
     } else if (error.code === 'auth/invalid-email') {
       message = 'The email address is not valid.';
     } else if (error.code === 'auth/operation-not-allowed') {
