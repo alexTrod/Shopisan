@@ -246,7 +246,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </TouchableOpacity>
             
               <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
-                <Ionicons name="home-outline" size={15} color="white" />
+                <Ionicons name="storefront-outline" size={15} color="white" />
               </TouchableOpacity>
               
                 <TouchableOpacity
@@ -255,7 +255,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                 >
                   <Ionicons
                     name={isFavorite ? "heart" : "heart-outline"}
-                    size={height(2.5)}
+                    size={height(6)}
                     color={isFavorite ? "red" : "gray"}
                   />
               </TouchableOpacity>
@@ -434,18 +434,23 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    maxHeight: '70%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    maxHeight: '75%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   ratingContainer:{
     flexDirection: 'row',
@@ -471,13 +476,14 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   tag: {
-    backgroundColor: AppColors.primary_faded,
-    borderRadius: 15,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginRight: 5,
+    backgroundColor: 'transparent',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 6,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: AppColors.primary,
   },
   selectedTag: {
     borderColor: AppColors.primary_faded_dark,
@@ -492,23 +498,51 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
   },
   title: {
-    fontSize: height(2.3),
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: height(2.4),
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#1A1A1A',
+    lineHeight: height(2.8),
   },
   description: {
-    fontSize: height(1.8),
-    marginBottom: 20,
+    fontSize: height(1.9),
+    marginBottom: 24,
+    color: '#4A4A4A',
+    lineHeight: height(2.3),
   },
   rating: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 10,
   },
+  ratingStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  ratingCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  ratingLabel: {
+    fontSize: height(1.8),
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  starButton: {
+    padding: 4,
+    marginRight: 2,
+  },
   ratingText: {
     marginLeft: 8,
     fontSize: height(1.8),
     color: '#666',
+    fontWeight: '500',
   },
   closeButtonText: {
     color: AppColors.primary,
@@ -557,6 +591,76 @@ const styles = StyleSheet.create({
   },
   minuteInput: {
     width: 36,
+  },
+  // Post/Media related styles
+  postsSection: {
+    marginTop: 24,
+    width: '100%',
+  },
+  sectionTitle: {
+    fontSize: height(2.2),
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 16,
+  },
+  postsContainer: {
+    width: '100%',
+  },
+  postCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  postDescription: {
+    fontSize: height(1.8),
+    color: '#4A4A4A',
+    lineHeight: height(2.2),
+    marginBottom: 12,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: height(1.6),
+    color: '#666',
+    marginRight: 8,
+    fontWeight: '500',
+  },
+  priceValue: {
+    fontSize: height(1.8),
+    fontWeight: '700',
+    color: '#007BFF',
+  },
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  linkText: {
+    fontSize: height(1.6),
+    color: '#007BFF',
+    marginLeft: 6,
+    textDecorationLine: 'underline',
+    flex: 1,
   },
 });
 

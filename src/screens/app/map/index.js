@@ -6,20 +6,20 @@ import { StyleSheet, View, Alert, TextInput, Text, TouchableOpacity } from "reac
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
 import MapCategoryFilter from "../../../components/map-category-filter";
+import SearchBar from "../../../components/search-bar";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
 import { query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import logging from "../../../utils/logging";
-import cities from "../../../components/cities/cities.json";
 import MapboxGL from "@rnmapbox/maps";
 import CustomText from "../../../components/text";
 import { StoreContext } from '../../../context/StoreContext';
 import { signOut } from "../../../Redux/Actions/UserActions";
 
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
-
+import locationService from "../../../utils/locationService";
 import CustomMarker from "../../../components/customMarker";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
@@ -77,7 +77,7 @@ export default function Map({ navigation, route  }) {
       userLocation &&
       now - lastRecenteringTime.current > 2000 &&
       (!previousLocationRef.current ||
-        getDistanceInKm(
+        locationService.getDistanceInKm(
           previousLocationRef.current.latitude,
           previousLocationRef.current.longitude,
           userLocation.latitude,
@@ -102,28 +102,15 @@ export default function Map({ navigation, route  }) {
   const fetchNearbyStores = async (latitude, longitude) => {
     try {
       setLoading(true);
-      const nearbyStores = filteredStores
-        .map((store) => {
-          const geopoint = store?.address?.[0]?.location?.geopoint;
-          if (!geopoint) return null;
-
-          const storeLat = Number(geopoint.latitude);
-          const storeLng = Number(geopoint.longitude);
-
-          if (isNaN(storeLat) || isNaN(storeLng)) return null;
-
-          const distance = getDistanceInKm(latitude, longitude, storeLat, storeLng);
-
-          if (distance > SEARCH_RADIUS_KM) return null;
-
-          return {
-            ...store,
-            latitude: storeLat,
-            longitude: storeLng,
-            distance,
-          };
-        })
-        .filter((s) => s !== null);
+      
+      // Use location service with expanding radius
+      const userLocation = { latitude, longitude };
+      const nearbyStores = locationService.getStoresWithExpandingRadius(
+        filteredStores, 
+        userLocation, 
+        500 // Max 500km radius
+      );
+      
       setStores(nearbyStores);
       setSuggestions([]);
     } catch (error) {
@@ -142,7 +129,6 @@ export default function Map({ navigation, route  }) {
 
   const shouldIgnoreRegionChange = useRef(false);
 
-  const [suggestions, setSuggestions] = useState([]);
 
   const handleDirectLogout = () => {
       setLoggingOut(true);
@@ -230,7 +216,7 @@ export default function Map({ navigation, route  }) {
           return;
         }
 
-        const distance = getDistanceInKm(
+        const distance = locationService.getDistanceInKm(
           center.latitude,
           center.longitude,
           storeLat,
@@ -305,60 +291,54 @@ export default function Map({ navigation, route  }) {
 
   const fetchCitySuggestions = async (query) => {
     if (!query.trim()) return [];
-    const lowerQuery = query.toLowerCase();
-  
-    const filtered = cities.filter(city =>
-      city.toLowerCase().startsWith(lowerQuery)
-    );
-  
-    return [...new Set(filtered)];
+    
+    try {
+      //const cities = await getCitiesForSearch(query, 15);
+      const cities = []
+      return cities.map(city => city.name);
+    } catch (error) {
+      console.error('Error fetching city suggestions:', error);
+      return [];
+    }
   };    
 
-  const handleSearch = async (item) => {
-    if (!item) return;
-  
-    if (item.type === "city") {
-      try {
-        const locations = await Location.geocodeAsync(item.label);
-        if (locations.length > 0) {
-          const { latitude, longitude } = locations[0];
+  // Map-specific search handlers for SearchBar component
+  const handleMapCitySelect = async (cityName, coordinates) => {
+    try {
+      const { latitude, longitude } = coordinates;
+      setCameraCoordinates({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
 
-          setCameraCoordinates({
-            latitude,
-            longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          });
-  
-          if (cameraRef.current) {
-            cameraRef.current.setCamera({
-              centerCoordinate: [longitude, latitude],
-              zoomLevel: 12,
-              animationDuration: 1000,
-            });
-          }
-  
-          setSuggestions([]);
-
-          dispatch(setCustomLocation({ latitude, longitude }));
-
-        } else {
-          Alert.alert("City not found", "Please enter a valid name.");
-        }
-      } catch (error) {
-        console.error("Erreur lors de la recherche de ville :", error);
+      if (cameraRef.current) {
+        cameraRef.current.setCamera({
+          centerCoordinate: [longitude, latitude],
+          zoomLevel: 12,
+          animationDuration: 1000,
+        });
       }
-    } else if (item.type === "store" && item.location) {
-      try {
-        const { latitude, longitude } = item.location;
 
+      dispatch(setCustomLocation({ latitude, longitude }));
+      fetchNearbyStores(latitude, longitude);
+    } catch (error) {
+      console.error("Error handling city selection in map:", error);
+    }
+  };
+
+  const handleMapStoreSelect = (storeSuggestion) => {
+    if (storeSuggestion.location) {
+      try {
+        const { latitude, longitude } = storeSuggestion.location;
         setCameraCoordinates({
           latitude,
           longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         });
-  
+
         if (cameraRef.current) {
           cameraRef.current.setCamera({
             centerCoordinate: [longitude, latitude],
@@ -366,31 +346,30 @@ export default function Map({ navigation, route  }) {
             animationDuration: 1000,
           });
         }
-  
-        setSuggestions([]);
-        dispatch(setCustomLocation({ latitude, longitude }));
 
+        dispatch(setCustomLocation({ latitude, longitude }));
+        fetchNearbyStores(latitude, longitude);
       } catch (error) {
-        console.error("Erreur lors de la recherche du store :", error);
+        console.error("Error handling store selection in map:", error);
       }
     }
+  };
+
+  const handleMapSearch = (query) => {
+    // For map, we don't need to do anything special on search
+    // The SearchBar component will handle suggestions and selection
+    console.log('Map search query:', query);
   };  
 
   const getUserLocation = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission denied", "Enable location to see stores near you.");
-        return;
-      }
-  
-      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      if (!location || !location.coords) {
-        console.warn("Impossible d'obtenir la position de l'utilisateur.");
-        return;
-      }
-  
-      const { latitude, longitude } = location.coords;
+      // Use location service with toast notifications
+      const location = await locationService.getUserLocation({
+        useCache: false, // Force fresh location
+        showToast: true
+      });
+
+      const { latitude, longitude } = location;
   
       dispatch(setCustomLocation({ latitude, longitude }));
 
@@ -415,15 +394,6 @@ export default function Map({ navigation, route  }) {
     }
   };  
 
-  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  };
 
   const onRegionChangeComplete = (regionFeature) => {
     if (!regionFeature || !regionFeature.properties) return;
@@ -443,7 +413,7 @@ export default function Map({ navigation, route  }) {
       if (shouldIgnoreRegionChange.current) return;
   
       const previous = lastPosition || region;
-      const distanceMoved = getDistanceInKm(previous.latitude, previous.longitude, region.latitude, region.longitude);
+      const distanceMoved = locationService.getDistanceInKm(previous.latitude, previous.longitude, region.latitude, region.longitude);
       setLastPosition({ latitude: region.latitude, longitude: region.longitude });
 
       if (distanceMoved >= REFRESH_DISTANCE_KM) {
@@ -513,36 +483,15 @@ export default function Map({ navigation, route  }) {
         </TouchableOpacity>
       )}
       <View style={styles.topBar}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search for a city..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          blurOnSubmit={false}
-          onSubmitEditing={() => {}}
+        <SearchBar
+          placeholder="Search for a city or store..."
+          onCitySelect={handleMapCitySelect}
+          onStoreSelect={handleMapStoreSelect}
+          onSearch={handleMapSearch}
+          allStores={allStores}
+          containerStyle={styles.searchBarContainer}
         />
       </View>
-
-      {suggestions.length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          {suggestions.map((suggestion, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.suggestionItem}
-              onPress={() => {
-                setSearchQuery(suggestion.label);                
-                handleSearch(suggestion);
-                setSuggestions([]); 
-              }}
-            >
-              <Text style={styles.suggestionText}>
-                {suggestion.label} {suggestion.type === "store" ? "(store)" : "(city)"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
 
       <View style={styles.container}>
         {cameraCoordinates ? (
@@ -680,6 +629,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: width(4),
     paddingVertical: height(1),
     backgroundColor: AppColors.white_100,
+  },
+  searchBarContainer: {
+    flex: 1,
   },
   categoryContainer: {
     flex: 0.3,

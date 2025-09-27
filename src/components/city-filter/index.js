@@ -8,7 +8,7 @@ import { width, height } from '../../utils/dimension';
 import logging from '../../utils/logging';
 import { getCitiesLocale } from '../../Redux/Reducers/CitiesReducer';
 import { getCountriesLocale } from '../../Redux/Reducers/CountriesReducer';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const CityFilter = ({ onSelect, isVisible }) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -16,7 +16,6 @@ const CityFilter = ({ onSelect, isVisible }) => {
   const { cities, selectedCities } = useSelector(state => state.cities);
   const [countries, setCountries] = useState([]);
   const [selectedCountry, setSelectedCountry] = useState("all");
-
   useEffect(() => {
     if (isVisible) {
       setModalVisible(true);

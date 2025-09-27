@@ -3,7 +3,7 @@ import { StyleSheet, View, ScrollView, Modal, FlatList, TouchableOpacity, Text }
 import { useSelector } from "react-redux";
 import { AppColors } from "../../utils";
 import { width, height } from "../../utils/dimension";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { MaterialIcons } from '@expo/vector-icons';
 import { useDispatch } from "react-redux";
 import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
 
@@ -50,7 +50,7 @@ const MapCategoryFilter = ({ stores }) => {
             <TouchableOpacity onPress={() =>
               dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)))
             }>
-              <Icon name="close" size={20} color={AppColors.black} />
+              <MaterialIcons name="close" size={20} color={AppColors.black} />
             </TouchableOpacity>
           </View>
         ))}
@@ -105,12 +105,18 @@ const styles = StyleSheet.create({
   },
   selectedCategoryItem: {
     flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
     borderColor: AppColors.black,
     borderWidth: width(0.5),
     borderRadius: 25,
     paddingLeft: 10,
     paddingRight: 10,
     margin: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   container: {
     flexDirection: 'row',

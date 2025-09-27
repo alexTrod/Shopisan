@@ -1,10 +1,9 @@
 import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { DeviceEventEmitter } from 'react-native';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { firestore } from '../../firebaseconfig';
-import * as Location from 'expo-location';
-import { useSelector } from 'react-redux';
-import cities from "../components/cities/cities.json";
+import { useSelector, useDispatch } from 'react-redux';
+import locationService from '../utils/locationService';
 
 export const StoreContext = createContext();
 
@@ -17,6 +16,7 @@ export const StoreProvider = ({ children }) => {
 
   const customLocation = useSelector(state => state.location.customLocation);
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('stores:refresh', () => {
@@ -28,7 +28,9 @@ export const StoreProvider = ({ children }) => {
   const fetchAllStores = useCallback(async () => {
     setLoadingStores(true);
     try {
-      const snapshot = await getDocs(collection(firestore, 'stores'));
+      const storesRef = collection(firestore, 'stores');
+      const validatedStoresQuery = query(storesRef, where('is_validated', '==', true));
+      const snapshot = await getDocs(validatedStoresQuery);
       const stores = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -48,29 +50,34 @@ export const StoreProvider = ({ children }) => {
     }
 
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.warn('Permission de localisation refusée');
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+      // Initialize location service if not already done
+      await locationService.initialize();
+      
+      // Get location with fallback to Brussels
+      const location = await locationService.getUserLocation({
+        useCache: true,
+        showToast: true
       });
+      
+      setUserLocation(location);
+      
+      // Update Redux store with the location
+      locationService.updateReduxLocation(dispatch, location);
+      
     } catch (err) {
       console.error('Erreur lors de la récupération de la position utilisateur :', err);
     }
-  }, [customLocation]);
+  }, [customLocation, dispatch]);
 
-  useEffect(() => {
-    if (!userLocation) {
+  const filterStores = useCallback(async () => {
+    if (!userLocation || !allStores.length) {
+      setFilteredStores([]);
       return;
     }
 
     let filtered = [...allStores];
 
+    // Apply category filter
     if (selectedCategories?.length > 0) {
       filtered = filtered.filter(store =>
         Array.isArray(store.category) &&
@@ -78,59 +85,103 @@ export const StoreProvider = ({ children }) => {
       );
     }
 
-    if (searchQuery && searchQuery.trim().length > 0) {
-      const trimmedQuery = searchQuery.trim().toLowerCase();
-      const matchedCity = cities.find(
-        city => city.toLowerCase() === trimmedQuery
-      );
+    // Filter stores with valid geolocation
+    filtered = filtered.filter(store => {
+      const valid = store?.address?.[0]?.location?.geopoint;
+      return valid;
+    });
 
-      if (matchedCity) {
-        /*filtered = filtered.filter(
-          store => store.cityName?.toLowerCase() === trimmedQuery
-        );*/
-      } else {
+    // Use expanding radius to find stores
+    const nearbyStores = locationService.getStoresWithExpandingRadius(
+      filtered, 
+      userLocation, 
+      500 // Max 500km radius
+    );
+
+    setFilteredStores(nearbyStores);
+  }, [allStores, selectedCategories, userLocation]);
+
+  const performSearch = useCallback(async (searchTerm) => {
+    if (!userLocation || !allStores.length) {
+      setFilteredStores([]);
+      return;
+    }
+
+    let filtered = [...allStores];
+
+    // Apply category filter
+    if (selectedCategories?.length > 0) {
+      filtered = filtered.filter(store =>
+        Array.isArray(store.category) &&
+        store.category.some(catId => selectedCategories.includes(catId))
+      );
+    }
+
+    // Apply search query filter
+    if (searchTerm && searchTerm.trim().length > 0) {
+      const trimmedQuery = searchTerm.trim().toLowerCase();
+      
+      // Check if the search query matches a city from Firestore
+      try {
+        // Removed citiesService usage
+        const cities = [];
+        const matchedCity = cities.find(
+          city => city.name.toLowerCase() === trimmedQuery
+        );
+
+        if (matchedCity) {
+          // Filter stores by city name
+          filtered = filtered.filter(
+            store => store.cityName?.toLowerCase() === trimmedQuery
+          );
+        } else {
+          // Filter stores by name if no city match
+          filtered = filtered.filter(
+            store => store.name?.toLowerCase().includes(trimmedQuery)
+          );
+        }
+      } catch (error) {
+        console.error('Error checking city match:', error);
+        // Fallback to store name filtering
         filtered = filtered.filter(
           store => store.name?.toLowerCase().includes(trimmedQuery)
         );
       }
     }
 
-    filtered = filtered
-      .filter(store => {
-        const valid = store?.address?.[0]?.location?.geopoint;
-        return valid;
-      })
-      .map(store => {
-        const geopoint = store.address[0].location.geopoint;
-        const distance = getDistanceInKm(
-          userLocation.latitude,
-          userLocation.longitude,
-          geopoint.latitude,
-          geopoint.longitude
-        );
-        return { ...store, distance };
-      });
+    // Filter stores with valid geolocation
+    filtered = filtered.filter(store => {
+      const valid = store?.address?.[0]?.location?.geopoint;
+      return valid;
+    });
 
-    filtered.sort((a, b) => a.distance - b.distance);
+    // Use expanding radius to find stores
+    const nearbyStores = locationService.getStoresWithExpandingRadius(
+      filtered, 
+      userLocation, 
+      500 // Max 500km radius
+    );
 
-    setFilteredStores(filtered);
-  }, [allStores, selectedCategories, userLocation, searchQuery]);
+    setFilteredStores(nearbyStores);
+  }, [allStores, selectedCategories, userLocation]);
 
   useEffect(() => {
-    fetchAllStores();
-    fetchUserLocation();
+    filterStores();
+  }, [filterStores]);
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      // Initialize location service first
+      await locationService.initialize();
+      
+      // Then fetch stores and location
+      fetchAllStores();
+      fetchUserLocation();
+    };
+    
+    initializeApp();
   }, [fetchAllStores, fetchUserLocation]);
 
-  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  };
 
   return (
     <StoreContext.Provider
@@ -144,6 +195,7 @@ export const StoreProvider = ({ children }) => {
         refreshLocation: fetchUserLocation,
         searchQuery,
         setSearchQuery,
+        performSearch,
       }}
     >
       {children}

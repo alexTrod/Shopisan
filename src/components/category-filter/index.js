@@ -7,7 +7,7 @@ import { AppColors } from '../../utils';
 import { width, height } from '../../utils/dimension';
 import logging from '../../utils/logging';
 import { getCategoriesLocale } from '../../Redux/Reducers/CategoriesReducer';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 
 const CategoryFilter = () => {
@@ -54,7 +54,7 @@ const CategoryFilter = () => {
           <View key={categoryID} style={styles.selectedCategoryItem}>
             <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
             <TouchableOpacity onPress={() => dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)))}>
-              <Icon name="close" size={20} color={AppColors.black} />
+              <MaterialIcons name="close" size={20} color={AppColors.black} />
             </TouchableOpacity>
           </View>
         ))}

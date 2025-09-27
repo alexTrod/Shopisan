@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, useContext } from "react";
-import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert, TextInput } from "react-native";
+import { View, ActivityIndicator, FlatList, TouchableOpacity, Text, StyleSheet, Modal, Alert, TextInput, ScrollView } from "react-native";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
 import { getUserFavoriteStoreIds, getFavoriteStoreQuery, fetchStores, getMerchantStoreQuery } from "../../../utils/storeUtils";
 import ItemCard from "../../../components/item-card/ItemCard";
@@ -17,7 +17,7 @@ import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firesto
 import { firestore } from '../../../../firebaseconfig';
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "../../../Redux/Actions/UserActions";
-import cities from "../../../components/cities/cities.json";
+// Removed citiesService import
 import * as Location from 'expo-location';
 import { height, width } from "../../../utils/dimension";
 import { StoreContext } from '../../../context/StoreContext';
@@ -25,12 +25,13 @@ import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
 import SearchBar from '../../../components/search-bar';
 import { useTranslation } from '../../../utils/useTranslation';
 import EmailVerificationBanner from "../../../components/email-verification";
+import locationService from '../../../utils/locationService';
 
 const SEARCH_RADIUS_KM = 6;
 
 export default function HomeScreen({ navigation, route }) {
   const { t } = useTranslation();
-  const { filteredStores, allStores, searchQuery, setSearchQuery, userLocation, customLocation } = useContext(StoreContext);
+  const { filteredStores, allStores, searchQuery, setSearchQuery, userLocation, customLocation, loadingStores } = useContext(StoreContext);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,8 +43,7 @@ export default function HomeScreen({ navigation, route }) {
   const flatListRef = useRef(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Suggestions state for the search bar
-  const [suggestions, setSuggestions] = useState([]);
+  // Remove duplicate suggestions state - handled by SearchBar component
 
   useEffect(() => {
     const applyRadiusFilter = async () => {
@@ -53,37 +53,23 @@ export default function HomeScreen({ navigation, route }) {
         const { latitude, longitude } = userLocation || customLocation || {};
 
         if (!latitude || !longitude) {
+          // If no location, show all stores (should rarely happen with Brussels fallback)
           setStores(filteredStores);
           return;
         }
 
-        const nearbyStores = filteredStores
-          .map((store) => {
-            const geopoint = store?.address?.[0]?.location?.geopoint;
-            if (!geopoint) return null;
-
-            const storeLat = Number(geopoint.latitude);
-            const storeLng = Number(geopoint.longitude);
-
-            if (isNaN(storeLat) || isNaN(storeLng)) return null;
-
-            const distance = getDistanceInKm(latitude, longitude, storeLat, storeLng);
-
-            if (distance > SEARCH_RADIUS_KM) return null;
-
-            return {
-              ...store,
-              latitude: storeLat,
-              longitude: storeLng,
-              distance,
-            };
-          })
-          .filter((s) => s !== null);
+        // Use location service with expanding radius to find stores
+        // This will automatically fall back to Brussels stores if no stores found within 500km
+        const nearbyStores = locationService.getStoresWithExpandingRadius(
+          filteredStores, 
+          { latitude, longitude }, 
+          500 // Max 500km radius
+        );
 
         setStores(nearbyStores);
-        setSuggestions([]);
       } catch (error) {
         logging("Erreur lors du filtrage local des magasins :", error);
+        // Fallback to showing all stores if filtering fails
         setStores(filteredStores);
       } finally {
         setLoading(false);
@@ -96,15 +82,6 @@ export default function HomeScreen({ navigation, route }) {
     }
   }, [filteredStores, showFavoritesOnly, showMyStoresOnly, searchQuery, customLocation]); // showMyStoresOnly is defined below
 
-  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  };
 
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
 
@@ -122,61 +99,9 @@ export default function HomeScreen({ navigation, route }) {
   );
   const selectedCities = useSelector(state => state.cities.selectedCities, shallowEqual);
 
-  useEffect(() => {
-    const getSuggestions = async () => {
-      if (!searchQuery.trim()) {
-        setSuggestions([]);
-        return;
-      }
+  // Suggestions are now handled by the SearchBar component  
 
-      if (searchQuery.length === 0) {
-        setSuggestions([]);
-        return;
-      }
-
-      const citySuggestions = await fetchCitySuggestions(searchQuery);
-      const storeSuggestions = await fetchStoreNameSuggestions(searchQuery);
-
-  
-      const formattedCities = citySuggestions.map(city => ({ label: city, type: "city" }));
-      const formattedStores = storeSuggestions.map(store => ({ label: store.name, id: store.id, location: store.location, type: "store" }));
-  
-      setSuggestions([...formattedCities, ...formattedStores]);
-    };
-  
-    const delayDebounce = setTimeout(() => {
-      getSuggestions();
-    }, 300);
-    
-    return () => clearTimeout(delayDebounce);
-  }, [searchQuery]);  
-
-  const fetchCitySuggestions = async (query) => {
-    if (!query.trim()) return [];
-    const lowerQuery = query.toLowerCase();
-  
-    const filtered = cities.filter(city =>
-      city.toLowerCase().startsWith(lowerQuery)
-    );
-  
-    return [...new Set(filtered)];
-  };    
-  
-  const fetchStoreNameSuggestions = (searchText) => {
-    if (!searchText.trim()) return [];
-
-    const lowerSearch = searchText.toLowerCase();
-
-    return allStores
-      .filter(store => store?.name?.toLowerCase().startsWith(lowerSearch))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 10)
-      .map(store => ({
-        id: store.id,
-        name: store.name,
-        location: store.address?.[0]?.location?.geopoint || null,
-      }));
-  };
+  // Suggestion functions moved to SearchBar component
 
   const loadingRef = useRef(loading);
 
@@ -365,7 +290,7 @@ export default function HomeScreen({ navigation, route }) {
     const fetchStoreByInternalId = async (internalId) => {
       try {
         const storesCollection = collection(firestore, "stores");
-        const storesQuery = query(storesCollection, where("id", "==", internalId));
+        const storesQuery = query(storesCollection, where("id", "==", internalId), where("is_validated", "==", true));
         const querySnapshot = await getDocs(storesQuery);
   
         if (!querySnapshot.empty) {
@@ -535,11 +460,9 @@ export default function HomeScreen({ navigation, route }) {
 
     if (item.type === "city") {
       try {
-        const locations = await Location.geocodeAsync(item.label);
-        if (locations.length > 0) {
-          const { latitude, longitude } = locations[0];
-
-          dispatch(setCustomLocation({ latitude, longitude }));
+        const location = await locationService.geocodeCity(item.label);
+        if (location) {
+          dispatch(setCustomLocation({ latitude: location.latitude, longitude: location.longitude }));
         } else {
           console.warn("Ville non trouvée :", item.label);
         }
@@ -557,22 +480,18 @@ export default function HomeScreen({ navigation, route }) {
 
   const updateLocationToCurrent = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission refusée", "Activez la localisation pour continuer.");
-        return;
-      }
       setSearchQuery('');
       setSuggestions([]);
 
-      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      // Use location service with toast notifications
+      const location = await locationService.getUserLocation({
+        useCache: false, // Force fresh location
+        showToast: true
+      });
 
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-
-      dispatch(setCustomLocation(coords));
+      // Update Redux store
+      locationService.updateReduxLocation(dispatch, location);
+      
     } catch (error) {
       console.error("Erreur lors de la récupération de la localisation :", error);
     }
@@ -582,13 +501,41 @@ export default function HomeScreen({ navigation, route }) {
     setSuggestions([]);
     setSearchQuery("");
 
+    // If no location is available, try to get it first
     if (!userLocation && !customLocation) {
-      Alert.alert("Unknown location", "Unable to determine the map position.");
+      setLoading(true);
+      try {
+        // Try to get current location
+        const location = await locationService.getUserLocation({
+          useCache: false,
+          showToast: false // Don't show toast during this operation
+        });
+        
+        if (location) {
+          // Update Redux store with the new location
+          locationService.updateReduxLocation(dispatch, location);
+          // Use the newly obtained location
+          const baseLocation = location;
+          
+          // Continue with finding closest store
+          await findClosestStoreWithLocation(baseLocation);
+        } else {
+          Alert.alert("Location Required", "Please enable location services or search for a city to find nearby stores.");
+        }
+      } catch (error) {
+        console.error("Error getting location for closest store:", error);
+        Alert.alert("Location Error", "Unable to determine your location. Please search for a city or enable location services.");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
     const baseLocation = customLocation || userLocation;
+    await findClosestStoreWithLocation(baseLocation);
+  };
 
+  const findClosestStoreWithLocation = async (baseLocation) => {
     try {    
       let closestStore = null;
       let minDistance = Infinity;
@@ -634,8 +581,7 @@ export default function HomeScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error("Erreur lors de la recherche du magasin le plus proche :", error);
-    };
-
+    }
   };
 
   const handleCitySearch = useCallback((cityName, coordinates) => {
@@ -712,40 +658,7 @@ export default function HomeScreen({ navigation, route }) {
           {/* Email Verification Banner */}
           <EmailVerificationBanner />
 
-          {/* Category filter - to check 
-
-          <View style={styles.searchBarRow}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search for a city or store"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-              blurOnSubmit={false}
-              onSubmitEditing={() => {}}
-            />
-          </View>
-
-           Suggestions */}
-          {suggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              {suggestions.map((suggestion, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.suggestionItem}
-                  onPress={() => {
-                    setSearchQuery(suggestion.label);
-                    handleSearch(suggestion);
-                    setSuggestions([]);
-                  }}
-                >
-                  <Text style={styles.suggestionText}>
-                    {suggestion.label} {suggestion.type === "store" ? "(store)" : "(city)"}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* Category filter handled by SearchBar component */}
 
           <View style={styles.categoryChipRow}>
             <CategoryFilter />
@@ -769,18 +682,45 @@ export default function HomeScreen({ navigation, route }) {
             )}
           </View>
 
-          {!loading && stores.length === 0 && (
-            <View style={styles.noStoreContainer}>
-              <Text style={styles.noStoreText}>{t('no_stores_found')}</Text>
-
-              <TouchableOpacity onPress={findClosestStore}>
-                <Text style={styles.closestStoreButtonText}>{t('nearby')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Store List */}
-          <FlatList {...flatListProps} ref={flatListRef} style={styles.list} />
+          {/* Store List, Loading, or No Store Message */}
+          <View style={styles.contentContainer}>
+            {loadingStores ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={AppColors.primary} />
+                <Text style={styles.loadingText}>{t('loading') || 'Loading stores...'}</Text>
+              </View>
+            ) : !loading && stores.length === 0 ? (
+              <ScrollView 
+                style={styles.scrollContainer}
+                contentContainerStyle={styles.noStoreIntegratedContainer}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+              >
+                <View style={styles.noStoreContent}>
+                  <Text style={styles.noStoreIntegratedText}>{t('no_stores_found')}</Text>
+                  <Text style={styles.noStoreSubText}>
+                    {t('no_stores_description') || 'Try adjusting your search or location to find stores nearby.'}
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={findClosestStore} 
+                    style={[styles.nearbyButton, loading && styles.nearbyButtonLoading]}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <MaterialIcons name="location-on" size={20} color="#fff" />
+                    )}
+                    <Text style={styles.nearbyButtonText}>
+                      {loading ? 'Finding location...' : t('nearby')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            ) : (
+              <FlatList {...flatListProps} ref={flatListRef} style={styles.list} />
+            )}
+          </View>
 
           {/* Floating Location Button (single tap only) */}
           <TouchableOpacity
@@ -867,26 +807,13 @@ const styles = {
     borderWidth: 0,
     marginBottom: 0,
   },
-  categoryChipRow_test: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 0,
-    // No justifyContent, chip will be as wide as its content
-  },
   categoryChipRow: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 8,
+    paddingBottom: 12,
     zIndex: 1000,
     position: 'relative',
-  },
-  categoryChipRow: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
-    zIndex: 1000,
-    position: 'relative',
+    marginBottom: 8,
   },
   filtersRow: {
     flexDirection: "row",
@@ -902,6 +829,13 @@ const styles = {
     justifyContent: "space-between",
     paddingHorizontal: 16,
     marginBottom: 16,
+  },
+  contentContainer: {
+    flex: 1,
+    marginTop: 0,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   list: {
     flex: 1,
@@ -1017,34 +951,70 @@ const styles = {
     zIndex: 99,
     backgroundColor: 'transparent',
   },
-  noStoreContainer: {
-    position: "absolute",
-    top: height(35),
-    left: width(10),
-    right: width(10),
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    elevation: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
+  noStoreIntegratedContainer: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
-  
-  noStoreText: {
+  noStoreContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 300,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  noStoreIntegratedText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: AppColors.black,
+    textAlign: 'center',
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  noStoreSubText: {
     fontSize: 16,
-    fontWeight: "500",
-    color: "#444",
-    textAlign: "center",
+    color: AppColors.grey_200,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
   },
-  closestStoreButtonText: {
-    marginTop: 10,
-    color: AppColors.primary,
-    fontWeight: "600",
-    fontSize: 15,
-    textAlign: "center",
-    textDecorationLine: "underline",
-  } 
+  nearbyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  nearbyButtonLoading: {
+    opacity: 0.7,
+  },
+  nearbyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
 };
 
 const modalStyles = StyleSheet.create({
@@ -1076,22 +1046,5 @@ const modalStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
   },
-  suggestionsContainer: {
-    position: "absolute",
-    top: 75,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    zIndex: 999999,
-    borderRadius: 5,
-    elevation: 3,
-  },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-  },
-  suggestionText: {
-    fontSize: 16,
-  },
+  // Removed old suggestions styles - handled by SearchBar component
 });

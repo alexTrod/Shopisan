@@ -18,7 +18,7 @@ import { firestore } from '../../../../firebaseconfig';
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { signOut } from "../../../Redux/Actions/UserActions";
-import cities from "../../../components/cities/cities.json";
+import { getCitiesForSearch } from "../../../utils/citiesService";
 
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
 

@@ -238,21 +238,24 @@ const ItemCard = React.memo(({
             </Text>
 
             <View style={styles.rating}>
-              {[...Array(5)].map((_, index) => (
-                <Ionicons
-                  key={index}
-                  name="star"
-                  size={height(2.5)}
-                  color={index < (Math.round(rating.averageRating) || 0) ? "gold" : "gray"}
-                />
-              ))}
+              <View style={styles.starsContainer}>
+                {[...Array(5)].map((_, index) => (
+                  <Ionicons
+                    key={index}
+                    name="star"
+                    size={height(2.2)}
+                    color={index < (Math.round(rating.averageRating) || 0) ? "#FFD700" : "#E0E0E0"}
+                    style={styles.starIcon}
+                  />
+                ))}
+              </View>
               <Text 
                 style={styles.ratingText}
                 allowFontScaling={true}
                 numberOfLines={1}
               >
                 {rating.ratingCount > 0 
-                  ?  `${rating.averageRating.toFixed(2)} (${rating.ratingCount})`
+                  ?  `${rating.averageRating.toFixed(1)} (${rating.ratingCount})`
                   : 'No ratings yet'}
               </Text>
             </View>
@@ -316,17 +319,19 @@ const ItemCard = React.memo(({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: AppColors.white_200,
-    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     overflow: "hidden",
-    marginVertical: 4,
+    marginVertical: 6,
     shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 5, // For Android
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 6, // For Android
     width: width(85),
     alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.05)",
   },
   cardNoImage: {
     paddingVertical: 6,
@@ -379,11 +384,11 @@ const styles = StyleSheet.create({
     padding: 5,
   },   
   cardContent: {
-    padding: 10,
+    padding: 16,
   },
   cardContentNoImage: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     position: 'relative',
   },
   title: {
@@ -406,7 +411,15 @@ const styles = StyleSheet.create({
   rating: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 2,
+    marginVertical: 4,
+  },
+  starsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  starIcon: {
+    marginRight: 1,
   },
   descriptionrating: {
     flexDirection: "row",
@@ -416,23 +429,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   ratingText: {
-    marginLeft: 5,
-    color: "gray",
+    color: "#666",
     flexShrink: 1, // Allow text to shrink if needed
-    fontSize: height(1.6), // Use responsive font size
+    fontSize: height(1.5), // Use responsive font size
+    fontWeight: "500",
   },
   tags: {
     flexDirection: "row",
-    marginVertical: 2,
+    marginVertical: 6,
+    flexWrap: "wrap",
   },
   tag: {
-    backgroundColor: AppColors.primary_faded,
-    borderRadius: 15,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginRight: 5,
+    backgroundColor: "transparent",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 6,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: AppColors.primary,
   },
   selectedTag: {
     borderColor: AppColors.primary_faded_dark,

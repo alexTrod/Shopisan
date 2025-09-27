@@ -22,8 +22,10 @@ import RecoverPasswordScreen from './src/screens/app/Profile/recover-password/';
 import RecoverAccountScreen from './src/screens/app/Profile/recover-account/';
 import ReportIssueScreen from './src/screens/app/Profile/report-issue';
 import SuggestIdeaScreen from './src/screens/app/Profile/suggest-idea';
+import Toast from 'react-native-toast-message';
 //import LanguageSelectionScreen from './src/screens/app/language-selection';
 //import initializeLogging from './src/utils/initLogging'; // Initialize logging system
+import { runCitiesMigration } from './src/utils/citiesMigration';
 
 // Initialize i18n with error handling
 try {
@@ -109,6 +111,17 @@ const App = () => {
     checkI18n();
     dispatch(checkAuthStatus());
     
+    // Run cities migration (one-time setup)
+    runCitiesMigration().then(result => {
+      if (result.success) {
+        console.log('✅ Cities migration completed successfully');
+      } else {
+        console.log('ℹ️ Cities migration not needed or failed:', result.message);
+      }
+    }).catch(error => {
+      console.error('❌ Cities migration error:', error);
+    });
+    
     return () => clearTimeout(timeout);
   }, [dispatch]);
 
@@ -170,6 +183,10 @@ const App = () => {
           </>
         )}
       </Stack.Navigator>
+      <Toast 
+        position="bottom"
+        bottomOffset={100}
+      />
     </NavigationContainer>
   );
 };
@@ -199,7 +216,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logo: {
-    width: 160,
-    height: 160,
+    width: 250,
+    height: 250,
+    marginBottom: 20,
+  },
+  splashText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    fontFamily: 'Mulish-Bold',
   },
 });

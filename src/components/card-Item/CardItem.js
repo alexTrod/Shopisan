@@ -57,18 +57,8 @@ const CardItem = ({ item, isSelected, onPress }) => {
         ]}
       >
         <View style={styles.info}>
-          <Text style={styles.name}>{item.name}</Text>
-          <View style={styles.stars}>
-            {[...Array(5)].map((_, i) => (
-              <FontAwesome
-                key={i}
-                name="star"
-                size={16}
-                color={i < rating ? "#FFD700" : "#CCCCCC"}
-              />
-            ))}
-          </View>
-          <View style={styles.favoriteContainer}>
+          <View style={styles.headerRow}>
+            <Text style={styles.name}>{item.name}</Text>
             <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation(); // Prevent card press
@@ -82,6 +72,22 @@ const CardItem = ({ item, isSelected, onPress }) => {
                 color={isFavorite ? "red" : "gray"}
               />
             </TouchableOpacity>
+          </View>
+          <View style={styles.ratingContainer}>
+            <View style={styles.stars}>
+              {[...Array(5)].map((_, i) => (
+                <FontAwesome
+                  key={i}
+                  name="star"
+                  size={14}
+                  color={i < rating ? "#FFD700" : "#E0E0E0"}
+                  style={styles.starIcon}
+                />
+              ))}
+            </View>
+            <Text style={styles.ratingText}>
+              {rating > 0 ? rating.toFixed(1) : 'No rating'}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -119,16 +125,41 @@ const styles = StyleSheet.create({
   info: {
     paddingLeft: 10,
     flex: 1,
-    padding:10,
+    padding: 10,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
   name: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
+    flex: 1,
+    marginRight: 10,
+  },
+  favoriteButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   stars: {
     flexDirection: "row",
-    marginTop: 5,
+    marginRight: 8,
+  },
+  starIcon: {
+    marginRight: 2,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
   },
   selectedCard: {
     borderWidth: 2,

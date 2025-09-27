@@ -22,6 +22,7 @@ import { setSelectedCategories, setCategories } from "../../../Redux/Actions/Cat
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as Location from 'expo-location';
 import MapboxGL from "@rnmapbox/maps";
+import locationService from "../../../utils/locationService";
 
 export default function HandleStoreScreen({ route, navigation }) {
   const { storeId } = route.params;
@@ -341,21 +342,20 @@ export default function HandleStoreScreen({ route, navigation }) {
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
     
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission refusée', 'Nous avons besoin de votre localisation pour continuer.');
-        return;
-      }
+      // Use location service with toast notifications
+      const location = await locationService.getUserLocation({
+        useCache: false, // Force fresh location
+        showToast: true
+      });
 
-      const location = await Location.getCurrentPositionAsync({});
       setSelectedLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
+        latitude: location.latitude,
+        longitude: location.longitude
       });
       setShowMap(true);
 
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${mapboxToken}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.longitude},${location.latitude}.json?access_token=${mapboxToken}`
       );
       const data = await response.json();
       

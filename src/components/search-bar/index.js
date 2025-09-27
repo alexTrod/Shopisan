@@ -13,9 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { AppColors } from '../../utils';
 import { height, width } from '../../utils/dimension';
-import cities from '../cities/cities.json';
+// Remove complex cities service import
 import { useTranslation } from '../../utils/useTranslation';
 import { StoreContext } from '../../context/StoreContext';
+import { getCitiesForSearch } from '../../utils/citiesService';
 
 const SearchBar = ({
   placeholder,
@@ -30,65 +31,65 @@ const SearchBar = ({
   returnKeyType = "search",
 }) => {
   const { t } = useTranslation();
-  const { searchQuery, setSearchQuery } = useContext(StoreContext);
-  const defaultPlaceholder = placeholder || t('search_placeholder') || 'Search stores or cities (press Enter)';
+  const { searchQuery, setSearchQuery, performSearch } = useContext(StoreContext);
+  const defaultPlaceholder = placeholder || t('search_placeholder') || 'Search stores or cities (press Enter to search)';
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false); // Flag to prevent suggestions during selection
   const debounceRef = useRef(null);
+  const lastActionRef = useRef(null); // Track last action: 'select', 'search', or 'type'
 
 
-  // Clear suggestions when search query is empty
+  // Auto-fetch suggestions when typing
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
+      // Only reset flags if we're not in the middle of a selection
+      if (lastActionRef.current !== 'select' && lastActionRef.current !== 'search') {
+        lastActionRef.current = null;
+        setIsSelecting(false);
+      }
       return;
     }
-  }, [searchQuery]);
 
-  // Show suggestions as user types, but don't perform search until Enter is pressed
-  useEffect(() => {
+    // Don't fetch suggestions if we're in the middle of selecting or if the last action was a selection or search
+    if (isSelecting || lastActionRef.current === 'select' || lastActionRef.current === 'search') {
+      return;
+    }
+
+    // Clear any existing timeout
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
-    if (!searchQuery.trim()) {
+    // Only fetch suggestions if query is at least 2 characters
+    if (searchQuery.trim().length >= 2) {
+      debounceRef.current = setTimeout(() => {
+        fetchSuggestions(searchQuery.trim());
+        lastActionRef.current = 'type'; // Mark this as a typing action
+      }, 300); // 300ms debounce
+    } else {
       setSuggestions([]);
       setShowSuggestions(false);
-      return;
     }
 
-    // Only start searching after 2 characters
-    if (searchQuery.trim().length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    // Debounced search for suggestions (but not for actual search)
-    debounceRef.current = setTimeout(() => {
-      fetchSuggestions(searchQuery);
-    }, 300);
-
+    // Cleanup timeout on unmount
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, isSelecting]);
 
   const fetchSuggestions = async (query) => {
-    if (!query.trim() || query.trim().length < 2) return;
+    if (!query.trim() || query.trim().length < 2) return [];
 
-    console.log('🔍 Fetching suggestions for query:', query);
     setLoading(true);
     try {
       const citySuggestions = await fetchCitySuggestions(query);
       const storeSuggestions = fetchStoreSuggestions(query);
-
-      console.log('📍 City suggestions found:', citySuggestions.length);
-      console.log('🏪 Store suggestions found:', storeSuggestions.length);
 
       const formattedCities = citySuggestions.map(city => ({ 
         label: city.name || city, 
@@ -106,17 +107,12 @@ const SearchBar = ({
 
       const allSuggestions = [...formattedCities, ...formattedStores];
       
-      console.log('📊 Final suggestions breakdown:');
-      console.log('  - Cities from predefined list:', formattedCities.filter(c => c.source === 'predefined').length);
-      console.log('  - Cities from geocoding:', formattedCities.filter(c => c.source === 'geocoded').length);
-      console.log('  - Stores from local data:', formattedStores.length);
-      console.log('  - Total suggestions:', allSuggestions.length);
-      
       setSuggestions(allSuggestions);
-      // Show suggestions after user has pressed Enter to search
       setShowSuggestions(allSuggestions.length > 0);
+      return allSuggestions;
     } catch (error) {
-      console.error('❌ Error fetching suggestions:', error);
+      console.error('Error fetching suggestions:', error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -125,97 +121,107 @@ const SearchBar = ({
   const fetchCitySuggestions = async (query) => {
     if (query.trim().length < 2) return [];
     
-    const lowerQuery = query.toLowerCase();
-    
-    console.log('🏙️ Searching for cities with query:', query);
-    
-    // First, check our predefined cities
-    const predefinedCities = cities.filter(city =>
-      city.toLowerCase().startsWith(lowerQuery)
-    );
-    
-    console.log('📋 Predefined cities found:', predefinedCities.length);
-    if (predefinedCities.length > 0) {
-      console.log('📋 Predefined cities:', predefinedCities.slice(0, 3));
-    }
-
-    // If we have enough predefined cities, return them
-    if (predefinedCities.length >= 15) {
-      console.log('✅ Using only predefined cities (15+ found)');
-      return predefinedCities.slice(0, 15).map(city => ({ name: city, source: 'predefined' }));
-    }
-
-    // Try to get additional cities from geocoding
-    console.log('🌐 Attempting geocoding for additional cities...');
     try {
-      const locations = await Location.geocodeAsync(query);
-      console.log('🌐 Geocoding results:', locations.length, 'locations found');
+      // First, let's try to get all cities to see if the service is working at all
+      const { getAllCities } = await import('../../utils/citiesService');
+      const allCities = await getAllCities();
       
-      // Create a set of lowercase predefined city names for efficient lookup
-      const predefinedCitySet = new Set(predefinedCities.map(city => city.toLowerCase()));
+      if (allCities.length === 0) {
+        // Fallback to some hardcoded French cities for testing
+        const fallbackCities = [
+          'Paris', 'Marseille', 'Lyon', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux', 'Lille'
+        ].filter(city => city.toLowerCase().includes(query.toLowerCase()));
+        
+        return fallbackCities.map(city => ({
+          name: city,
+          source: 'fallback',
+          latitude: null,
+          longitude: null,
+          country_id: 'FR'
+        }));
+      }
       
-      const geocodedCities = locations
-        .map(location => {
-          // Extract city name from location if possible
-          const cityName = location.name || location.city || query;
-          console.log('🌐 Geocoded location:', { name: cityName, coords: location });
-          return { name: cityName, source: 'geocoded', location };
-        })
-        .filter(city => {
-          // Case-insensitive deduplication
-          const isDuplicate = predefinedCitySet.has(city.name.toLowerCase());
-          if (isDuplicate) {
-            console.log('🔄 Filtering out duplicate city:', city.name, '(already in predefined list)');
+      // Use the proper cities service from Firestore
+      const cities = await getCitiesForSearch(query, 10);
+      
+      // If no cities found, try a more aggressive search
+      if (cities.length === 0 && allCities.length > 0) {
+        const searchLower = query.toLowerCase();
+        const aggressiveSearch = allCities.filter(city => {
+          // Cities have fr/en fields directly
+          const frName = city.fr;
+          const enName = city.en;
+          
+          // Check French name
+          if (frName && typeof frName === 'string') {
+            return frName.toLowerCase().startsWith(searchLower);
           }
-          return !isDuplicate;
-        });
-
-      console.log('🌐 Unique geocoded cities:', geocodedCities.length);
+          
+          // Check English name
+          if (enName && typeof enName === 'string') {
+            return enName.toLowerCase().startsWith(searchLower);
+          }
+          
+          return false;
+        }).slice(0, 10);
+        
+        if (aggressiveSearch.length > 0) {
+          const formattedAggressive = aggressiveSearch.map(city => {
+            // Use French name first, then English as fallback
+            const name = city.fr || city.en || 'Unknown City';
+            
+            return {
+              name: name,
+              source: 'firestore_aggressive',
+              latitude: city.latitude,
+              longitude: city.longitude,
+              country_id: city.country_id
+            };
+          });
+          return formattedAggressive;
+        }
+      }
       
-      const allCities = [
-        ...predefinedCities.map(city => ({ name: city, source: 'predefined' })),
-        ...geocodedCities
-      ].slice(0, 15);
+      const formattedCities = cities.map(city => {
+        // Use French name first, then English as fallback
+        const name = city.fr || city.en || 'Unknown City';
+        
+        return {
+          name: name,
+          source: 'firestore',
+          latitude: city.latitude,
+          longitude: city.longitude,
+          country_id: city.country_id
+        };
+      });
       
-      console.log('🏙️ Final city suggestions:', allCities.map(c => `${c.name} (${c.source})`));
-      return allCities;
-      
+      return formattedCities;
     } catch (error) {
-      console.warn('❌ Geocoding failed, using only predefined cities:', error);
-      return predefinedCities.slice(0, 15).map(city => ({ name: city, source: 'predefined' }));
+      console.error('Error fetching city suggestions:', error);
+      
+      // Fallback to hardcoded cities on error
+      const fallbackCities = [
+        'Paris', 'Marseille', 'Lyon', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux', 'Lille'
+      ].filter(city => city.toLowerCase().includes(query.toLowerCase()));
+      
+      return fallbackCities.map(city => ({
+        name: city,
+        source: 'fallback',
+        latitude: null,
+        longitude: null,
+        country_id: 'FR'
+      }));
     }
   };
 
   const fetchStoreSuggestions = (query) => {
     if (!query.trim() || query.trim().length < 2 || !allStores.length) return [];
 
-    console.log('🏪 Searching stores with query:', query);
-    console.log('🏪 Total stores available:', allStores.length);
-
     const lowerQuery = query.toLowerCase();
-    
-    // Debug: Log all stores that contain the query
-    const allMatchingStores = allStores.filter(store => 
-      store?.name?.toLowerCase().includes(lowerQuery)
-    );
-    console.log('🔍 All stores containing query:', allMatchingStores.map(s => s.name));
-    
     const matchingStores = allStores
       .filter(store => store?.name?.toLowerCase().startsWith(lowerQuery))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 15);
-    
-    console.log('🏪 Matching stores found:', matchingStores.length);
-    if (matchingStores.length > 0) {
-      console.log('🏪 Store names:', matchingStores.map(s => s.name));
-    }
-
-    // Check for duplicates in the results
-    const storeNames = matchingStores.map(s => s.name);
-    const uniqueNames = [...new Set(storeNames)];
-    if (storeNames.length !== uniqueNames.length) {
-      console.warn('⚠️ Duplicate store names found:', storeNames.filter((name, index) => storeNames.indexOf(name) !== index));
-    }
 
     return matchingStores.map(store => ({
       id: store.id,
@@ -225,113 +231,117 @@ const SearchBar = ({
   };
 
   const handleSuggestionPress = async (suggestion) => {
-    console.log('🎯 Suggestion selected:', {
-      label: suggestion.label,
-      type: suggestion.type,
-      source: suggestion.source || 'unknown'
-    });
-    
+    // Dropdown closing is now handled immediately in the onPress
     setSearchQuery(suggestion.label);
-    setShowSuggestions(false);
-    setSuggestions([]);
 
     try {
       if (suggestion.type === "city") {
-        console.log('🏙️ Processing city selection...');
         await handleCitySelect(suggestion);
       } else if (suggestion.type === "store") {
-        console.log('🏪 Processing store selection...');
         handleStoreSelect(suggestion);
       }
     } catch (error) {
-      console.error('❌ Error in handleSuggestionPress:', error);
+      console.error('Error in handleSuggestionPress:', error);
+      // Reset flags on error
+      setIsSelecting(false);
+      lastActionRef.current = null;
     }
   };
 
   const handleCitySelect = async (citySuggestion) => {
-    console.log('handleCitySelect called with:', citySuggestion);
     try {
       setLoading(true);
       
-      // Check if it's a predefined city
-      const isPredefinedCity = cities.some(
-        city => city.toLowerCase() === citySuggestion.label.toLowerCase()
-      );
-
-      console.log('Is predefined city:', isPredefinedCity);
-
-      if (!isPredefinedCity) {
-        Alert.alert(
-          "City Not Supported",
-          `${citySuggestion.label} is not yet supported by the app. Please try a different city.`,
-          [{ text: "OK" }]
-        );
-        setLoading(false);
-        return;
-      }
-
       // Geocode the city
       const locations = await Location.geocodeAsync(citySuggestion.label);
-      console.log('Geocoded locations:', locations);
       
       if (locations.length > 0) {
         const { latitude, longitude } = locations[0];
-        console.log('Calling onCitySelect with coordinates:', { latitude, longitude });
         
         // Clear the search query after city selection to show all stores in the area
+        // Make sure to maintain the selecting state
         setSearchQuery('');
+        lastActionRef.current = 'select'; // Ensure this stays as 'select'
         
         onCitySelect?.(citySuggestion.label, { latitude, longitude });
       } else {
         Alert.alert("Error", "Could not find coordinates for this city.");
+        // Reset flags on error
+        setIsSelecting(false);
+        lastActionRef.current = null;
       }
     } catch (error) {
       console.error('Error handling city selection:', error);
       Alert.alert("Error", "Failed to process city selection.");
+      // Reset flags on error
+      setIsSelecting(false);
+      lastActionRef.current = null;
     } finally {
       setLoading(false);
     }
   };
 
   const handleStoreSelect = (storeSuggestion) => {
-    console.log('handleStoreSelect called with:', storeSuggestion);
     if (storeSuggestion.location) {
-      console.log('Calling onStoreSelect with location:', storeSuggestion.location);
+      // Maintain the selecting state to prevent dropdown from reopening
+      lastActionRef.current = 'select';
       onStoreSelect?.(storeSuggestion);
     } else {
-      console.log('Store location not available');
       Alert.alert("Error", "Store location not available.");
+      // Reset flags on error
+      setIsSelecting(false);
+      lastActionRef.current = null;
     }
   };
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = async () => {
     if (!searchQuery.trim()) return;
 
-    console.log('🔍 Search submitted:', searchQuery.trim());
+    lastActionRef.current = 'search'; // Mark this as a search action
+    setShowSuggestions(false);
+    setSuggestions([]);
     
-    // Fetch suggestions when user presses Enter
-    fetchSuggestions(searchQuery.trim());
+    // Use the performSearch from context
+    await performSearch(searchQuery.trim());
     
-    // After fetching, try to find a match
-    setTimeout(() => {
-      const matchedSuggestion = suggestions.find(
-        sugg => sugg.label.toLowerCase() === searchQuery.trim().toLowerCase()
-      );
+    // Also call the onSearch callback if provided
+    onSearch?.(searchQuery.trim());
+  };
 
-      if (matchedSuggestion) {
-        handleSuggestionPress(matchedSuggestion);
-      } else {
-        // If no exact match, try to treat as city search
-        handleCitySelect({ label: searchQuery.trim() });
+  const handleShowSuggestions = async () => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) return;
+    
+    setLoading(true);
+    
+    try {
+      const fetchedSuggestions = await fetchSuggestions(searchQuery.trim());
+      setSuggestions(fetchedSuggestions);
+      if (fetchedSuggestions.length > 0) {
+        setShowSuggestions(true);
       }
-    }, 300); // Increased delay to ensure suggestions are loaded
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearSearch = () => {
     setSearchQuery('');
     setSuggestions([]);
     setShowSuggestions(false);
+    lastActionRef.current = null; // Reset action tracking
+    setIsSelecting(false); // Reset selecting flag
     onSearch?.('');
+  };
+
+  const handleTextChange = (text) => {
+    // Reset flags when user starts typing again
+    if (lastActionRef.current === 'select' || lastActionRef.current === 'search' || isSelecting) {
+      lastActionRef.current = null;
+      setIsSelecting(false);
+    }
+    setSearchQuery(text);
   };
 
   return (
@@ -349,7 +359,7 @@ const SearchBar = ({
             placeholder={defaultPlaceholder}
             placeholderTextColor={AppColors.grey_200}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleTextChange}
             onSubmitEditing={handleSearchSubmit}
             returnKeyType={returnKeyType}
             autoFocus={autoFocus}
@@ -372,8 +382,15 @@ const SearchBar = ({
           )}
           {searchQuery.length > 0 && (
             <>
-              <TouchableOpacity onPress={handleSearchSubmit} style={styles.searchButton}>
-                <Ionicons name="search" size={20} color={AppColors.primary} />
+              <TouchableOpacity 
+                onPress={suggestions.length > 0 ? handleSearchSubmit : handleShowSuggestions} 
+                style={styles.searchButton}
+              >
+                <Ionicons 
+                  name={suggestions.length > 0 ? "arrow-forward" : "search"} 
+                  size={20} 
+                  color={AppColors.primary} 
+                />
               </TouchableOpacity>
               {showClearButton && (
                 <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
@@ -385,46 +402,64 @@ const SearchBar = ({
         </View>
       </View>
 
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && (
         <View style={styles.suggestionsWrapper}>
           <View style={styles.suggestionsContainer}>
-            <ScrollView 
-              style={{ maxHeight: 200 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-              scrollEventThrottle={16}
-            >
-              {suggestions.map((suggestion, index) => (
+            {suggestions.length > 0 ? (
+              <ScrollView 
+                style={{ maxHeight: 200 }}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={16}
+              >
+                {suggestions.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={`${suggestion.type}-${index}`}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      // Immediately close dropdown and prevent reopening
+                      setShowSuggestions(false);
+                      setSuggestions([]);
+                      setIsSelecting(true);
+                      lastActionRef.current = 'select';
+                      
+                      // Then handle the suggestion
+                      handleSuggestionPress(suggestion);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.suggestionContent}>
+                      <Ionicons 
+                        name={suggestion.type === "city" ? "location" : "business"} 
+                        size={16} 
+                        color={AppColors.grey_200} 
+                        style={styles.suggestionIcon}
+                      />
+                      <Text 
+                        style={styles.suggestionText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {suggestion.label}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.noSuggestionsContainer}>
+                <Text style={styles.noSuggestionsText}>
+                  No suggestions found for "{searchQuery}"
+                </Text>
                 <TouchableOpacity
-                  key={`${suggestion.type}-${index}`}
-                  style={styles.suggestionItem}
-                  onPress={() => {
-                    console.log('🎯 TouchableOpacity pressed for:', suggestion.label);
-                    handleSuggestionPress(suggestion);
-                  }}
-                  onPressIn={() => console.log('🎯 Press in:', suggestion.label)}
-                  onPressOut={() => console.log('🎯 Press out:', suggestion.label)}
-                  activeOpacity={0.7}
+                  style={styles.searchAnywayButton}
+                  onPress={() => onSearch?.(searchQuery.trim())}
                 >
-                  <View style={styles.suggestionContent}>
-                    <Ionicons 
-                      name={suggestion.type === "city" ? "location" : "business"} 
-                      size={16} 
-                      color={AppColors.grey_200} 
-                      style={styles.suggestionIcon}
-                    />
-                    <Text 
-                      style={styles.suggestionText}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {suggestion.label}
-                    </Text>
-                  </View>
+                  <Text style={styles.searchAnywayText}>Search anyway</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              </View>
+            )}
           </View>
         </View>
       )}
@@ -511,6 +546,27 @@ const styles = StyleSheet.create({
     fontSize: height(2),
     color: AppColors.black,
     flexShrink: 1, // Allow text to shrink
+  },
+  noSuggestionsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noSuggestionsText: {
+    fontSize: height(2),
+    color: AppColors.grey_200,
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  searchAnywayButton: {
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  searchAnywayText: {
+    color: AppColors.white,
+    fontSize: height(1.8),
+    fontWeight: '600',
   },
 
 });
