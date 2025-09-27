@@ -12,7 +12,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import logging from "../../../utils/logging";
-import cities from "../../../components/cities/cities.json";
+import { getCitiesForSearch } from "../../../utils/citiesService";
 import MapboxGL from "@rnmapbox/maps";
 import CustomText from "../../../components/text";
 import { filterStoresLocally } from "../../../utils/storeUtils";

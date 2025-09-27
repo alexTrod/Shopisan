@@ -13,7 +13,7 @@ import { useSelector } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
 import { collection, getDocs } from "firebase/firestore";
 import logging from "../../../utils/logging";
-import cities from "../../../components/cities/cities.json";
+import { getCitiesForSearch } from "../../../utils/citiesService";
 
 const SEARCH_RADIUS_KM = 3;
 const REFRESH_DISTANCE_KM = 1;
