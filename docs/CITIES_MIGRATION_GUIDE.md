@@ -28,6 +28,8 @@ This guide documents the migration from a static `cities.json` file to a dynamic
   - Search functionality
   - Country filtering
   - Caching integration
+  - Geolocation support
+  - Statistics and analytics
 
 ### 2. `src/utils/citiesCache.js`
 - **Purpose**: Local caching system for cities data
@@ -37,17 +39,22 @@ This guide documents the migration from a static `cities.json` file to a dynamic
   - Cache validation
   - Performance optimization
 
-### 3. `src/utils/migrateCities.js`
-- **Purpose**: Migration script to move cities.json data to Firestore
+### 3. `src/utils/citiesMigration.js`
+- **Purpose**: Consolidated migration script to move cities.json data to Firestore
 - **Features**:
   - Country mapping for existing cities
   - Batch processing
   - Error handling
   - Progress tracking
+  - Standardized data structure
 
-### 4. `src/utils/runMigration.js`
-- **Purpose**: Simple script to run the migration
-- **Usage**: Run once to populate Firestore with cities data
+### 4. `src/config/citiesConfig.js`
+- **Purpose**: Centralized configuration for cities functionality
+- **Features**:
+  - Cache settings
+  - Search parameters
+  - Language support
+  - Country mappings
 
 ## Updated Files
 
@@ -70,12 +77,16 @@ This guide documents the migration from a static `cities.json` file to a dynamic
     "it": "Parigi"
   },
   "country_id": "FR",
-  "latitude": 48.8566,
-  "longitude": 2.3522,
+  "coordinates": {
+    "latitude": 48.8566,
+    "longitude": 2.3522
+  },
   "geohash": "u09tvq",
-  "postalCodes": ["75001", "75002", ...],
-  "isActive": true,
-  "lastUpdated": "2024-01-15T10:30:00Z"
+  "postal_codes": ["75001", "75002", ...],
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "migrated": true
 }
 ```
 
@@ -83,7 +94,7 @@ This guide documents the migration from a static `cities.json` file to a dynamic
 
 ### 1. Run Migration (One-time setup)
 ```javascript
-import { runCitiesMigration } from './src/utils/runMigration';
+import { runCitiesMigration } from './src/utils/citiesMigration';
 
 // Run the migration
 await runCitiesMigration();
@@ -133,7 +144,7 @@ await setCachedCities(cities);
 ### Step 1: Run Migration Script
 ```bash
 # In your app, run the migration once
-import { runCitiesMigration } from './src/utils/runMigration';
+import { runCitiesMigration } from './src/utils/citiesMigration';
 await runCitiesMigration();
 ```
 
