@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     fontSize: height(2.5),
     marginLeft: width(2),
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
   },
   menuIcon: {
     color: AppColors.primary,

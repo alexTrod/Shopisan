@@ -15,10 +15,12 @@ import MapScreen from "../screens/app/map";
 
 import { AppColors } from "../utils/";
 import { StoreProvider } from "../context/StoreContext.js";
+import { useTranslation } from "../utils/useTranslation";
 
 const Tab = createBottomTabNavigator();
 
-export default function BottomTabs() {
+function BottomTabsNavigator() {
+  const { t } = useTranslation();
   return (
     <StoreProvider>
       <Tab.Navigator
@@ -54,13 +56,23 @@ export default function BottomTabs() {
         <Tab.Screen
           name={ScreenNames.HOME}
           component={HomeScreen}
+          options={{ title: t('home_title') }}
         />
         <Tab.Screen
           name={ScreenNames.MAP}
           component={MapScreen}
+          options={{ title: t('map_title') }}
         />
-        <Tab.Screen name={ScreenNames.PROFILE} component={Profile} />
+        <Tab.Screen 
+          name={ScreenNames.PROFILE} 
+          component={Profile}
+          options={{ title: t('profile_title') }}
+        />
       </Tab.Navigator>
     </StoreProvider>
   );
+}
+
+export default function BottomTabs() {
+  return <BottomTabsNavigator />;
 }

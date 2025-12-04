@@ -6,9 +6,11 @@ import { width, height } from "../../utils/dimension";
 import { MaterialIcons } from '@expo/vector-icons';
 import { useDispatch } from "react-redux";
 import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
+import { useTranslation } from '../../utils/useTranslation';
 
 const MapCategoryFilter = ({ stores }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const { t } = useTranslation();
   const categories = useSelector(state => state.categories.categories);
   const dispatch = useDispatch();
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
@@ -38,7 +40,7 @@ const MapCategoryFilter = ({ stores }) => {
       <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Text style={styles.selectedTextStyle}>
-            {selectedCategories.length > 0 ? '+' : '+ Category'}
+            {selectedCategories.length > 0 ? '+' : t('add_category')}
           </Text>
         </View>
       </TouchableOpacity>
@@ -70,7 +72,7 @@ const MapCategoryFilter = ({ stores }) => {
               <Text style={[styles.categoryText, {
                 color: selectedCategories.length === 0 ? AppColors.primary : AppColors.black
               }]}>
-                Unselect
+                {t('unselect')}
               </Text>
             </TouchableOpacity>
 
@@ -89,7 +91,7 @@ const MapCategoryFilter = ({ stores }) => {
             />
 
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Finish</Text>
+              <Text style={styles.cancelButtonText}>{t('finish')}</Text>
             </TouchableOpacity>
           </View>
         </View>

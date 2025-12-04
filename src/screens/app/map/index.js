@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, { useEffect, useState, useRef, useContext, useMemo } from "react";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import { height, width } from "../../../utils/dimension";
-import { StyleSheet, View, Alert, TextInput, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, View, Alert, TextInput, Text, TouchableOpacity, Modal } from "react-native";
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
 import MapCategoryFilter from "../../../components/map-category-filter";
@@ -17,23 +17,53 @@ import MapboxGL from "@rnmapbox/maps";
 import CustomText from "../../../components/text";
 import { StoreContext } from '../../../context/StoreContext';
 import { signOut } from "../../../Redux/Actions/UserActions";
+import { useTranslation } from "../../../utils/useTranslation";
 
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
+import { setSelectedCategories } from '../../../Redux/Actions/CategoriesActions';
 import locationService from "../../../utils/locationService";
 import CustomMarker from "../../../components/customMarker";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
-const SEARCH_RADIUS_KM = 6;
-const REFRESH_DISTANCE_KM = 1;
+const SEARCH_RADIUS_KM = 10; // Initial radius for finding nearby stores
+const REFRESH_DISTANCE_KM = 0.5; // Reduced to 500m to be more responsive to map movements
 
 export default function Map({ navigation, route  }) {
-  const initialStore = route?.params?.initialStore || null;
+  const { t } = useTranslation();
+  const rawInitialStore = route?.params?.initialStore || null;
+  
+  // Extract coordinates from initial store if it has a geopoint
+  const initialStore = useMemo(() => {
+    if (!rawInitialStore) return null;
+    const geopoint = rawInitialStore?.address?.[0]?.location?.geopoint;
+    if (geopoint) {
+      return {
+        ...rawInitialStore,
+        latitude: Number(geopoint.latitude),
+        longitude: Number(geopoint.longitude),
+      };
+    }
+    return rawInitialStore;
+  }, [rawInitialStore?.id]);
+  
   const [loading, setLoading] = useState(true);
   const [stores, setStores] = useState([]);
+  const [showNoStoresMessage, setShowNoStoresMessage] = useState(false);
+  const [showNoStoresModal, setShowNoStoresModal] = useState(false);
   const [selectedStore, setSelectedStore] = useState(initialStore ? initialStore : null);
+  const [suggestions, setSuggestions] = useState([]);
 
-  const { userLocation } = useContext(StoreContext);
+  // Get all necessary data from StoreContext
+  const { 
+    userLocation, 
+    customLocation, 
+    searchQuery, 
+    setSearchQuery, 
+    filteredStores, 
+    allStores,
+    setHasRequestedStores 
+  } = useContext(StoreContext);
   
   const [cameraCoordinates, setCameraCoordinates] = useState(
     initialStore
@@ -44,7 +74,7 @@ export default function Map({ navigation, route  }) {
           longitudeDelta: 0.01,
           zoom: 14
         }
-      : null
+      : null // No default location, will use user's location
   );
 
   const [lastPosition, setLastPosition] = useState(null);
@@ -53,6 +83,7 @@ export default function Map({ navigation, route  }) {
   const [selectedStoreDetails, setSelectedStoreDetails] = useState(null);
   const mapRef = useRef(null);
   const allCategories = useSelector(state => state.categories.categories);
+  const selectedCategories = useSelector(state => state.categories.selectedCategories);
   const [mapCenter, setMapCenter] = useState(null);
   const [currentRegion, setCurrentRegion] = useState(null);
   const markerRefs = useRef({});
@@ -60,21 +91,87 @@ export default function Map({ navigation, route  }) {
   const cameraRef = useRef(null);
   const user = useSelector(state => state.user.userData);
   const [loggingOut, setLoggingOut] = useState(false);
-  const { searchQuery, setSearchQuery } = useContext(StoreContext);
 
   const previousLocationRef = useRef(null);
 
   const dispatch = useDispatch();
 
-  const { filteredStores, allStores } = useContext(StoreContext);
-
   const lastRecenteringTime = useRef(0);
+
+  // Load stores and initialize map on mount
+  useEffect(() => {
+    const initializeMap = async () => {
+      try {
+        setLoading(true);
+        
+        // Priority 1: If we have an initial store, use its location
+        if (initialStore) {
+          setCameraCoordinates({
+            latitude: initialStore.latitude,
+            longitude: initialStore.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+            zoom: 14
+          });
+          await fetchNearbyStores(initialStore.latitude, initialStore.longitude, true);
+          setLoading(false);
+          return;
+        }
+        
+        // Priority 2: Use customLocation from home screen if available (for synchronization)
+        if (customLocation?.latitude && customLocation?.longitude) {
+          setCameraCoordinates({
+            latitude: customLocation.latitude,
+            longitude: customLocation.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+            zoom: 12
+          });
+          
+          // Fetch nearby stores within 10km
+          await fetchNearbyStores(customLocation.latitude, customLocation.longitude, true);
+          setLoading(false);
+          return;
+        }
+        
+        // Priority 3: Get user's current location
+        const location = userLocation || await locationService.getUserLocation({
+          useCache: true,
+          showToast: false
+        });
+        
+        if (location) {
+          setCameraCoordinates({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+            zoom: 12
+          });
+          
+          // Fetch nearby stores within 10km
+          await fetchNearbyStores(location.latitude, location.longitude);
+        } else {
+          // Fallback: no location available
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setLoading(false);
+      }
+    };
+    
+    initializeMap();
+  }, [initialStore?.id, initialStore?.latitude, initialStore?.longitude, customLocation?.latitude, customLocation?.longitude]); // use stable deps to avoid re-running each render
 
   useEffect(() => {
     const now = Date.now();
 
+    // Only use userLocation if we have an initial store
+    // For normal map loads without initial store, stick with Brussels default
     if (
       userLocation &&
+      initialStore && // Only use userLocation when we have an initial store
       now - lastRecenteringTime.current > 2000 &&
       (!previousLocationRef.current ||
         locationService.getDistanceInKm(
@@ -97,18 +194,22 @@ export default function Map({ navigation, route  }) {
         });
       });
     }
-  }, [userLocation]);
+  }, [userLocation, initialStore]);
 
-  const fetchNearbyStores = async (latitude, longitude) => {
+  const fetchNearbyStores = async (latitude, longitude, useAllStores = false, maxRadius = SEARCH_RADIUS_KM) => {
     try {
       setLoading(true);
       
-      // Use location service with expanding radius
+      // Use allStores when exploring (ignore category filters), otherwise use filteredStores
       const userLocation = { latitude, longitude };
-      const nearbyStores = locationService.getStoresWithExpandingRadius(
-        filteredStores, 
+      const storesToUse = useAllStores || isExploring.current ? allStores : filteredStores;
+      
+      // For map: Use strict radius filter (don't expand, don't return all stores if none found)
+      // This ensures we show the modal when there are truly no stores nearby
+      const nearbyStores = locationService.filterStoresByRadius(
+        storesToUse, 
         userLocation, 
-        500 // Max 500km radius
+        maxRadius
       );
       
       setStores(nearbyStores);
@@ -120,15 +221,53 @@ export default function Map({ navigation, route  }) {
     }
   };
 
+  // Don't automatically fetch all stores - only fetch when we have a specific location
+  // This prevents showing all stores by default
   useEffect(() => {
-    if (userLocation && filteredStores.length > 0) {
+    // Only refetch if we already have a location set (don't run on initial mount)
+    if (userLocation && allStores.length > 0 && cameraCoordinates) {
       fetchNearbyStores(userLocation.latitude, userLocation.longitude);
     }
+  }, [allStores]);
 
-  }, [filteredStores]);
+  // Refetch stores when category filters change
+  useEffect(() => {
+    if (currentRegion && !isExploring.current && allStores.length > 0) {
+      fetchNearbyStores(currentRegion.latitude, currentRegion.longitude);
+    }
+  }, [selectedCategories]);
 
   const shouldIgnoreRegionChange = useRef(false);
+  const isExploring = useRef(false);
 
+  // Debounce the "no stores" message/modal to prevent it from flashing during searches/movements
+  useEffect(() => {
+    if (loading || initialStore) { // Don't show if we have an initial store
+      setShowNoStoresMessage(false);
+      setShowNoStoresModal(false);
+      return;
+    }
+
+    if (stores.length > 0) {
+      setShowNoStoresMessage(false);
+      setShowNoStoresModal(false);
+      return;
+    }
+
+    // Only show "no stores" after stores have been empty for 1.5 seconds
+    const timer = setTimeout(() => {
+      if (stores.length === 0 && !loading && !initialStore) {
+        // If no category filters, show modal. Otherwise show inline message.
+        if (!selectedCategories || selectedCategories.length === 0) {
+          setShowNoStoresModal(true);
+        } else {
+          setShowNoStoresMessage(true);
+        }
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [stores.length, loading, initialStore, selectedCategories]);
 
   const handleDirectLogout = () => {
       setLoggingOut(true);
@@ -142,10 +281,19 @@ export default function Map({ navigation, route  }) {
     return match ? match.name : `#${id}`;
   };  
 
-  const storesWithNamedTags = stores.map(store => ({
-    ...store,
-    tags: store.category?.map(getCategoryName) || [],
-  }));
+  // Map stores to include named tags AND extract coordinates from geopoint
+  const storesWithNamedTags = stores.map(store => {
+    const geopoint = store?.address?.[0]?.location?.geopoint;
+    const latitude = geopoint ? Number(geopoint.latitude) : null;
+    const longitude = geopoint ? Number(geopoint.longitude) : null;
+    
+    return {
+      ...store,
+      latitude,
+      longitude,
+      tags: store.category?.map(getCategoryName) || [],
+    };
+  }).filter(store => store.latitude !== null && store.longitude !== null); // Only include stores with valid coordinates
 
   useEffect(() => {
     if (initialStore && stores.length > 0) {
@@ -154,7 +302,7 @@ export default function Map({ navigation, route  }) {
         setSelectedStore(matchingStore);
       }
     }
-  }, [initialStore]);  
+  }, [initialStore?.id, stores.length]);  
 
   const getCameraCenterFromBounds = async () => {
     try {
@@ -174,6 +322,67 @@ export default function Map({ navigation, route  }) {
     }
 
     return null;
+  };
+
+  const exploreRandomCity = async () => {
+    try {
+      // Get all cities with stores
+      const citiesWithStores = [...new Set(allStores.map(store => store.cityName).filter(Boolean))];
+      
+      if (citiesWithStores.length === 0) {
+        Alert.alert(
+          t('no_stores_found') || "No stores found",
+          t('no_stores_available') || "No stores available at the moment."
+        );
+        return;
+      }
+      
+      // Pick a random city
+      const randomCity = citiesWithStores[Math.floor(Math.random() * citiesWithStores.length)];
+      
+      // Find stores in that city
+      const cityStores = allStores.filter(store => store.cityName === randomCity);
+      
+      if (cityStores.length > 0) {
+        // Get the first store to center the map
+        const firstStore = cityStores[0];
+        const geopoint = firstStore?.address?.[0]?.location?.geopoint;
+        
+        if (geopoint && cameraRef.current) {
+          const storeLat = Number(geopoint.latitude);
+          const storeLng = Number(geopoint.longitude);
+          
+          // Set exploring mode to prevent region changes from using filtered stores
+          isExploring.current = true;
+          shouldIgnoreRegionChange.current = true;
+          
+          // Animate to the random city
+          cameraRef.current.setCamera({
+            centerCoordinate: [storeLng, storeLat],
+            zoomLevel: 12,
+            animationDuration: 1500,
+          });
+          
+          // Update search query to show the city
+          setSearchQuery(randomCity);
+          
+          // Fetch nearby stores (use all stores to ignore category filters when exploring)
+          await fetchNearbyStores(storeLat, storeLng, true);
+          
+          // Re-enable region change handling after animation and settling completes
+          // Using 3500ms to ensure the animation (1500ms) + settling time is fully complete
+          setTimeout(() => {
+            shouldIgnoreRegionChange.current = false;
+            // Keep exploring mode active longer to preserve the stores
+            setTimeout(() => {
+              isExploring.current = false;
+            }, 2000);
+          }, 3500);
+        }
+      }
+    } catch (error) {
+      console.error("Error exploring random city:", error);
+    }
   };
 
   const findClosestStore = async () => {
@@ -261,6 +470,38 @@ export default function Map({ navigation, route  }) {
     }
   };
 
+  const expandSearchAround = async () => {
+    try {
+      // Determine base location: map center preferred, fallback to userLocation
+      const center = await getCameraCenterFromBounds();
+      const base =
+        center && typeof center.latitude === 'number' && typeof center.longitude === 'number'
+          ? center
+          : userLocation;
+      
+      if (!base) {
+        Alert.alert(
+          t('location_required') || 'Location Required',
+          t('enable_location_message') || 'Please enable location services to expand search.'
+        );
+        return;
+      }
+      
+      // Use expanding radius against allStores, up to 500km
+      const nearbyStores = locationService.getStoresWithExpandingRadius(
+        allStores,
+        { latitude: base.latitude, longitude: base.longitude },
+        500
+      );
+      
+      setStores(nearbyStores);
+      setShowNoStoresMessage(false);
+      setShowNoStoresModal(false);
+    } catch (error) {
+      console.error('Error expanding search around:', error);
+    }
+  };
+
   useEffect(() => {
     const getSuggestions = async () => {
       if (!searchQuery.trim()) {
@@ -306,6 +547,10 @@ export default function Map({ navigation, route  }) {
   const handleMapCitySelect = async (cityName, coordinates) => {
     try {
       const { latitude, longitude } = coordinates;
+      
+      // Prevent region change from refetching during animation
+      shouldIgnoreRegionChange.current = true;
+      
       setCameraCoordinates({
         latitude,
         longitude,
@@ -321,17 +566,28 @@ export default function Map({ navigation, route  }) {
         });
       }
 
+      setHasRequestedStores?.(true);
       dispatch(setCustomLocation({ latitude, longitude }));
-      fetchNearbyStores(latitude, longitude);
+      setLastPosition({ latitude, longitude });
+      await fetchNearbyStores(latitude, longitude, true);
+      
+      // Re-enable region changes after animation completes
+      setTimeout(() => {
+        shouldIgnoreRegionChange.current = false;
+      }, 1500);
     } catch (error) {
       console.error("Error handling city selection in map:", error);
     }
   };
 
-  const handleMapStoreSelect = (storeSuggestion) => {
+  const handleMapStoreSelect = async (storeSuggestion) => {
     if (storeSuggestion.location) {
       try {
         const { latitude, longitude } = storeSuggestion.location;
+        
+        // Prevent region change from refetching during animation
+        shouldIgnoreRegionChange.current = true;
+        
         setCameraCoordinates({
           latitude,
           longitude,
@@ -347,8 +603,15 @@ export default function Map({ navigation, route  }) {
           });
         }
 
+        setHasRequestedStores?.(true);
         dispatch(setCustomLocation({ latitude, longitude }));
-        fetchNearbyStores(latitude, longitude);
+        setLastPosition({ latitude, longitude });
+        await fetchNearbyStores(latitude, longitude, true);
+        
+        // Re-enable region changes after animation completes
+        setTimeout(() => {
+          shouldIgnoreRegionChange.current = false;
+        }, 1500);
       } catch (error) {
         console.error("Error handling store selection in map:", error);
       }
@@ -371,6 +634,10 @@ export default function Map({ navigation, route  }) {
 
       const { latitude, longitude } = location;
   
+      // Prevent region change from refetching during animation
+      shouldIgnoreRegionChange.current = true;
+      
+      setHasRequestedStores?.(true);
       dispatch(setCustomLocation({ latitude, longitude }));
 
       setCameraCoordinates({
@@ -385,43 +652,52 @@ export default function Map({ navigation, route  }) {
       if (cameraRef.current) {
         cameraRef.current.setCamera({
           centerCoordinate: [longitude, latitude],
-          zoom: initialStore ? 14 : 12,
+          zoomLevel: initialStore ? 14 : 12,
           animationDuration: 1000,
         });
-      }      
+      }
+      
+      await fetchNearbyStores(latitude, longitude);
+      
+      // Re-enable region changes after animation completes
+      setTimeout(() => {
+        shouldIgnoreRegionChange.current = false;
+      }, 1500);
     } catch (error) {
       console.error("Erreur lors de la récupération de la localisation :", error);
     }
   };  
 
 
-  const onRegionChangeComplete = (regionFeature) => {
-    if (!regionFeature || !regionFeature.properties) return;
-  
-    const zoomLevel = regionFeature.properties.zoomLevel;
-    const center = regionFeature.geometry.coordinates;
-  
-    if (center) {
-      const region = {
-        latitude: center[1],
-        longitude: center[0],
-      };
+  const onMapIdle = async () => {
+    try {
+      const center = await getCameraCenterFromBounds();
+      if (!center) return;
+
+      const region = { latitude: center.latitude, longitude: center.longitude };
       setMapCenter(region);
       setCurrentRegion(region);
-      setCurrentZoom(zoomLevel);
 
       if (shouldIgnoreRegionChange.current) return;
-  
+
       const previous = lastPosition || region;
-      const distanceMoved = locationService.getDistanceInKm(previous.latitude, previous.longitude, region.latitude, region.longitude);
-      setLastPosition({ latitude: region.latitude, longitude: region.longitude });
+      const distanceMoved = locationService.getDistanceInKm(
+        previous.latitude,
+        previous.longitude,
+        region.latitude,
+        region.longitude
+      );
 
       if (distanceMoved >= REFRESH_DISTANCE_KM) {
-        fetchNearbyStores(region.latitude, region.longitude);
+        setHasRequestedStores?.(true);
+        setLastPosition({ latitude: region.latitude, longitude: region.longitude });
         dispatch(setCustomLocation({ latitude: region.latitude, longitude: region.longitude }));
+        await fetchNearbyStores(region.latitude, region.longitude);
       }
+    } catch (e) {
+      console.warn('onMapIdle error:', e);
     }
-  };  
+  };
 
   const showCalloutsIfZoomed = () => {
     if (currentRegion?.latitudeDelta < 0.01) {
@@ -455,7 +731,7 @@ export default function Map({ navigation, route  }) {
   if (loggingOut) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
-        <CustomText>Déconnexion en cours...</CustomText>
+        <CustomText>{t('logging_out') || 'Logging out...'}</CustomText>
       </View>
     );
   }
@@ -470,21 +746,22 @@ export default function Map({ navigation, route  }) {
             top: 0,
             right: 20,
             zIndex: 10000,
+            marginTop: 0,
           }}
         >
           <CustomText
             size={3}
-            color={AppColors.grey_200}
+            color={AppColors.primary}
             textDecorationLine="underline"
-            textStyles={{ fontFamily: "Mulish-SemiBold", fontWeight: "bold" }}
+            textStyles={{ fontFamily: "Roboto-Medium", fontWeight: "bold" }}
           >
-            Go to signup
+            {t('sign_up')}
           </CustomText>
         </TouchableOpacity>
       )}
       <View style={styles.topBar}>
         <SearchBar
-          placeholder="Search for a city or store..."
+          placeholder={t('search_placeholder')}
           onCitySelect={handleMapCitySelect}
           onStoreSelect={handleMapStoreSelect}
           onSearch={handleMapSearch}
@@ -514,15 +791,18 @@ export default function Map({ navigation, route  }) {
               logoEnabled={false}
               attributionEnabled={false}
               compassEnabled={true}
-              onRegionDidChange={(regionFeature) => onRegionChangeComplete(regionFeature)}
+              onMapIdle={onMapIdle}
             >
               <MapboxGL.Camera
                 ref={cameraRef}
                 zoomLevel={initialStore ? 14 : cameraCoordinates?.zoom || 12}
-                centerCoordinate={[
-                  initialStore ? initialStore.longitude : cameraCoordinates?.longitude || 2.35,
-                  initialStore ? initialStore.latitude : cameraCoordinates?.latitude || 48.85
-                ]}
+                centerCoordinate={
+                  initialStore && initialStore.longitude && initialStore.latitude
+                    ? [initialStore.longitude, initialStore.latitude]
+                    : cameraCoordinates?.longitude && cameraCoordinates?.latitude
+                    ? [cameraCoordinates.longitude, cameraCoordinates.latitude]
+                    : [4.3517, 50.8503] // Brussels fallback
+                }
               />
 
               <MapboxGL.UserLocation visible={true} androidRenderMode="normal" />
@@ -577,13 +857,54 @@ export default function Map({ navigation, route  }) {
               })()}
             </MapboxGL.MapView>          
 
-            {!loading && stores.length === 0 && (
+            {showNoStoresMessage && (
               <View style={styles.noStoreContainer}>
-                <Text style={styles.noStoreText}>No stores found in this area.</Text>
+                <Text style={styles.noStoreText}>
+                  {selectedCategories && selectedCategories.length > 0
+                    ? t('no_stores_with_filters') || 'No stores found with current filters.'
+                    : t('no_stores_in_area') || 'No stores found in this area.'
+                  }
+                </Text>
 
-                <TouchableOpacity onPress={findClosestStore}>
-                  <Text style={styles.closestStoreButtonText}>Find the nearest store</Text>
-                </TouchableOpacity>
+                {selectedCategories && selectedCategories.length > 0 ? (
+                  <TouchableOpacity 
+                    style={styles.clearFiltersButton}
+                    onPress={() => dispatch(setSelectedCategories([]))}
+                  >
+                    <Text style={styles.clearFiltersButtonText}>
+                      {t('clear_filters') || 'Clear filters'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.expandButton}
+                      onPress={expandSearchAround}
+                    >
+                      <Text style={styles.expandButtonText}>
+                        {t('expand_search_around_me') || 'Expand search around me'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.addStoreButton}
+                      onPress={() => navigation.navigate('AddStore')}
+                    >
+                      <Text style={styles.addStoreButtonText}>
+                        {t('add_a_store') || 'Add a store'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.exploreButton}
+                      onPress={exploreRandomCity}
+                    >
+                      <Text style={styles.exploreButtonText}>
+                        {t('explore_random_city') || 'Explore a random city'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -614,6 +935,58 @@ export default function Map({ navigation, route  }) {
           item={selectedStoreDetails}
         />
       )}
+      
+      {/* No Stores Modal */}
+      <Modal
+        visible={showNoStoresModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNoStoresModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {t('no_stores_in_area') || 'No stores found in this area'}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {t('no_stores_modal_description') || 'There are no stores in your current location. You can add a store or explore a random city.'}
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.modalPrimaryButton}
+              onPress={() => {
+                setShowNoStoresModal(false);
+                navigation.navigate('AddStore');
+              }}
+            >
+              <Text style={styles.modalPrimaryButtonText}>
+                {t('add_a_store') || 'Add a store'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.modalSecondaryButton}
+              onPress={() => {
+                setShowNoStoresModal(false);
+                exploreRandomCity();
+              }}
+            >
+              <Text style={styles.modalSecondaryButtonText}>
+                {t('explore_random_city') || 'Explore a random city'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => setShowNoStoresModal(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>
+                {t('close_button') || 'Close'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 }
@@ -721,5 +1094,151 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     textDecorationLine: "underline",
-  }    
+  },
+  addStoreButton: {
+    marginTop: 15,
+    backgroundColor: AppColors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  addStoreButtonText: {
+    color: AppColors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  exploreButton: {
+    marginTop: 12,
+    backgroundColor: AppColors.white,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: AppColors.primary,
+  },
+  exploreButtonText: {
+    color: AppColors.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  expandButton: {
+    marginTop: 12,
+    backgroundColor: AppColors.white,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: AppColors.grey_200,
+  },
+  expandButtonText: {
+    color: AppColors.black,
+    fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  clearFiltersButton: {
+    marginTop: 15,
+    backgroundColor: AppColors.white,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearFiltersButtonText: {
+    color: AppColors.primary,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: AppColors.white,
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 20,
+    width: width(85),
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    color: AppColors.grey_200,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalPrimaryButton: {
+    backgroundColor: AppColors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  modalPrimaryButtonText: {
+    color: AppColors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalSecondaryButton: {
+    backgroundColor: AppColors.white,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: AppColors.primary,
+    marginBottom: 12,
+  },
+  modalSecondaryButtonText: {
+    color: AppColors.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalCloseButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: AppColors.grey_200,
+    fontSize: 14,
+  },
 });

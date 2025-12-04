@@ -76,7 +76,7 @@ export default function SignIn({ navigation }) {
               <CustomText
                 textAlign="center"
                 color={AppColors.grey_100}
-                textProps={{ fontFamily: "Mulish-Bold" }}
+                textProps={{ fontFamily: "Roboto-Medium" }}
                 size={2.2}
               >
                 Log In
@@ -180,7 +180,7 @@ export default function SignIn({ navigation }) {
               />
               <CustomText
                 color={AppColors.black}
-                textProps={{ fontFamily: "Mulish-SemiBold" }}
+                textProps={{ fontFamily: "Roboto-Medium" }}
                 size={1.7}
               >
                 Remember
@@ -191,8 +191,8 @@ export default function SignIn({ navigation }) {
               onPress={() => navigation?.navigate(ScreenNames.FORGOT_PASSWORD)}
               textAlign="right"
               size={1.7}
-              textProps={{ fontFamily: "Mulish-Bold" }}
-              textStyles={{ fontFamily: "Mulish-Bold", color: AppColors.grey_200 }}
+              textProps={{ fontFamily: "Roboto-Medium" }}
+              textStyles={{ fontFamily: "Roboto-Medium", color: AppColors.grey_200 }}
             >
               Forgot Password ?
             </CustomText>
@@ -203,7 +203,7 @@ export default function SignIn({ navigation }) {
           <Button
             disabled={!isValid}
             loading={loading}
-            textStyle={{ fontFamily: "Mulish-Bold" }}
+            textStyle={{ fontFamily: "Roboto-Medium" }}
             containerStyle={styles.button}
             onPress={handleSubmit(signinHandler)}
           >
@@ -214,7 +214,7 @@ export default function SignIn({ navigation }) {
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <CustomText
             color={AppColors.black}
-            textStyles={{ fontFamily: "Mulish-Regular" }}
+            textStyles={{ fontFamily: "Roboto-Regular" }}
             size={1.5}
             textAlign="center"
           >
@@ -225,7 +225,7 @@ export default function SignIn({ navigation }) {
               navigation.navigate(ScreenNames.SIGN_UP);
             }}
             color={AppColors.primary}
-            textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
+            textStyles={{ marginLeft: height(0.5), fontFamily: "Roboto-Medium" }}
             textDecorationLine="underline"
             size={2}
             textAlign="center"
@@ -239,7 +239,7 @@ export default function SignIn({ navigation }) {
         <View style={{ alignItems: "center", marginTop: height(5), width: '100%' }}>
           <View style={{ width: '100%', marginTop: height(3) }}>
             <Button
-              textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary }}
+              textStyle={{ fontFamily: "Roboto-Medium", color: AppColors.primary }}
               containerStyle={[styles.buttonSecondary, { width: '100%', borderRadius: 0 }]}
               onPress={async () => {
                 await dispatch(setNoAuthenticationWanted(true));

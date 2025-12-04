@@ -17,37 +17,188 @@ const transporter = nodemailer.createTransport({
 const ADMIN_EMAIL = functions.config().admin?.email || 'alexandra.fd1000@gmail.com';
 const SENDER_EMAIL = functions.config().email?.sender || 'alex.n.feldman@gmail.com';
 
-// Simplified Email templates (minimal styling, less text, no colors)
-const verificationEmailTemplate = `
+// Email templates for different user types
+const shopperEmailTemplate = {
+  fr: {
+    subject: "Bienvenue dans l'aventure Shopisan 🚀",
+    template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Verify Email</title>
+  <title>Bienvenue sur Shopisan</title>
   <style>
-    body { font-family: Arial, sans-serif; }
-    .container { max-width: 500px; margin: 0 auto; padding: 24px; }
-    .button { display: inline-block; padding: 10px 18px; border: 1px solid #000; border-radius: 4px; text-decoration: none; color: #000; }
-    .footer { margin-top: 24px; font-size: 12px; text-align: center; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Verify your email</h2>
-    <p>Hello {{username}},</p>
-    <p>Please verify your email to activate your account.</p>
-    <p>
-      <a href="{{verificationUrl}}" class="button">Verify Email</a>
-    </p>
-    <p>If the button doesn't work, copy this link:</p>
-    <p>{{verificationUrl}}</p>
+    <div class="header">
+      <h2>Bienvenue dans l'aventure Shopisan 🚀</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour {{username}},</p>
+      <p>Merci pour ton inscription ! Tu fais maintenant partie de la communauté Shopisan qui aide les commerces de proximité à gagner en visibilité.</p>
+      <p>On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli.</p>
+      <p>En attendant, n'hésite pas à en parler autour de toi et à ajouter tes commerces préférés sur Shopisan.</p>
+      <p>À très vite,<br>L'équipe Shopisan</p>
+    </div>
     <div class="footer">
-      <p>Shopisan</p>
+      <div class="social-links">
+        <a href="{{appUrl}}">Site internet</a>
+        <a href="{{instagramUrl}}">Instagram</a>
+        <a href="{{verificationUrl}}" class="button">Accéder à l'application</a>
+      </div>
     </div>
   </div>
 </body>
 </html>
-`;
+    `
+  },
+  en: {
+    subject: "Welcome to the Shopisan adventure 🚀",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome to Shopisan</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Welcome to the Shopisan adventure 🚀</h2>
+    </div>
+    <div class="content">
+      <p>Hello {{username}},</p>
+      <p>Thank you for your registration! You are now part of the Shopisan community that helps local businesses gain visibility.</p>
+      <p>We'll send you a message as soon as your favorite stores arrive on the app.</p>
+      <p>In the meantime, feel free to talk about it around you and add your favorite stores on Shopisan.</p>
+      <p>See you soon,<br>The Shopisan team</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Website</a>
+        <a href="{{instagramUrl}}">Instagram</a>
+        <a href="{{verificationUrl}}" class="button">Access the app</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
+
+const merchantEmailTemplate = {
+  fr: {
+    subject: "Bienvenue sur Shopisan 🚀",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bienvenue sur Shopisan</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Bienvenue sur Shopisan 🚀</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour {{storeName}},</p>
+      <p>Merci pour votre inscription sur Shopisan !</p>
+      <p>Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
+      <p>Votre demande a bien été enregistrée et sera validée sous peu par notre équipe.</p>
+      <p>Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
+      <p>On vous tient au courant très vite par e-mail.</p>
+      <p>À bientôt,<br>L'équipe Shopisan</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Site internet</a>
+        <a href="{{instagramUrl}}">Instagram</a>
+        <a href="{{verificationUrl}}" class="button">Accéder à l'application</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  },
+  en: {
+    subject: "Welcome to Shopisan 🚀",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome to Shopisan</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Welcome to Shopisan 🚀</h2>
+    </div>
+    <div class="content">
+      <p>Hello {{storeName}},</p>
+      <p>Thank you for your registration on Shopisan!</p>
+      <p>We are delighted to welcome you to the community that highlights local businesses.</p>
+      <p>Your request has been registered and will be validated shortly by our team.</p>
+      <p>As soon as your registration is confirmed, you will be able to configure your account and start presenting your store to application users.</p>
+      <p>We'll keep you updated very soon by email.</p>
+      <p>See you soon,<br>The Shopisan team</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Website</a>
+        <a href="{{instagramUrl}}">Instagram</a>
+        <a href="{{verificationUrl}}" class="button">Access the app</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
 
 const adminNotificationTemplate = `
 <!DOCTYPE html>
@@ -76,10 +227,112 @@ const adminNotificationTemplate = `
 </html>
 `;
 
+// Store validation confirmation email templates
+const storeValidationEmailTemplate = {
+  fr: {
+    subject: "Félicitations ! Votre boutique est maintenant validée 🎉",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Boutique validée</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Félicitations ! Votre boutique est maintenant validée 🎉</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour {{storeName}},</p>
+      <p>Excellente nouvelle ! Votre boutique "{{storeName}}" a été validée par notre équipe et est maintenant visible sur l'application Shopisan.</p>
+      <p>Vous pouvez dès maintenant :</p>
+      <ul>
+        <li>Gérer votre profil de boutique</li>
+        <li>Mettre à jour vos informations</li>
+        <li>Voir les statistiques de votre boutique</li>
+        <li>Recevoir les avis de vos clients</li>
+      </ul>
+      <p>Merci de faire partie de la communauté Shopisan !</p>
+      <p>À bientôt,<br>L'équipe Shopisan</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Site internet</a>
+        <a href="{{instagramUrl}}">Instagram</a>
+        <a href="{{appUrl}}" class="button">Gérer ma boutique</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  },
+  en: {
+    subject: "Congratulations! Your store is now validated 🎉",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Store Validated</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Congratulations! Your store is now validated 🎉</h2>
+    </div>
+    <div class="content">
+      <p>Hello {{storeName}},</p>
+      <p>Great news! Your store "{{storeName}}" has been validated by our team and is now visible on the Shopisan app.</p>
+      <p>You can now:</p>
+      <ul>
+        <li>Manage your store profile</li>
+        <li>Update your information</li>
+        <li>View your store statistics</li>
+        <li>Receive customer reviews</li>
+      </ul>
+      <p>Thank you for being part of the Shopisan community!</p>
+      <p>See you soon,<br>The Shopisan team</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Website</a>
+        <a href="{{instagramUrl}}">Instagram</a>
+        <a href="{{appUrl}}" class="button">Manage my store</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
+
 // Function to send verification email
 exports.sendVerificationEmail = functions.https.onCall(async (data, context) => {
   try {
-    const { email, username, token, userType } = data;
+    const { email, username, token, userType, language = 'fr', storeName } = data;
     
     if (!email || !username || !token || !userType) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
@@ -88,20 +341,34 @@ exports.sendVerificationEmail = functions.https.onCall(async (data, context) => 
     // Create verification URL - using Firebase Hosting
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
     
+    // Select template based on user type and language
+    let emailTemplate, subject;
+    const lang = language === 'en' ? 'en' : 'fr'; // Default to French
+    
+    if (userType === 'merchant') {
+      emailTemplate = merchantEmailTemplate[lang];
+      subject = emailTemplate.subject;
+    } else {
+      emailTemplate = shopperEmailTemplate[lang];
+      subject = emailTemplate.subject;
+    }
+    
     // Compile email template
-    const template = handlebars.compile(verificationEmailTemplate);
+    const template = handlebars.compile(emailTemplate.template);
     const htmlContent = template({
-      username,
-      userType,
+      username: userType === 'merchant' ? (storeName || username) : username,
+      storeName: storeName || username,
       verificationUrl,
-      email
+      email,
+      appUrl: 'https://shopisan-bad76.web.app',
+      instagramUrl: 'https://instagram.com/shopisanapp'
     });
 
     // Send email using Nodemailer with Gmail
     const mailOptions = {
       from: `"Shopisan" <${SENDER_EMAIL}>`,
       to: email,
-      subject: 'Verify your email',
+      subject: subject,
       html: htmlContent
     };
 
@@ -265,18 +532,34 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
 
     // Send new verification email
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${newToken}`;
-    const template = handlebars.compile(verificationEmailTemplate);
+    
+    // Select template based on user type and language
+    let emailTemplate, subject;
+    const lang = language === 'en' ? 'en' : 'fr'; // Default to French
+    
+    if (userType === 'merchant') {
+      emailTemplate = merchantEmailTemplate[lang];
+      subject = emailTemplate.subject;
+    } else {
+      emailTemplate = shopperEmailTemplate[lang];
+      subject = emailTemplate.subject;
+    }
+    
+    // Compile email template
+    const template = handlebars.compile(emailTemplate.template);
     const htmlContent = template({
-      username,
-      userType,
+      username: userType === 'merchant' ? (storeName || username) : username,
+      storeName: storeName || username,
       verificationUrl,
-      email
+      email,
+      appUrl: 'https://shopisan-bad76.web.app',
+      instagramUrl: 'https://instagram.com/shopisanapp'
     });
 
     const mailOptions = {
       from: `"Shopisan" <${SENDER_EMAIL}>`,
       to: email,
-      subject: 'Verify your email',
+      subject: subject,
       html: htmlContent
     };
 
@@ -383,3 +666,64 @@ exports.sendFeedback = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: 'Failed to send feedback' });
   }
 });
+
+// Cloud Function that triggers when a store is validated
+exports.onStoreValidated = functions.firestore
+  .document('stores/{storeId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const storeId = context.params.storeId;
+
+    // Check if store was just validated (is_validated changed from false to true)
+    if (before.is_validated === false && after.is_validated === true) {
+      try {
+        console.log(`Store ${storeId} has been validated, sending confirmation email`);
+
+        // Get store owner information
+        const storeEmail = after.storeEmail || after.email;
+        const storeName = after.name;
+        const merchantId = after.merchantId;
+
+        if (!storeEmail) {
+          console.error('No email found for store:', storeId);
+          return null;
+        }
+
+        // Determine language preference (default to French)
+        const language = after.language || 'fr';
+        const lang = language === 'en' ? 'en' : 'fr';
+
+        // Get email template
+        const emailTemplate = storeValidationEmailTemplate[lang];
+        const subject = emailTemplate.subject;
+
+        // Compile email template
+        const template = handlebars.compile(emailTemplate.template);
+        const htmlContent = template({
+          storeName,
+          appUrl: 'https://shopisan-bad76.web.app',
+          instagramUrl: 'https://instagram.com/shopisanapp'
+        });
+
+        // Send validation confirmation email
+        const mailOptions = {
+          from: `"Shopisan" <${SENDER_EMAIL}>`,
+          to: storeEmail,
+          subject: subject,
+          html: htmlContent
+        };
+
+        const result = await transporter.sendMail(mailOptions);
+        console.log('Store validation email sent successfully:', result.messageId);
+
+        return result;
+
+      } catch (error) {
+        console.error('Error sending store validation email:', error);
+        return null;
+      }
+    }
+
+    return null;
+  });

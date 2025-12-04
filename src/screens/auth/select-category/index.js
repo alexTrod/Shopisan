@@ -84,7 +84,7 @@ export default function SelectCategory({ navigation, route }) {
         <CustomText
           color={AppColors.primary}
           textAlign="left"
-          textStyles={{ fontFamily: "Mulish-Bold", marginBottom: height(5) }}
+          textStyles={{ fontFamily: "Roboto-Medium", marginBottom: height(5) }}
           size={2.2}
         >
           Choice of category
@@ -133,7 +133,7 @@ export default function SelectCategory({ navigation, route }) {
                   }
                   textAlign="left"
                   textStyles={{
-                    fontFamily: "Mulish-Bold",
+                    fontFamily: "Roboto-Medium",
                     marginLeft: height(1),
                   }}
                   size={1.8}
@@ -146,7 +146,7 @@ export default function SelectCategory({ navigation, route }) {
         />
         <Button
           loading={loading}
-          textStyle={{ fontFamily: "Mulish-Bold" }}
+          textStyle={{ fontFamily: "Roboto-Medium" }}
           containerStyle={SelectCategoryStyles.button}
           // onPress={handleSubmit(signinHandler)}
           onPress={() => {

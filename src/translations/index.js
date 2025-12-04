@@ -5,6 +5,7 @@ export default {
         map_title: 'Map',
         profile_title: 'Profile',
         settings_title: 'Settings',
+        splash_tagline: 'Shop local, shop different, discover original.',
         
         // Authentication
         sign_up: 'Sign Up',
@@ -27,9 +28,54 @@ export default {
         stores: 'Stores',
         my_stores: 'My Stores',
         all_categories: 'All Categories',
+        add_category: '+ Category',
         no_stores_found: 'No stores found',
         no_stores_description: 'Try adjusting your search or location to find stores nearby.',
         nearby: 'Nearby',
+        no_description_yet: 'No description yet',
+        no_rating: 'No rating',
+        no_ratings_yet: 'No ratings yet',
+        
+        // Days of the week
+        monday: 'Monday',
+        tuesday: 'Tuesday',
+        wednesday: 'Wednesday',
+        thursday: 'Thursday',
+        friday: 'Friday',
+        saturday: 'Saturday',
+        sunday: 'Sunday',
+        
+        // Store Details
+        opening_hours: 'Opening Hours',
+        closed: 'Closed',
+        ratings: 'Ratings',
+        your_rating: 'Your rating',
+        community_rating: 'Community rating',
+        rating: 'rating',
+        ratings_plural: 'ratings',
+        updating: 'Updating...',
+        posted_announcements: 'Posted Announcements',
+        no_post_description: 'No description.',
+        price: 'Price:',
+        
+        // Auth & Errors
+        login_required: 'Login Required',
+        logging_out: 'Logging out...',
+        login_required_favorite_message: 'You need to be logged in to view your favorite stores. Do you want to go to the login page?',
+        login_required_add_favorite_message: 'You need to be logged in to add a favorite.',
+        login_required_add_store_message: 'Please sign up or log in to add a store.',
+        yes: 'Yes',
+        no: 'No',
+        ok: 'Ok',
+        error_fetching_media: 'Error fetching media',
+        error_submitting_rating: 'Unable to submit rating',
+        logging_out: 'Logging out...',
+        location_required: 'Location Required',
+        enable_location_message: 'Please enable location services to find nearby stores.',
+        location_error_message: 'Unable to find nearby stores. Please try again.',
+        nearest_store_found: 'Nearest store found',
+        no_stores_nearby: 'No stores found nearby. Try expanding your search area.',
+        error_finding_stores: 'An error occurred while searching for nearby stores.',
         
         // Store Form Fields
         store_name: 'Store Name',
@@ -58,6 +104,8 @@ export default {
         remove: 'Remove',
         add_store: 'Add Store',
         select_categories: 'Select Categories',
+        unselect: 'Unselect',
+        finish: 'Finish',
         
         // Messages & Status
         loading: 'Loading...',
@@ -76,7 +124,39 @@ export default {
         change_email_name: 'Change email and name',
         recover_old_account: 'Recover old account',
         report_issue: 'Report an issue',
-        suggest_idea: 'Suggest an idea / report a bug'
+        suggest_idea: 'Suggest an idea / report a bug',
+        contact_support: 'Contact support',
+        add_a_store: 'Add a store',
+        recover_password: 'Recover password',
+        finding_location: 'Finding location...',
+        loading_stores: 'Loading stores...',
+        
+        // Welcome messages
+        welcome_message: 'Your city is still waiting for its stores on Shopisan',
+        welcome_description: 'Help us grow, add your favorite stores',
+        
+        // Email verification banner
+        email_verification_required_title: 'Email Verification Required',
+        email_verification_instruction: 'Please check your email and click the verification link to activate your account.',
+        resend_verification_email_button: 'Resend Verification Email',
+        refresh_button: 'Refresh',
+        last_sent_at: 'Last sent',
+        
+        // Store management
+        add_image: 'Add Image',
+        expand_search_around_me: 'Expand search around me',
+        no_stores_nearby_10km: 'No stores nearby',
+        explore_another_city_question: 'No stores found within 10km. Would you like to explore another city?',
+        explore_city_question: 'No stores found within 10km. Would you like to explore {city}?',
+        store_saved_success: 'Store saved! We will verify it quickly. Thank you for growing Shopisan with us',
+        no_stores_in_area: 'No stores found in this area.',
+        no_stores_modal_description: 'There are no stores in your current location. You can add a store or explore a random city.',
+        add_store_or_explore: 'Add a store or explore a random city',
+        no_stores_available: 'No stores available at the moment.',
+        explore_random_city: 'Explore a random city',
+        no_stores_with_filters: 'No stores found with current filters. Try removing some category filters.',
+        clear_filters: 'Clear filters',
+        close_button: 'Close',
     },
     fr: {
         // Navigation & Titles
@@ -84,6 +164,7 @@ export default {
         map_title: 'Carte',
         profile_title: 'Profil',
         settings_title: 'Paramètres',
+        splash_tagline: 'Achetez local, achetez différent, découvrez l\'original.',
         
         // Authentication
         sign_up: 'S\'inscrire',
@@ -106,9 +187,54 @@ export default {
         stores: 'Magasins',
         my_stores: 'Mes Magasins',
         all_categories: 'Toutes les Catégories',
+        add_category: '+ Catégorie',
         no_stores_found: 'Aucun magasin trouvé',
         no_stores_description: 'Essayez d\'ajuster votre recherche ou votre localisation pour trouver des magasins à proximité.',
         nearby: 'À proximité',
+        no_description_yet: 'Pas encore de description',
+        no_rating: 'Pas de note',
+        no_ratings_yet: 'Pas encore de notes',
+        
+        // Days of the week
+        monday: 'Lundi',
+        tuesday: 'Mardi',
+        wednesday: 'Mercredi',
+        thursday: 'Jeudi',
+        friday: 'Vendredi',
+        saturday: 'Samedi',
+        sunday: 'Dimanche',
+        
+        // Store Details
+        opening_hours: 'Horaires d\'ouverture',
+        closed: 'Fermé',
+        ratings: 'Notes',
+        your_rating: 'Votre note',
+        community_rating: 'Note de la communauté',
+        rating: 'note',
+        ratings_plural: 'notes',
+        updating: 'Mise à jour...',
+        posted_announcements: 'Annonces postées',
+        no_post_description: 'Pas de description.',
+        price: 'Prix:',
+        
+        // Auth & Errors
+        login_required: 'Connexion requise',
+        logging_out: 'Déconnexion en cours...',
+        login_required_favorite_message: 'Vous devez être connecté pour voir vos magasins favoris. Voulez-vous aller à la page de connexion?',
+        login_required_add_favorite_message: 'Vous devez être connecté pour ajouter un favori.',
+        login_required_add_store_message: 'Veuillez vous inscrire ou vous connecter pour ajouter un magasin.',
+        yes: 'Oui',
+        no: 'Non',
+        ok: 'Ok',
+        error_fetching_media: 'Erreur lors de la récupération des médias',
+        error_submitting_rating: 'Impossible de soumettre la note',
+        logging_out: 'Déconnexion en cours...',
+        location_required: 'Localisation requise',
+        enable_location_message: 'Veuillez activer les services de localisation pour trouver les magasins à proximité.',
+        location_error_message: 'Impossible de trouver les magasins à proximité. Veuillez réessayer.',
+        nearest_store_found: 'Magasin le plus proche trouvé',
+        no_stores_nearby: 'Aucun magasin trouvé à proximité. Essayez d\'élargir votre zone de recherche.',
+        error_finding_stores: 'Une erreur s\'est produite lors de la recherche de magasins à proximité.',
         
         // Store Form Fields
         store_name: 'Nom du magasin',
@@ -137,6 +263,8 @@ export default {
         remove: 'Retirer',
         add_store: 'Ajouter le magasin',
         select_categories: 'Sélectionner des catégories',
+        unselect: 'Désélectionner',
+        finish: 'Terminer',
         
         // Messages & Status
         loading: 'Chargement...',
@@ -155,6 +283,38 @@ export default {
         change_email_name: 'Changer l\'email et le nom',
         recover_old_account: 'Récupérer l\'ancien compte',
         report_issue: 'Signaler un problème',
-        suggest_idea: 'Suggérer une idée / signaler un bug'
+        suggest_idea: 'Suggérer une idée / signaler un bug',
+        contact_support: 'Contacter le support',
+        add_a_store: 'Ajouter un magasin',
+        recover_password: 'Récupérer le mot de passe',
+        finding_location: 'Recherche de localisation...',
+        loading_stores: 'Chargement des magasins...',
+        
+        // Welcome messages
+        welcome_message: 'Votre ville attend encore ses commerces sur Shopisan',
+        welcome_description: 'Aidez-nous à grandir, ajoutez vos commerces préférés',
+        
+        // Email verification banner
+        email_verification_required_title: 'Vérification de l\'email requise',
+        email_verification_instruction: 'Veuillez vérifier votre email et cliquer sur le lien de vérification pour activer votre compte.',
+        resend_verification_email_button: 'Renvoyer l\'email de vérification',
+        refresh_button: 'Rafraîchir',
+        last_sent_at: 'Dernier envoi',
+        
+        // Store management
+        add_image: 'Ajouter une image',
+        expand_search_around_me: 'Élargir la recherche autour de moi',
+        no_stores_nearby_10km: 'Aucun magasin à proximité',
+        explore_another_city_question: 'Aucun magasin trouvé dans un rayon de 10km. Souhaitez-vous explorer une autre ville ?',
+        explore_city_question: 'Aucun magasin trouvé dans un rayon de 10km. Souhaitez-vous explorer {city} ?',
+        store_saved_success: 'Boutique enregistrée ! Nous allons le vérifier rapidement. Merci de faire grandir Shopisan avec nous',
+        no_stores_in_area: 'Aucun magasin trouvé dans cette zone.',
+        no_stores_modal_description: 'Il n\'y a aucun magasin dans votre localisation actuelle. Vous pouvez ajouter un magasin ou explorer une ville aléatoire.',
+        add_store_or_explore: 'Ajouter un magasin ou explorer une ville aléatoire',
+        no_stores_available: 'Aucun magasin disponible pour le moment.',
+        explore_random_city: 'Explorer une ville aléatoire',
+        no_stores_with_filters: 'Aucun magasin trouvé avec les filtres actuels. Essayez de supprimer certains filtres de catégorie.',
+        clear_filters: 'Effacer les filtres',
+        close_button: 'Fermer',
     }
 }

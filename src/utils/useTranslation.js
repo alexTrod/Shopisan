@@ -10,7 +10,8 @@ export const useTranslation = () => {
   // Update i18n locale when Redux state changes (side-effect in effect, not render)
   useEffect(() => {
     try {
-      if (i18n && i18n.locale && i18n.locale !== locale) {
+      // Only update if locale is a valid string
+      if (locale && typeof locale === 'string' && i18n && i18n.locale !== locale) {
         i18n.locale = locale;
       }
       // Force re-render to update translations

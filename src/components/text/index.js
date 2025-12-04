@@ -22,6 +22,7 @@ const CustomText = ({
       color: color,
       textAlign: textAlign,
       textDecorationLine: textDecorationLine,
+      fontFamily: 'Roboto-Regular',
     },
   });
 

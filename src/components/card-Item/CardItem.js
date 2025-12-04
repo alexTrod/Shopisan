@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { height, width } from "../../utils/dimension";
 import { useDispatch, useSelector } from "react-redux";
@@ -9,11 +9,15 @@ import { fetchStoreRatings } from "../../utils/storeUtils";
 import logging from "../../utils/logging";
 import { AppColors } from "../../utils";
 import ItemDetailModal from "../item-card/ItemDetailModal";
+import { useTranslation } from '../../utils/useTranslation';
+import CustomText from "../text";
 
 
 const CardItem = ({ item, isSelected, onPress }) => {
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const favoriteStores = useSelector(selectFavoriteStores);
+  const user = useSelector(state => state.user.userData);
   const [rating, setRating] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   
@@ -22,13 +26,6 @@ const CardItem = ({ item, isSelected, onPress }) => {
   const _tags = item.tags ?? item.category ?? [];
   const _address = item.address;
   const _title = item.name;
-
-  logging('item content', item);
-  logging('_id', _id);
-  logging('_description', _description);
-  logging('_tags', _tags);
-  logging('_address', _address);
-  logging('_title', _title);
 
   const isFavorite = useMemo(() => {
     return favoriteStores.includes(item.id);
@@ -47,6 +44,27 @@ const CardItem = ({ item, isSelected, onPress }) => {
     setModalVisible(true); // This will open the modal
   };
 
+  const handleToggleFavorite = (e) => {
+    e.stopPropagation(); // Prevent card press
+    
+    if (!user) {
+      Alert.alert(
+        t('login_required'),
+        t('login_required_add_favorite_message'),
+        [
+          { 
+            text: t('ok'),
+            style: "cancel"
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+    
+    dispatch(toggleFavoriteStore(item.id));
+  };
+
   return (
     <>
       <TouchableOpacity 
@@ -58,17 +76,15 @@ const CardItem = ({ item, isSelected, onPress }) => {
       >
         <View style={styles.info}>
           <View style={styles.headerRow}>
-            <Text style={styles.name}>{item.name}</Text>
+            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
             <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation(); // Prevent card press
-                dispatch(toggleFavoriteStore(item.id));
-              }}
+              onPress={handleToggleFavorite}
               style={styles.favoriteButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
                 name={isFavorite ? "heart" : "heart-outline"}
-                size={height(2.5)}
+                size={height(3)}
                 color={isFavorite ? "red" : "gray"}
               />
             </TouchableOpacity>
@@ -85,9 +101,9 @@ const CardItem = ({ item, isSelected, onPress }) => {
                 />
               ))}
             </View>
-            <Text style={styles.ratingText}>
-              {rating > 0 ? rating.toFixed(1) : 'No rating'}
-            </Text>
+            <CustomText style={styles.ratingText}>
+              {rating > 0 ? rating.toFixed(1) : t('no_rating')}
+            </CustomText>
           </View>
         </View>
       </TouchableOpacity>
@@ -132,18 +148,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
+    width: '100%',
   },
   name: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
     flex: 1,
-    marginRight: 10,
+    marginRight: 8,
   },
   favoriteButton: {
-    padding: 4,
+    padding: 6,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 36,
+    minHeight: 36,
   },
   ratingContainer: {
     flexDirection: "row",

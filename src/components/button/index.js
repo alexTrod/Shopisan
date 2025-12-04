@@ -49,7 +49,7 @@ const Button = ({
       ) : (
         <CustomText
           color={disabled ? AppColors.white : buttonTextColor}
-          textStyles={textStyle}
+          textStyles={{ fontFamily: 'Roboto-Medium', ...textStyle }}
           textProps={textProps}
           size={size}
           allowFontScaling={allowFontScaling}

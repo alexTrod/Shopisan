@@ -12,7 +12,8 @@ import {
   Image,
   DeviceEventEmitter,
   Keyboard,
-  BackHandler
+  BackHandler,
+  Platform
 } from "react-native";
 import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
 import { firestore, storage } from "../../../../firebaseconfig";
@@ -21,13 +22,13 @@ import { AppColors } from "../../../utils";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
 import { useTranslation } from "../../../utils/useTranslation";
 import * as Location from 'expo-location';
 import Toast from "react-native-toast-message";
+import { ensureCityExists } from "../../../utils/cityManagement";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
@@ -514,13 +515,26 @@ export default function AddStoreScreen({ navigation }) {
 
       await addDoc(storesRef, storeData);
 
+      // Ensure city exists in the cities collection
+      try {
+        const cityResult = await ensureCityExists(city, postalCode, latitude, longitude, "FR");
+        if (cityResult.success) {
+          console.log(cityResult.message);
+        } else {
+          console.warn('City creation/update had issues:', cityResult.error);
+        }
+      } catch (cityError) {
+        console.error('Error ensuring city exists:', cityError);
+        // Continue even if city creation fails - store is already created
+      }
+
       DeviceEventEmitter.emit('stores:refresh');
       dispatch(setSelectedCategories([]));
       
       Toast.show({
-        text1: t('success'),
-        text2: t('store_added_successfully'),
+        text1: t('store_saved_success'),
         type: 'success',
+        visibilityTime: 4000,
       });
       
       navigation.goBack();
@@ -531,21 +545,23 @@ export default function AddStoreScreen({ navigation }) {
   };  
 
   const handlePickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      // Keep it as compatible and simple as possible; don't block on permission
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // backward-compatible enum
+        quality: 0.7,
+      });
   
-    if (!permissionResult.granted) {
-      alert("Permission refusée pour accéder aux photos !");
-      return;
-    }
-  
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-  
-    if (!result.cancelled && result.assets && result.assets.length > 0) {
-      setSelectedImage(result.assets[0]);
+      if (!result?.canceled) {
+        if (result?.assets?.length > 0) {
+          setSelectedImage(result.assets[0]);
+        } else if (result?.uri) {
+          setSelectedImage({ uri: result.uri });
+        }
+      }
+    } catch (e) {
+      console.error('Image picker error', e);
+      Alert.alert('Error', 'Unable to open image picker.');
     }
   };  
 
@@ -686,7 +702,7 @@ export default function AddStoreScreen({ navigation }) {
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
         <TouchableOpacity onPress={handleBackPress}>
-          <Icon name="arrow-left" size={30} color={AppColors.primary} />
+          <Ionicons name="arrow-back" size={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
           Add a store
@@ -732,13 +748,21 @@ export default function AddStoreScreen({ navigation }) {
         />
 
         <Text style={styles.label}>{t('postal_code')}</Text>
-        <TextInput
-          style={getInputStyle('postalCode')}
-          placeholder={t('postal_code')}
-          value={postalCode}
-          onChangeText={setPostalCode}
-          keyboardType="numeric"
-        />
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[getInputStyle('postalCode'), { flex: 1 }]}
+            placeholder={t('postal_code')}
+            value={postalCode}
+            onChangeText={setPostalCode}
+            keyboardType="numeric"
+          />
+          <TouchableOpacity 
+            style={styles.locationButton} 
+            onPress={handleUseCurrentLocation}
+          >
+            <Ionicons name="location" size={20} color={AppColors.primary} />
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.label}>{t('description')}</Text>
         <TextInput
@@ -816,7 +840,7 @@ export default function AddStoreScreen({ navigation }) {
             <View key={categoryID} style={styles.selectedCategoryItem}>
               <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
               <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
-                <Icon name="close" size={20} color={AppColors.black} />
+                <Ionicons name="close" size={20} color={AppColors.black} />
               </TouchableOpacity>
             </View>
           ))}
@@ -1065,18 +1089,20 @@ export default function AddStoreScreen({ navigation }) {
 
         {!selectedImage ? (
           <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
-            <Text style={styles.imageButtonText}>Ajouter une image</Text>
+            <Ionicons name="camera" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.imageButtonText}>{t('add_image')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.selectedImageContainer}>
             <Image source={{ uri: selectedImage.uri }} style={styles.selectedImage} />
             <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
-              <Icon name="close-circle" size={30} color="red" />
+              <Ionicons name="close-circle" size={30} color="red" />
             </TouchableOpacity>
           </View>
         )}
 
         <TouchableOpacity style={styles.addButton} onPress={handleAddStore}>
+          <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.addButtonText}>{t('add_store')}</Text>
         </TouchableOpacity>
 
@@ -1186,7 +1212,9 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 10
+    marginTop: 10,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   addButtonText: {
     color: "#fff",
@@ -1275,6 +1303,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginVertical: 10,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   imageButtonText: {
     color: "#fff",
@@ -1310,6 +1340,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     backgroundColor: AppColors.primary_faded,
     borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   mapContainer: {
     height: 200,

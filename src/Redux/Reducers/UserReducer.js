@@ -21,14 +21,16 @@ const initialState = {
 };
 
 export const getCountryLocale = async (current_doc) => {
-  const locale = i18n.locale;
+  // Ensure locale is valid, default to 'en' if undefined or invalid
+  const locale = i18n && i18n.locale ? i18n.locale : 'en';
+  
   switch(locale){
       case 'fr':
-          return current_doc.fr;
+          return current_doc.fr || current_doc.en || 'Unknown';
       case 'en':
-          return current_doc.en;
+          return current_doc.en || current_doc.fr || 'Unknown';
       default:
-          return current_doc.en;
+          return current_doc.en || current_doc.fr || 'Unknown';
   }
 }
 

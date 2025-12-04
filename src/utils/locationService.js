@@ -3,13 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { setCustomLocation } from '../Redux/Actions/LocationActions';
 
-// Brussels coordinates as default location
-const DEFAULT_LOCATION = {
-  latitude: 50.8503,
-  longitude: 4.3517,
-  city: 'Brussels'
-};
-
 // Cache keys
 const CACHE_KEYS = {
   LAST_LOCATION: '@last_location',
@@ -69,22 +62,16 @@ class LocationService {
         if (showToast) {
           Toast.show({
             type: 'info',
-            text1: 'Location Permission',
-            text2: 'Showing stores in Brussels by default. Enable location for nearby stores.',
+            text1: 'Location Permission Required',
+            text2: 'Please enable location services to find nearby stores.',
             position: 'bottom',
             visibilityTime: 4000,
           });
         }
         
-        // Return Brussels as default
-        const defaultLocation = {
-          ...DEFAULT_LOCATION,
-          timestamp: Date.now(),
-          source: 'default'
-        };
-        
-        await this.cacheLocation(defaultLocation);
-        return defaultLocation;
+        // Return null instead of default location
+        console.log('Location permission not granted');
+        return null;
       }
 
       // Get current location with timeout
@@ -114,26 +101,21 @@ class LocationService {
         Toast.show({
           type: 'error',
           text1: 'Location Error',
-          text2: 'Unable to get your location. Showing Brussels stores.',
+          text2: 'Unable to get your location. Use "Nearby" button to find stores.',
           position: 'bottom',
           visibilityTime: 3000,
         });
       }
 
-      // Return cached location or default
+      // Return cached location if available, otherwise null
       if (this.cachedLocation) {
         console.log('Using cached location as fallback');
         return this.cachedLocation;
       }
 
-      const defaultLocation = {
-        ...DEFAULT_LOCATION,
-        timestamp: Date.now(),
-        source: 'default'
-      };
-      
-      await this.cacheLocation(defaultLocation);
-      return defaultLocation;
+      // Return null instead of default location
+      console.log('No location available');
+      return null;
     }
   }
 
@@ -159,8 +141,9 @@ class LocationService {
       }
     }
 
-    // If no stores found within maxRadius, fall back to Brussels stores
-    return this.getBrusselsStores(stores);
+    // If no stores found within maxRadius, return all stores
+    console.log('No stores found within radius, returning all stores');
+    return stores;
   }
 
   /**
@@ -296,23 +279,7 @@ class LocationService {
    * @param {Array} stores - All available stores
    * @returns {Array} Stores in Brussels area
    */
-  getBrusselsStores(stores) {
-    if (!stores.length) return stores;
-
-    // Brussels area radius (about 50km from city center)
-    const brusselsRadius = 50;
-    
-    const brusselsStores = this.filterStoresByRadius(stores, DEFAULT_LOCATION, brusselsRadius);
-    
-    if (brusselsStores.length > 0) {
-      console.log(`Found ${brusselsStores.length} stores in Brussels area as fallback`);
-      return brusselsStores;
-    }
-
-    // If no Brussels stores found, return all stores as last resort
-    console.log('No Brussels stores found, returning all stores as last resort');
-    return stores;
-  }
+  // Removed getBrusselsStores - no longer using Brussels as default
 
   /**
    * Get location for geocoding (city search)

@@ -696,7 +696,7 @@ export default function HomeScreen({ navigation, route }) {
             size={1.5}
             color={AppColors.grey_200}
             textDecorationLine="underline"
-            textStyles={{ fontFamily: "Mulish-SemiBold" }}
+            textStyles={{ fontFamily: "Roboto-Medium" }}
           >
             Go to signup
           </CustomText>

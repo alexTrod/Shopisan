@@ -149,15 +149,15 @@ const styles = {
     alignItems: "center",
   },
   customText: {
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
     marginBottom: height(5),
   },
   countryNameText: {
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
     marginLeft: height(1),
   },
   buttonText: {
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
     padding: width(2),
   },
   button: {

@@ -74,7 +74,7 @@ const Header = ({
         {title && (
           <CustomText
             size={2.5}
-            textStyles={{ fontFamily: "Mulish-Bold" }}
+            textStyles={{ fontFamily: "Roboto-Medium" }}
             color={AppColors.primary}
           >
             {title}
@@ -93,7 +93,7 @@ const Header = ({
             <View style={styles.modalHeader}>
               <CustomText
                 size={2.5}
-                textStyles={{ fontFamily: "Mulish-Bold" }}
+                textStyles={{ fontFamily: "Roboto-Medium" }}
                 color={AppColors.primary}
               >
                 Settings

@@ -83,7 +83,7 @@ const VerifyEmailScreen = () => {
           />
           <CustomText
             color={AppColors.success}
-            textStyles={{ fontFamily: 'Mulish-Bold', marginTop: height(2) }}
+            textStyles={{ fontFamily: 'Roboto-Medium', marginTop: height(2) }}
             size={2.5}
             textAlign="center"
           >
@@ -92,7 +92,7 @@ const VerifyEmailScreen = () => {
           <CustomText
             color={AppColors.textSecondary}
             textStyles={{ 
-              fontFamily: 'Mulish-Regular',
+              fontFamily: 'Roboto-Regular',
               marginTop: height(1),
               textAlign: 'center',
               marginHorizontal: width(4)
@@ -115,7 +115,7 @@ const VerifyEmailScreen = () => {
           />
           <CustomText
             color={AppColors.error}
-            textStyles={{ fontFamily: 'Mulish-Bold', marginTop: height(2) }}
+            textStyles={{ fontFamily: 'Roboto-Medium', marginTop: height(2) }}
             size={2.5}
             textAlign="center"
           >
@@ -124,7 +124,7 @@ const VerifyEmailScreen = () => {
           <CustomText
             color={AppColors.textSecondary}
             textStyles={{ 
-              fontFamily: 'Mulish-Regular',
+              fontFamily: 'Roboto-Regular',
               marginTop: height(1),
               textAlign: 'center',
               marginHorizontal: width(4)
@@ -138,7 +138,7 @@ const VerifyEmailScreen = () => {
             <Button
               onPress={handleResendEmail}
               textStyle={{
-                fontFamily: 'Mulish-Bold',
+                fontFamily: 'Roboto-Medium',
                 color: AppColors.white
               }}
               containerStyle={styles.primaryButton}
@@ -160,7 +160,7 @@ const VerifyEmailScreen = () => {
         />
         <CustomText
           color={AppColors.primary}
-          textStyles={{ fontFamily: 'Mulish-Bold', marginTop: height(2) }}
+          textStyles={{ fontFamily: 'Roboto-Medium', marginTop: height(2) }}
           size={2.5}
           textAlign="center"
         >
@@ -169,7 +169,7 @@ const VerifyEmailScreen = () => {
         <CustomText
           color={AppColors.textSecondary}
           textStyles={{ 
-            fontFamily: 'Mulish-Regular',
+            fontFamily: 'Roboto-Regular',
             marginTop: height(1),
             textAlign: 'center',
             marginHorizontal: width(4)
@@ -184,7 +184,7 @@ const VerifyEmailScreen = () => {
             <CustomText
               color={AppColors.textSecondary}
               textStyles={{ 
-                fontFamily: 'Mulish-Regular',
+                fontFamily: 'Roboto-Regular',
                 marginTop: height(2),
                 textAlign: 'center'
               }}
@@ -211,7 +211,7 @@ const VerifyEmailScreen = () => {
           <CustomText
             color={AppColors.textSecondary}
             textStyles={{ 
-              fontFamily: 'Mulish-Regular',
+              fontFamily: 'Roboto-Regular',
               textAlign: 'center',
               marginBottom: height(2)
             }}
@@ -223,7 +223,7 @@ const VerifyEmailScreen = () => {
           <Button
             onPress={handleOpenEmail}
             textStyle={{
-              fontFamily: 'Mulish-Regular',
+              fontFamily: 'Roboto-Regular',
               color: AppColors.primary
             }}
             containerStyle={styles.secondaryButton}

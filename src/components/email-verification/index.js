@@ -34,9 +34,9 @@ const EmailVerificationBanner = () => {
   const handleResendVerification = async () => {
     if (!canResendVerification) {
       Alert.alert(
-        'Please wait',
-        'You can request a new verification email in 1 minute.',
-        [{ text: 'OK' }]
+        t('warning'),
+        t('login_required_add_favorite_message') || 'You can request a new verification email in 1 minute.',
+        [{ text: t('ok') }]
       );
       return;
     }
@@ -49,16 +49,12 @@ const EmailVerificationBanner = () => {
         userData.userType
       ));
       
-      Alert.alert(
-        'Verification Email Sent',
-        'A new verification email has been sent to your inbox.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert(t('success'), t('email_verification_instruction'), [{ text: t('ok') }]);
     } catch (error) {
       Alert.alert(
-        'Error',
-        'Failed to send verification email. Please try again.',
-        [{ text: 'OK' }]
+        t('error'),
+        t('error_fetching_media') || 'Failed to send verification email. Please try again.',
+        [{ text: t('ok') }]
       );
     } finally {
       setLoading(false);
@@ -70,11 +66,7 @@ const EmailVerificationBanner = () => {
     try {
       await dispatch(checkVerificationStatus());
     } catch (error) {
-      Alert.alert(
-        'Error',
-        'Failed to check verification status. Please try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert(t('error'), t('error_fetching_media') || 'Failed to check verification status. Please try again.', [{ text: t('ok') }]);
     } finally {
       setLoading(false);
     }
@@ -83,11 +75,11 @@ const EmailVerificationBanner = () => {
   const getStatusMessage = () => {
     switch (emailVerificationStatus) {
       case 'pending':
-        return 'Please check your email and click the verification link to activate your account.';
+        return t('email_verification_instruction');
       case 'expired':
-        return 'Your verification link has expired. Please request a new one.';
+        return t('email_verification_instruction');
       default:
-        return 'Please verify your email address to continue.';
+        return t('email_verification_instruction');
     }
   };
 
@@ -104,9 +96,9 @@ const EmailVerificationBanner = () => {
 
   const getButtonText = () => {
     if (emailVerificationStatus === 'expired') {
-      return 'Send New Verification Email';
+      return t('resend_verification_email_button');
     }
-    return canResendVerification ? 'Resend Verification Email' : 'Please wait...';
+    return canResendVerification ? t('resend_verification_email_button') : t('loading');
   };
 
   return (
@@ -126,17 +118,17 @@ const EmailVerificationBanner = () => {
     }}>
       <CustomText
         color={AppColors.text || '#333333'}
-        textStyles={{ fontFamily: 'Mulish-Bold' }}
+        textStyles={{ fontFamily: 'Roboto-Medium' }}
         size={2.0}
         textAlign="center"
       >
-        Email Verification Required
+        {t('email_verification_required_title')}
       </CustomText>
       
       <CustomText
         color={AppColors.textSecondary || '#666666'}
         textStyles={{ 
-          fontFamily: 'Mulish-Regular',
+          fontFamily: 'Roboto-Regular',
           marginTop: height(0.5),
           textAlign: 'center'
         }}
@@ -156,7 +148,7 @@ const EmailVerificationBanner = () => {
           disabled={!canResendVerification || loading}
           loading={loading}
           textStyle={{
-            fontFamily: 'Mulish-Bold',
+            fontFamily: 'Roboto-Medium',
             color: AppColors.white,
             fontSize: height(1.7)
           }}
@@ -176,7 +168,7 @@ const EmailVerificationBanner = () => {
           disabled={loading}
           loading={loading}
           textStyle={{
-            fontFamily: 'Mulish-Regular',
+            fontFamily: 'Roboto-Regular',
             color: AppColors.textSecondary || '#666666',
             fontSize: height(1.7)
           }}
@@ -190,7 +182,7 @@ const EmailVerificationBanner = () => {
             flex: 0.6,
           }}
         >
-          Refresh
+          {t('refresh_button')}
         </Button>
       </View>
 
@@ -198,13 +190,13 @@ const EmailVerificationBanner = () => {
         <CustomText
           color={AppColors.textSecondary || '#999999'}
           textStyles={{
-            fontFamily: 'Mulish-Regular',
+            fontFamily: 'Roboto-Regular',
             marginTop: height(0.8),
             textAlign: 'center',
             fontSize: 12,
           }}
         >
-          Last sent: {new Date(lastVerificationSent).toLocaleString()}
+          {t('last_sent_at')}: {new Date(lastVerificationSent).toLocaleString()}
         </CustomText>
       )}
     </View>

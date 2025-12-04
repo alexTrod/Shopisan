@@ -12,10 +12,12 @@ import { useSelector, useDispatch } from "react-redux";
 import logging from "../../../utils/logging";
 
 import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
+import { setCustomLocation } from "../../../Redux/Actions/LocationActions";
+import { ScreenNames } from "../../../Routes/routes";
 
 const STORES_PER_PAGE = 10;
 
-export default function FavoritesScreen() {
+export default function FavoritesScreen({ navigation }) {
   const [favoriteStoresData, setFavoriteStoresData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastVisible, setLastVisible] = useState(null);
@@ -112,8 +114,22 @@ export default function FavoritesScreen() {
       image={{ uri: item.image }}
       isFavorite={favoriteStores.includes(item.id)}
       onPressFavorite={() => handleToggleFavorite(item.id)}
+      onPress={() => {
+        const geo = item?.address?.[0]?.location?.geopoint;
+        const store = item;
+
+        if (geo?.latitude && geo?.longitude) {
+          dispatch(setCustomLocation({ latitude: geo.latitude, longitude: geo.longitude }));
+          navigation.navigate(ScreenNames.MAP, {
+            initialStore: store,
+          });
+        } else {
+          console.warn("No valid GPS coordinates for this store:", item);
+        }
+      }}
+      openingHours={item.openingHours || null}
     />
-  ), [locale, favoriteStores]);
+  ), [locale, favoriteStores, dispatch, navigation]);
 
   return (
     <ScreenWrapper
@@ -132,9 +148,9 @@ export default function FavoritesScreen() {
       <CustomText
         textAlign="left"
         color={AppColors.black}
-        textProps={{ fontFamily: "Mulish-Bold" }}
+        textProps={{ fontFamily: "Roboto-Medium" }}
         textStyles={{
-          fontFamily: "Mulish-Bold",
+          fontFamily: "Roboto-Medium",
           paddingHorizontal: width(8),
           marginTop: height(4),
         }}

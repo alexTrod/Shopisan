@@ -21,6 +21,8 @@ import { useNavigation } from '@react-navigation/native'
 import { ScreenNames } from "../../Routes/routes";
 import CityFilter from '../../components/city-filter';
 import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
+import { useTranslation } from '../../utils/useTranslation';
+import CustomText from '../text';
 
 
 const placeholderImage1 = require('../../images/placeholder_store_1.png');	
@@ -41,6 +43,7 @@ const ItemCard = React.memo(({
   openingHours
 }) => {
 
+  const { t, locale } = useTranslation();
   const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
   const [modalVisible, setModalVisible] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
@@ -249,15 +252,15 @@ const ItemCard = React.memo(({
                   />
                 ))}
               </View>
-              <Text 
+              <CustomText 
                 style={styles.ratingText}
                 allowFontScaling={true}
                 numberOfLines={1}
               >
                 {rating.ratingCount > 0 
                   ?  `${rating.averageRating.toFixed(1)} (${rating.ratingCount})`
-                  : 'No ratings yet'}
-              </Text>
+                  : t('no_ratings_yet')}
+              </CustomText>
             </View>
 
             <View style={styles.tags}>
@@ -393,7 +396,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: height(2),
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
     flexWrap: 'wrap',
     flexShrink: 1,
     paddingRight: 100, // Make space for the icons
@@ -406,7 +409,7 @@ const styles = StyleSheet.create({
   },
   descriptionHeading: {
     fontSize: height(1.8),
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
   },
   rating: {
     flexDirection: "row",
@@ -455,7 +458,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: height(1.5),
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
     color: AppColors.primary,
   },
   selectedTagText: {

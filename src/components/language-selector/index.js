@@ -23,17 +23,22 @@ const LanguageSelector = ({
   const currentLanguage = languageOptions.find(option => option.key === currentLocale) || languageOptions[0];
 
   const handleSelect = (selectedKey) => {
-    if (selectedKey && selectedKey !== currentLocale) {
+    console.log('Language selected:', selectedKey);
+    setIsOpen(false);
+    if (selectedKey && onLanguageChange) {
       onLanguageChange(selectedKey);
     }
-    setIsOpen(false);
   };
 
   return (
     <View style={[styles.container, containerStyle]}>
       <TouchableOpacity
         style={[styles.dropdownButton, boxStyle]}
-        onPress={() => setIsOpen(!isOpen)}
+        onPress={() => {
+          console.log('Dropdown toggled, isOpen:', !isOpen);
+          setIsOpen(!isOpen);
+        }}
+        activeOpacity={0.7}
       >
         <CustomText style={[styles.buttonText, inputStyles]}>
           {currentLanguage.value}
@@ -55,12 +60,13 @@ const LanguageSelector = ({
                 option.key === currentLocale && styles.selectedItem
               ]}
               onPress={() => handleSelect(option.key)}
+              activeOpacity={0.7}
             >
               <CustomText style={[styles.itemText, dropdownTextStyles]}>
                 {option.value}
               </CustomText>
               {option.key === currentLocale && (
-                <Ionicons name="checkmark" size={16} color={AppColors.primary} />
+                <Ionicons name="checkmark" size={20} color={AppColors.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -74,6 +80,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     position: 'relative',
+    zIndex: 9999,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -93,17 +100,17 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: AppColors.white_100,
+    backgroundColor: '#FFFFFF',
     borderColor: AppColors.grey_400,
     borderWidth: 1,
     borderRadius: 8,
     marginTop: 5,
-    zIndex: 1000,
+    zIndex: 10000,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 10,
   },
   dropdownItem: {
     flexDirection: 'row',
@@ -113,9 +120,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.grey_200,
+    backgroundColor: '#FFFFFF',
   },
   selectedItem: {
-    backgroundColor: AppColors.grey_100,
+    backgroundColor: '#F5F5F5',
   },
   itemText: {
     color: AppColors.black,

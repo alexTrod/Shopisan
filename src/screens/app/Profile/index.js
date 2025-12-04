@@ -19,16 +19,6 @@ export default function Profile({ navigation }) {
   const user = useSelector(state => state.user.userData);
   const { t, locale } = useTranslation();
 
-  const profileOptions = [
-    { title: "Change email and name", screen: "ChangeEmailScreen" },
-    user?.userType === "merchant" && { title: "Contact support", screen: "SupportScreen" },
-    { title: "Recover password", screen: "RecoverPasswordScreen" },
-    { title: "Recover old account", screen: "RecoverAccountScreen" },
-    { title: "Add a store", screen: "AddStoreScreen" },
-    { title: "Report an issue", screen: "ReportIssueScreen" },
-    { title: "Suggest an idea / report a bug", screen: "SuggestIdeaScreen" },
-  ].filter(Boolean);
-
   const handlePress = (screen) => {
     if (screen) {
       navigation.navigate(screen);
@@ -52,14 +42,18 @@ export default function Profile({ navigation }) {
       <Header
         showLeft={true}
         showBack
-        title="Profile"
+        title={t('profile_title')}
         containerStyle={{ width: width(90), alignSelf: "center"}}
       />
       
       {/* Email Verification Banner */}
       <EmailVerificationBanner />
       
-      <ScrollView style={{ paddingHorizontal: 20, marginTop: 30 }}>
+      <ScrollView 
+        style={{ paddingHorizontal: 20, marginTop: 30 }}
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Account Section */}
         <View style={styles.sectionContainer}>
           <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
@@ -106,9 +100,9 @@ export default function Profile({ navigation }) {
               onPress={() => handlePress("SupportScreen")}
             >
               <View style={styles.optionContent}>
-                <CustomText size={1.8} color={AppColors.black}>
-                  Contact support
-                </CustomText>
+              <CustomText size={1.8} color={AppColors.black}>
+                {t('contact_support')}
+              </CustomText>
                 <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
               </View>
             </TouchableOpacity>
@@ -128,7 +122,7 @@ export default function Profile({ navigation }) {
           >
             <View style={styles.optionContent}>
               <CustomText size={1.8} color={AppColors.black}>
-                Add a store
+                {t('add_a_store')}
               </CustomText>
               <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
             </View>
@@ -212,7 +206,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 10,
-    marginBottom: 12,
+    marginBottom: 60,
+    zIndex: 9999,
+    elevation: 9999,
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },

@@ -52,14 +52,14 @@ const StoreManagement = ({ navigation }) => {
           >
             <CustomText
               color={AppColors.black}
-              textProps={{ fontFamily: "Mulish-Bold" }}
+              textProps={{ fontFamily: "Roboto-Medium" }}
               size={2}
             >
               {item.name}
             </CustomText>
             <CustomText
               color={AppColors.grey_200}
-              textProps={{ fontFamily: "Mulish-Regular" }}
+              textProps={{ fontFamily: "Roboto-Regular" }}
               size={1.7}
             >
               {item.website}

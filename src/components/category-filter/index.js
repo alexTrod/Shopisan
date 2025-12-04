@@ -8,20 +8,22 @@ import { width, height } from '../../utils/dimension';
 import logging from '../../utils/logging';
 import { getCategoriesLocale } from '../../Redux/Reducers/CategoriesReducer';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from '../../utils/useTranslation';
 
 
 const CategoryFilter = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
+  const { t, locale } = useTranslation();
   const { categories, selectedCategories } = useSelector(state => state.categories);
+  
   useEffect(() => {
     const loadCategories = async () => {
       const cats = await getCategoriesLocale();
-      logging('Loaded categories', cats);
       dispatch(setCategories(cats));
     };
     loadCategories();
-  }, []);
+  }, [locale]); // Reload categories when language changes
 
   const data = categories.map(category => ({
     value: category.id,
@@ -45,7 +47,7 @@ const CategoryFilter = () => {
       <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Text style={styles.selectedTextStyle}>
-          {selectedCategories.length > 0 ? '+' : '+ Category'}
+          {selectedCategories.length > 0 ? '+' : t('add_category')}
           </Text>
         </View>
       </TouchableOpacity>
@@ -71,7 +73,7 @@ const CategoryFilter = () => {
               style={styles.categoryItem}
             >
               <Text style={[styles.categoryText, { color: selectedCategories.length === 0 ? AppColors.primary : AppColors.black }]}>
-                Unselect
+                {t('unselect')}
               </Text>
             </TouchableOpacity>
 
@@ -80,12 +82,15 @@ const CategoryFilter = () => {
               keyExtractor={item => item.value.toString()}
               renderItem={({ item }) => (
                 <TouchableOpacity onPress={() => handleSelectCategory(item)} style={styles.categoryItem}>
-                  <Text style={[styles.categoryText, { color: selectedCategories.includes(item.value) ? AppColors.primary : AppColors.black }]}>{item.label}</Text>
+                  <Text style={[styles.categoryText, { 
+                color: selectedCategories.includes(item.value) ? '#8B0000' : AppColors.black,
+                fontWeight: selectedCategories.includes(item.value) ? 'bold' : 'normal'
+              }]}>{item.label}</Text>
                 </TouchableOpacity>
               )}
             />
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Finish</Text>
+              <Text style={styles.cancelButtonText}>{t('finish')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -160,6 +165,11 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: AppColors.white,
+    fontWeight: 'bold',
+  },
+  selectedCategoryText: {
+    color: '#8B0000',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

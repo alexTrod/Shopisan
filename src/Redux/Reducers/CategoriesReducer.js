@@ -3,14 +3,16 @@ import { firestore } from '../../../firebaseconfig';
 import { collection, getDocs } from 'firebase/firestore';
 
 export const getCategoryLocale = (current_doc) => {
-    const locale = i18n.locale;
+    // Ensure locale is valid, default to 'en' if undefined or invalid
+    const locale = i18n && i18n.locale ? i18n.locale : 'en';
+    
     switch(locale){
         case 'fr':
-            return current_doc.fr;
+            return current_doc.fr || current_doc.en || 'Unknown';
         case 'en':
-            return current_doc.en;
+            return current_doc.en || current_doc.fr || 'Unknown';
         default:
-            return current_doc.en;
+            return current_doc.en || current_doc.fr || 'Unknown';
     }
 }
 
@@ -24,17 +26,7 @@ export const getCategoriesLocale = async () => {
     name: getCategoryLocale(doc.data().name),
   }));
 
-  // Debug logging to see what we're working with
-  console.log('Categories before sorting:', fetchedCategories.map(cat => ({ 
-    name: cat.name, 
-    sort_id: cat.sort_id, 
-    sort_id_type: typeof cat.sort_id 
-  })));
-
-  // More robust sorting that handles:
-  // 1. String numbers (converts to numbers)
-  // 2. Missing/null sort_id values (puts them at the end)
-  // 3. Invalid sort_id values (puts them at the end)
+  // advanced sorting
   fetchedCategories.sort((a, b) => {
     const sortIdA = Number(a.sort_id);
     const sortIdB = Number(b.sort_id);
@@ -46,11 +38,6 @@ export const getCategoriesLocale = async () => {
     
     return sortIdA - sortIdB;
   });
-
-  console.log('Categories after sorting:', fetchedCategories.map(cat => ({ 
-    name: cat.name, 
-    sort_id: cat.sort_id 
-  })));
 
   return fetchedCategories;
 };

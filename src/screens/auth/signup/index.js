@@ -23,8 +23,12 @@ import { signUp, setNoAuthenticationWanted } from "../../../Redux/Actions/UserAc
 
 export default function SignUp({ navigation }) {
   const [loading, setLoading] = useState(false);
-  const locale = useSelector(state => state.locale.currentLocale);
-  i18n.locale = locale;
+  const locale = useSelector(state => state.locale?.currentLocale) || 'en';
+  
+  if (locale) {
+    i18n.locale = locale;
+  }
+  
   const dispatch = useDispatch();
   const errorMessage = useSelector(state => state.user.signUpError);
 
@@ -133,7 +137,7 @@ export default function SignUp({ navigation }) {
               >
                 <CustomText
                   color={userType === 'shopper' ? AppColors.white : AppColors.primary}
-                  textProps={{ fontFamily: 'Mulish-Bold' }}
+                  textProps={{ fontFamily: 'Roboto-Medium' }}
                   size={1.7}
                 >
                   Sign up as a shopper
@@ -154,7 +158,7 @@ export default function SignUp({ navigation }) {
               >
                 <CustomText
                   color={userType === 'merchant' ? AppColors.white : AppColors.primary}
-                  textProps={{ fontFamily: 'Mulish-Bold' }}
+                  textProps={{ fontFamily: 'Roboto-Medium' }}
                   size={1.7}
                 >
                   Sign up as a merchant
@@ -308,7 +312,7 @@ export default function SignUp({ navigation }) {
           <Button
             disabled={!isValid}
             loading={loading}
-            textStyle={{ fontFamily: "Mulish-Bold" }}
+            textStyle={{ fontFamily: "Roboto-Medium" }}
             containerStyle={styles.button}
             onPress={handleSubmit(signupHandler)}
           >
@@ -317,13 +321,13 @@ export default function SignUp({ navigation }) {
         </View>
         <View style={{ alignItems: "center", flexDirection: "column", justifyContent: "space-between", flex: 1, width:'100%'}}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <CustomText color={AppColors.black} textStyles={{ fontFamily: "Mulish-Regular" }} size={1.5} textAlign="center">
+            <CustomText color={AppColors.black} textStyles={{ fontFamily: "Roboto-Regular" }} size={1.5} textAlign="center">
               Already have an Account?
             </CustomText>
             <CustomText
               onPress={goToSignIn}
               color={AppColors.primary}
-              textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
+              textStyles={{ marginLeft: height(0.5), fontFamily: "Roboto-Medium" }}
               textDecorationLine="underline"
               size={2}
               textAlign="center"
@@ -339,7 +343,7 @@ export default function SignUp({ navigation }) {
           </View>
           <View style={{ width: '100%', marginTop: height(3) }}>
             <Button
-                textStyle={{ fontFamily: "Mulish-Bold", color: AppColors.primary}}
+                textStyle={{ fontFamily: "Roboto-Medium", color: AppColors.primary}}
                 containerStyle={[styles.buttonSecondary, { width: '100%', borderRadius: 0 }]}
                 onPress={async () => {
                   await dispatch(setNoAuthenticationWanted(true));

@@ -15,11 +15,14 @@ import { toggleFavoriteStore } from '../../Redux/Actions/UserActions';
 import { useDispatch, useSelector } from 'react-redux';
 import { signOut } from "../../Redux/Actions/UserActions";
 import { setSelectedCategories } from '../../Redux/Actions/CategoriesActions';
+import { setCustomLocation } from '../../Redux/Actions/LocationActions';
 import CustomText from "../../components/text";
 import { ScrollView } from 'react-native';
+import { useTranslation } from '../../utils/useTranslation';
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const [averageRating, setAverageRating] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
   const [userRating, setUserRating] = useState(0);
@@ -40,17 +43,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
     "friday",
     "saturday",
     "sunday"
-  ];
-  
-  const daysLabels = {
-    monday: "Lundi",
-    tuesday: "Mardi",
-    wednesday: "Mercredi",
-    thursday: "Jeudi",
-    friday: "Vendredi",
-    saturday: "Samedi",
-    sunday: "Dimanche"
-  };  
+  ];  
 
   const auth = getAuth();
   const address = (itemAddress) => {
@@ -75,7 +68,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
 
       setPostMedia(mediaArray);
     } catch (error) {
-      console.error("Erreur lors de la récupération des médias :", error);
+      console.error(t('error_fetching_media'), error);
     }
   }
 
@@ -115,11 +108,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const submitRating = async (score) => {
     if (!user) {
       Alert.alert(
-        "Login Required",
-        "You need to be logged in to view your favorite stores. Do you want to go to the login page?",
+        t('login_required'),
+        t('login_required_favorite_message'),
         [
-          { text: "No", style: "cancel" },
-          { text: "Yes", onPress: () => {
+          { text: t('no'), style: "cancel" },
+          { text: t('yes'), onPress: () => {
               dispatch(signOut());
             }
           },
@@ -163,37 +156,63 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
       await fetchStoreRatings();
     } catch (error) {
       console.error('Error submitting rating:', error);
-      Alert.alert('Erreur', 'Impossible de soumettre la note');
+      Alert.alert(t('error'), t('error_submitting_rating'));
     } finally {
       setLoading(false);
     }
   };  
 
+  const lastFetchedStoreIdRef = React.useRef(null);
   useEffect(() => {
-    if (visible && item?.id) {
-      fetchStoreRatings();
-      fetchPostMedia();
-    }
+    if (!visible || !item?.id) return;
+    if (lastFetchedStoreIdRef.current === item.id) return;
+    lastFetchedStoreIdRef.current = item.id;
+    fetchStoreRatings();
+    fetchPostMedia();
   }, [visible, item?.id]);
 
   const handleGoToHome = (store) => {
-    onClose();
-    setTimeout(() => {
-      navigation.navigate(ScreenNames.HOME, {
-        merge: true,
-        initialStoreFromMap: store,
-      });
-    }, 300);
+    try {
+      const geopoint = store?.address?.[0]?.location?.geopoint;
+      if (!geopoint) {
+        Alert.alert(
+          t('no_location') || 'No location',
+          t('no_store_coordinates') || 'This store has no coordinates to show on the map.'
+        );
+        return;
+      }
+      const latitude = Number(geopoint.latitude);
+      const longitude = Number(geopoint.longitude);
+      if (isNaN(latitude) || isNaN(longitude)) {
+        Alert.alert(
+          t('invalid_location') || 'Invalid location',
+          t('invalid_store_coordinates') || 'This store has invalid coordinates.'
+        );
+        return;
+      }
+
+      // Close modal then navigate to Map centered on the store
+      onClose();
+      // Update custom location so Map syncs with the selected city
+      dispatch(setCustomLocation({ latitude, longitude }));
+      setTimeout(() => {
+        navigation.navigate(ScreenNames.MAP, {
+          initialStore: store,
+        });
+      }, 300);
+    } catch (e) {
+      logging('handleGoToHome error', e);
+    }
   };  
   
   const handleToggleFavoriteFromModal = () => {
     if (!user) {
       Alert.alert(
-        "Login Required",
-        "You need to be logged in to add a favorite.",
+        t('login_required'),
+        t('login_required_add_favorite_message'),
         [
           { 
-            text: "Ok", 
+            text: t('ok'), 
             onPress: () => {
               onClose();
             }
@@ -220,7 +239,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   if (loggingOut) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
-        <CustomText>Déconnexion en cours...</CustomText>
+        <CustomText>{t('logging_out')}</CustomText>
       </View>
     );
   }
@@ -255,7 +274,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                 >
                   <Ionicons
                     name={isFavorite ? "heart" : "heart-outline"}
-                    size={height(6)}
+                    size={height(3)}
                     color={isFavorite ? "red" : "gray"}
                   />
               </TouchableOpacity>
@@ -285,14 +304,14 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               ))}
             </View>
 
-            <Text style={styles.description}>{item.description || "aa"}</Text>
+            <Text style={styles.description}>{item.description || t('no_description_yet')}</Text>
 
             {item.openingHours && (
               <View style={{ width: '100%', marginTop: 20 }}>
-                <Text style={styles.sectionTitle}>Horaires d'ouverture</Text>
+                <Text style={styles.sectionTitle}>{t('opening_hours')}</Text>
                 {days.map((dayKey) => {
                   const dayHours = item.openingHours[dayKey];
-                  const dayLabel = daysLabels[dayKey];
+                  const dayLabel = t(dayKey);
 
                   let hoursText = "";
 
@@ -325,7 +344,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                     };
                     hoursText = `${formatTimeDisplay(dayHours.afternoon.start)} - ${formatTimeDisplay(dayHours.afternoon.end)}`;
                   } else {
-                    hoursText = "Fermé";
+                    hoursText = t('closed');
                   }
 
                   return (
@@ -340,11 +359,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
 
                 {/* Ratings */}
                 <View style={styles.ratingsSection}>
-                  <Text style={styles.sectionTitle}>Ratings</Text>
+                  <Text style={styles.sectionTitle}>{t('ratings')}</Text>
                   
                   {/* User Rating */}
                   <View style={styles.ratingCard}>
-                    <Text style={styles.ratingLabel}>Your rating</Text>
+                    <Text style={styles.ratingLabel}>{t('your_rating')}</Text>
                     <View style={styles.ratingStars}>
                       {[...Array(5)].map((_, index) => (
                         <TouchableOpacity
@@ -365,7 +384,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                 
                   {/* Community Rating */}
                   <View style={styles.ratingCard}>
-                    <Text style={styles.ratingLabel}>Community rating</Text>
+                    <Text style={styles.ratingLabel}>{t('community_rating')}</Text>
                     <View style={styles.ratingStars}>
                       {[...Array(5)].map((_, index) => (
                         <Ionicons
@@ -377,8 +396,8 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                       ))}
                       <Text style={styles.ratingText}>
                         {loading
-                          ? 'Updating...'
-                          : `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`}
+                          ? t('updating')
+                          : `${averageRating.toFixed(1)} (${ratingCount} ${ratingCount === 1 ? t('rating') : t('ratings_plural')})`}
                       </Text>
                     </View>
                   </View>
@@ -387,16 +406,16 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                 {/* Posts/Media */}
                 {postMedia.length > 0 && (
                   <View style={styles.postsSection}>
-                    <Text style={styles.sectionTitle}>Annonces postées</Text>
+                    <Text style={styles.sectionTitle}>{t('posted_announcements')}</Text>
                     <View style={styles.postsContainer}>
                       {postMedia.map((media, index) => (
                         <View key={index} style={styles.postCard}>
                           <Text style={styles.postDescription}>
-                            {media?.description?.en || media?.description?.fr || "Pas de description."}
+                            {media?.description?.en || media?.description?.fr || t('no_post_description')}
                           </Text>
                           {media?.price !== null && (
                             <View style={styles.priceContainer}>
-                              <Text style={styles.priceLabel}>Prix:</Text>
+                              <Text style={styles.priceLabel}>{t('price')}</Text>
                               <Text style={styles.priceValue}>{media.price} €</Text>
                             </View>
                           )}
@@ -426,6 +445,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
+    marginBottom: 20,
+    paddingBottom: 10,
+  },
+  closeButton: {
+    padding: 10,
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 25,
+    minWidth: 50,
+    minHeight: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   address: {
     fontSize: height(1.8),
@@ -491,7 +533,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: height(1.5),
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
     color: AppColors.primary,
   },
   selectedTagText: {
@@ -550,12 +592,21 @@ const styles = StyleSheet.create({
   },
   goHomeButton: {
     position: 'absolute',
-    top: 0,
-    right: 40,
-    padding: 10,
+    top: 20,
+    right: 80,
+    padding: 12,
     backgroundColor: AppColors.black,
-    borderRadius: 30,
-    elevation: 5,
+    borderRadius: 25,
+    minWidth: 50,
+    minHeight: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   mediaContainer: {
     marginTop: 20,
@@ -591,6 +642,30 @@ const styles = StyleSheet.create({
   },
   minuteInput: {
     width: 36,
+  },
+  // Opening hours styles
+  openingHourRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  openingHourDay: {
+    fontSize: height(1.8),
+    fontWeight: '600',
+    color: '#333',
+    minWidth: 100,
+  },
+  openingHourText: {
+    fontSize: height(1.8),
+    color: '#666',
+    textAlign: 'right',
+  },
+  // Ratings related styles
+  ratingsSection: {
+    marginTop: 24,
+    width: '100%',
   },
   // Post/Media related styles
   postsSection: {

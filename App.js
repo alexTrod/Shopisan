@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Image, StyleSheet, BackHandler } from 'react-native';
+import { View, Image, StyleSheet, BackHandler, Text } from 'react-native';
 import { useDispatch, useSelector, Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -23,6 +23,7 @@ import RecoverAccountScreen from './src/screens/app/Profile/recover-account/';
 import ReportIssueScreen from './src/screens/app/Profile/report-issue';
 import SuggestIdeaScreen from './src/screens/app/Profile/suggest-idea';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from './src/utils/useTranslation';
 //import LanguageSelectionScreen from './src/screens/app/language-selection';
 //import initializeLogging from './src/utils/initLogging'; // Initialize logging system
 import { runCitiesMigration } from './src/utils/citiesMigration';
@@ -32,23 +33,30 @@ try {
   require('./src/translations/i18n'); // Initialize i18n
   console.log('App.js: i18n module required successfully');
   if (global.i18n) {
-    console.log('App.js: global.i18n properties:', Object.keys(global.i18n));
+   // console.log('App.js: global.i18n properties:', Object.keys(global.i18n));
   }
 } catch (error) {
-  console.error('App.js: Failed to require i18n module:', error);
+//console.error('App.js: Failed to require i18n module:', error);
 }
 
 const Stack = createNativeStackNavigator();
 
-const SplashScreen = () => (
-  <View style={styles.splashContainer}>
-    <Image
-      source={require('./assets/LogoIcon.png')}
-      style={styles.logo}
-      resizeMode="contain"
-    />
-  </View>
-);
+const SplashScreen = () => {
+  const { t } = useTranslation();
+  
+  return (
+    <View style={styles.splashContainer}>
+      <Image
+        source={require('./assets/LogoIcon.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+      <Text style={styles.tagline}>
+        {t('splash_tagline')}
+      </Text>
+    </View>
+  );
+};
 
 const App = () => {
   const dispatch = useDispatch();
@@ -59,22 +67,8 @@ const App = () => {
 
   // Load custom fonts
   const [fontsLoaded] = useFonts({
-    'Mulish-Regular': require('./assets/fonts/Mulish-Regular.ttf'),
-    'Mulish-Bold': require('./assets/fonts/Mulish-Bold.ttf'),
-    'Mulish-SemiBold': require('./assets/fonts/Mulish-SemiBold.ttf'),
-    'Mulish-Medium': require('./assets/fonts/Mulish-Medium.ttf'),
-    'Mulish-Light': require('./assets/fonts/Mulish-Light.ttf'),
-    'Mulish-ExtraLight': require('./assets/fonts/Mulish-ExtraLight.ttf'),
-    'Mulish-Black': require('./assets/fonts/Mulish-Black.ttf'),
-    'Mulish-ExtraBold': require('./assets/fonts/Mulish-ExtraBold.ttf'),
-    'Mulish-Italic': require('./assets/fonts/Mulish-Italic.ttf'),
-    'Mulish-BoldItalic': require('./assets/fonts/Mulish-BoldItalic.ttf'),
-    'Mulish-SemiBoldItalic': require('./assets/fonts/Mulish-SemiBoldItalic.ttf'),
-    'Mulish-MediumItalic': require('./assets/fonts/Mulish-MediumItalic.ttf'),
-    'Mulish-LightItalic': require('./assets/fonts/Mulish-LightItalic.ttf'),
-    'Mulish-ExtraLightItalic': require('./assets/fonts/Mulish-ExtraLightItalic.ttf'),
-    'Mulish-BlackItalic': require('./assets/fonts/Mulish-BlackItalic.ttf'),
-    'Mulish-ExtraBoldItalic': require('./assets/fonts/Mulish-ExtraBoldItalic.ttf'),
+    'Roboto-Regular': require('./assets/fonts/Roboto-Regular.ttf'),
+    'Roboto-Medium': require('./assets/fonts/Roboto-Medium.ttf'),
   });
 
   useEffect(() => {
@@ -226,6 +220,16 @@ const styles = StyleSheet.create({
     color: '#000',
     textAlign: 'center',
     paddingHorizontal: 20,
-    fontFamily: 'Mulish-Bold',
+    fontFamily: 'Roboto-Medium',
+  },
+  tagline: {
+    position: 'absolute',
+    bottom: 100,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    fontFamily: 'Roboto-Bold',
   },
 });

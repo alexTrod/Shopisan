@@ -437,8 +437,8 @@ export default function HomeScreen({ navigation, route }) {
       <CustomText
         textAlign="center"
         color={AppColors.grey_100}
-        textProps={{ fontFamily: "Mulish-Bold" }}
-        textStyles={{ fontFamily: "Mulish-Bold" }}
+        textProps={{ fontFamily: "Roboto-Medium" }}
+        textStyles={{ fontFamily: "Roboto-Medium" }}
         size={2.2}
       >
         {message}
@@ -672,7 +672,7 @@ export default function HomeScreen({ navigation, route }) {
             size={1.5}
             color={AppColors.grey_200}
             textDecorationLine="underline"
-            textStyles={{ fontFamily: "Mulish-SemiBold" }}
+            textStyles={{ fontFamily: "Roboto-Medium" }}
           >
             Go to signup
           </CustomText>

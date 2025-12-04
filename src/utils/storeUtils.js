@@ -38,7 +38,6 @@ export const fetchStoreRatings = async (storeId) => {
     let _ratingCount = 0;
 
     const ratingsCollection = collection(firestore, 'ratings');
-    logging('Fetching ratings for store id', storeId);
     const ratingsQuery = query(ratingsCollection, where('store_id', '==', storeId));
     
     const ratingsSnapshot = await getDocs(ratingsQuery);

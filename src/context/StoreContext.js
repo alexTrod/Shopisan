@@ -13,6 +13,7 @@ export const StoreProvider = ({ children }) => {
   const [loadingStores, setLoadingStores] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [hasRequestedStores, setHasRequestedStores] = useState(false);
 
   const customLocation = useSelector(state => state.location.customLocation);
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
@@ -165,22 +166,27 @@ export const StoreProvider = ({ children }) => {
     setFilteredStores(nearbyStores);
   }, [allStores, selectedCategories, userLocation]);
 
+  // Only filter stores when userLocation is explicitly set (not automatically)
   useEffect(() => {
-    filterStores();
-  }, [filterStores]);
+    if (userLocation) {
+      filterStores();
+    } else {
+      // If no location, show all stores
+      setFilteredStores(allStores);
+    }
+  }, [filterStores, userLocation, allStores]);
 
   useEffect(() => {
     const initializeApp = async () => {
       // Initialize location service first
       await locationService.initialize();
       
-      // Then fetch stores and location
+      // Only fetch stores, don't fetch location automatically
       fetchAllStores();
-      fetchUserLocation();
     };
     
     initializeApp();
-  }, [fetchAllStores, fetchUserLocation]);
+  }, [fetchAllStores]);
 
 
   return (
@@ -196,6 +202,8 @@ export const StoreProvider = ({ children }) => {
         searchQuery,
         setSearchQuery,
         performSearch,
+        hasRequestedStores,
+        setHasRequestedStores,
       }}
     >
       {children}

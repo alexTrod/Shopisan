@@ -10,6 +10,7 @@ import {
   FlatList,
   ScrollView,
   DeviceEventEmitter,
+  Platform,
 } from "react-native";
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "../../../../firebaseconfig";
@@ -23,6 +24,8 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as Location from 'expo-location';
 import MapboxGL from "@rnmapbox/maps";
 import locationService from "../../../utils/locationService";
+import { ensureCityExists } from "../../../utils/cityManagement";
+import * as ImagePicker from 'expo-image-picker';
 
 export default function HandleStoreScreen({ route, navigation }) {
   const { storeId } = route.params;
@@ -264,6 +267,19 @@ export default function HandleStoreScreen({ route, navigation }) {
 
       await updateDoc(storeRef, updatedData);
 
+      // Ensure city exists in the cities collection
+      try {
+        const cityResult = await ensureCityExists(city, postalCode, latitude, longitude, "FR");
+        if (cityResult.success) {
+          console.log(cityResult.message);
+        } else {
+          console.warn('City creation/update had issues:', cityResult.error);
+        }
+      } catch (cityError) {
+        console.error('Error ensuring city exists:', cityError);
+        // Continue even if city creation fails - store is already updated
+      }
+
       DeviceEventEmitter.emit('stores:refresh');
       dispatch(setSelectedCategories([]));
       Alert.alert("Succès", "Magasin mis à jour !");
@@ -409,21 +425,24 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const handlePickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      console.log('handling image picker');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+      console.log('picker result', result);
   
-    if (!permissionResult.granted) {
-      alert("Permission refusée pour accéder aux photos !");
-      return;
-    }
-  
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-  
-    if (!result.cancelled && result.assets && result.assets.length > 0) {
-      setSelectedImage(result.assets[0]);
+      if (!result?.canceled) {
+        if (result?.assets?.length > 0) {
+          setSelectedImage(result.assets[0]);
+        } else if (result?.uri) {
+          setSelectedImage({ uri: result.uri });
+        }
+      }
+    } catch (e) {
+      console.error('Image picker error', e);
+      Alert.alert('Erreur', 'Impossible d\'ouvrir le sélecteur d\'images.');
     }
   }; 
 
