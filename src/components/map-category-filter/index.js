@@ -52,7 +52,7 @@ const MapCategoryFilter = ({ stores }) => {
             <TouchableOpacity onPress={() =>
               dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)))
             }>
-              <MaterialIcons name="close" size={20} color={AppColors.black} />
+              <MaterialIcons name="close" size={20} color="#8B0000" />
             </TouchableOpacity>
           </View>
         ))}
@@ -107,23 +107,25 @@ const styles = StyleSheet.create({
   },
   selectedCategoryItem: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderColor: AppColors.black,
-    borderWidth: width(0.5),
+    alignItems: 'center',
+    backgroundColor: '#FDEAEA',
+    borderColor: '#8B0000',
+    borderWidth: 1.5,
     borderRadius: 25,
-    paddingLeft: 10,
-    paddingRight: 10,
-    margin: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 4,
+    margin: 3,
+  },
+  selectedCategoryText: {
+    color: '#8B0000',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 0,
   },
   dropdown: {
     backgroundColor: AppColors.white,

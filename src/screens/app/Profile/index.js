@@ -5,7 +5,7 @@ import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
 import CustomText from '../../../components/text';
 import { height, width } from "../../../utils/dimension";
-import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, TouchableOpacity, StyleSheet, ScrollView, Linking } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import { Ionicons } from "@expo/vector-icons";
@@ -152,6 +152,35 @@ export default function Profile({ navigation }) {
               </View>
             </TouchableOpacity>
           ))}
+
+          {/* Contact Support Email */}
+          <TouchableOpacity
+            style={styles.optionTile}
+            onPress={() => Linking.openURL('mailto:support@shopisan.com')}
+          >
+            <View style={styles.optionContent}>
+              <CustomText size={1.8} color={AppColors.black}>
+                {t('contact_support')}
+              </CustomText>
+              <Ionicons name="mail-outline" size={20} color={AppColors.grey_300} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Social Links */}
+          <View style={styles.socialLinksContainer}>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={() => Linking.openURL('https://instagram.com/shopisan')}
+            >
+              <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={() => Linking.openURL('https://shopisan.com')}
+            >
+              <Ionicons name="globe-outline" size={24} color={AppColors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <TouchableOpacity
@@ -214,5 +243,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
     elevation: 2,
+  },
+  socialLinksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 20,
+  },
+  socialButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: AppColors.white_100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

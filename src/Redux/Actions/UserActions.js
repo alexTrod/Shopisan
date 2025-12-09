@@ -1,12 +1,10 @@
-import {getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut as firebaseSignOut  } from 'firebase/auth';
-import { firestore } from '../../../firebaseconfig';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut as firebaseSignOut  } from 'firebase/auth';
+import { firestore, auth } from '../../../firebaseconfig';
 import logging, { logError } from '../../utils/logging';
 import { collection, doc, query, where, getDocs, getDoc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { pbkdf2 } from '@react-native-module/pbkdf2';
 import { Alert } from 'react-native';
 import { selectIsAuthenticated, selectUserData } from '../Selectors/UserSelectors';
-
-const auth = getAuth();
 
 export const checkAuthStatus = () => async (dispatch) => {
   try {
@@ -68,7 +66,6 @@ export const signIn = (email, password) => async (dispatch) => {
 
 export const signOut = () => async (dispatch) => {
   try {
-    const auth = getAuth();
     await firebaseSignOut(auth);
     dispatch({ type: 'AUTH_LOGOUT' });
   } catch (error) {

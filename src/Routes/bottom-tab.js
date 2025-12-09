@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useContext } from "react";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigation } from "@react-navigation/native";
 import ShopUnfilled from "../../assets/icons/shop-unfilled";
-import { height } from "../utils/dimension";
+import { height, width } from "../utils/dimension";
 import PinFilled from "../../assets/icons/pin-filled";
 import PinUnfilled from "../../assets/icons/pin-unfilled";
 
@@ -14,15 +18,82 @@ import HomeScreen from "../screens/app/home";
 import MapScreen from "../screens/app/map";
 
 import { AppColors } from "../utils/";
-import { StoreProvider } from "../context/StoreContext.js";
+import { StoreProvider, StoreContext } from "../context/StoreContext.js";
 import { useTranslation } from "../utils/useTranslation";
+import SearchBar from "../components/search-bar";
+import CustomText from "../components/text";
+import { setCustomLocation } from "../Redux/Actions/LocationActions";
 
 const Tab = createBottomTabNavigator();
 
-function BottomTabsNavigator() {
+// Inner component that has access to StoreContext
+function TabsWithSearch() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
+  const { allStores, setHasRequestedStores } = useContext(StoreContext);
+  const user = useSelector(state => state.user.user);
+
+  // Handler for city selection from unified search
+  const handleCitySelect = (cityName, coordinates) => {
+    console.log('[UnifiedSearch] City selected:', cityName, coordinates);
+    // Update Redux location - this will trigger both Home and Map to update
+    dispatch(setCustomLocation({
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude
+    }));
+    setHasRequestedStores(true);
+  };
+
+  // Handler for store selection from unified search
+  const handleStoreSelect = (storeSuggestion) => {
+    console.log('[UnifiedSearch] Store selected:', storeSuggestion);
+    if (storeSuggestion.location) {
+      dispatch(setCustomLocation({
+        latitude: storeSuggestion.location.latitude,
+        longitude: storeSuggestion.location.longitude
+      }));
+      setHasRequestedStores(true);
+    }
+  };
+
+  // Navigate to sign up
+  const handleSignUp = () => {
+    navigation.navigate(ScreenNames.SIGNUP);
+  };
+
   return (
-    <StoreProvider>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header with Sign Up and Search Bar */}
+      <View style={styles.headerContainer}>
+        {/* Sign Up button - only show if not logged in */}
+        {!user && (
+          <TouchableOpacity onPress={handleSignUp} style={styles.signUpButton}>
+            <CustomText
+              size={3}
+              color={AppColors.primary}
+              textDecorationLine="underline"
+              textStyles={{ fontFamily: "Roboto-Medium", fontWeight: "bold" }}
+            >
+              {t('sign_up')}
+            </CustomText>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Unified Search Bar */}
+      <View style={styles.searchContainer}>
+        <SearchBar
+          placeholder={t('search_placeholder')}
+          onCitySelect={handleCitySelect}
+          onStoreSelect={handleStoreSelect}
+          allStores={allStores}
+          containerStyle={styles.searchBarWrapper}
+        />
+      </View>
+
+      {/* Tab Navigator */}
       <Tab.Navigator
         initialRouteName={ScreenNames.HOME}
         screenOptions={({ route }) => ({
@@ -52,7 +123,7 @@ function BottomTabsNavigator() {
           tabBarInactiveTintColor: AppColors.grey_200,
           header: () => false,
         })}
-      >        
+      >
         <Tab.Screen
           name={ScreenNames.HOME}
           component={HomeScreen}
@@ -63,15 +134,50 @@ function BottomTabsNavigator() {
           component={MapScreen}
           options={{ title: t('map_title') }}
         />
-        <Tab.Screen 
-          name={ScreenNames.PROFILE} 
+        <Tab.Screen
+          name={ScreenNames.PROFILE}
           component={Profile}
           options={{ title: t('profile_title') }}
         />
       </Tab.Navigator>
+    </View>
+  );
+}
+
+function BottomTabsNavigator() {
+  return (
+    <StoreProvider>
+      <TabsWithSearch />
     </StoreProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.white,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: width(4),
+    paddingTop: height(0.5),
+    backgroundColor: AppColors.white,
+  },
+  signUpButton: {
+    paddingVertical: height(0.5),
+  },
+  searchContainer: {
+    paddingHorizontal: width(4),
+    paddingVertical: height(1),
+    backgroundColor: AppColors.white,
+    zIndex: 1000,
+  },
+  searchBarWrapper: {
+    marginBottom: 0,
+  },
+});
 
 export default function BottomTabs() {
   return <BottomTabsNavigator />;

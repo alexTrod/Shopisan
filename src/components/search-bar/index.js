@@ -11,12 +11,52 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppColors } from '../../utils';
 import { height, width } from '../../utils/dimension';
 // Remove complex cities service import
 import { useTranslation } from '../../utils/useTranslation';
 import { StoreContext } from '../../context/StoreContext';
 import { getCitiesForSearch } from '../../utils/citiesService';
+
+// In-memory geocoding cache for fast repeat lookups
+const geocodingCache = {};
+
+// Cached geocoding function - avoids repeated network calls for same city
+const getCachedGeocode = async (cityName) => {
+  const cacheKey = `geocode_${cityName.toLowerCase().trim()}`;
+
+  // 1. Check in-memory cache (fastest)
+  if (geocodingCache[cacheKey]) {
+    return geocodingCache[cacheKey];
+  }
+
+  // 2. Check AsyncStorage cache
+  try {
+    const cached = await AsyncStorage.getItem(cacheKey);
+    if (cached) {
+      const coords = JSON.parse(cached);
+      geocodingCache[cacheKey] = coords; // Also store in memory
+      return coords;
+    }
+  } catch (e) {
+    // Cache read failed, continue to geocode
+  }
+
+  // 3. Geocode and cache the result
+  const locations = await Location.geocodeAsync(cityName);
+  if (locations.length > 0) {
+    const coords = { latitude: locations[0].latitude, longitude: locations[0].longitude };
+    geocodingCache[cacheKey] = coords;
+
+    // Save to AsyncStorage (don't await, fire and forget)
+    AsyncStorage.setItem(cacheKey, JSON.stringify(coords)).catch(() => {});
+
+    return coords;
+  }
+
+  return null;
+};
 
 const SearchBar = ({
   placeholder,
@@ -251,29 +291,25 @@ const SearchBar = ({
   const handleCitySelect = async (citySuggestion) => {
     try {
       setLoading(true);
-      
-      // Geocode the city
-      const locations = await Location.geocodeAsync(citySuggestion.label);
-      
-      if (locations.length > 0) {
-        const { latitude, longitude } = locations[0];
-        
-        // Clear the search query after city selection to show all stores in the area
-        // Make sure to maintain the selecting state
-        setSearchQuery('');
-        lastActionRef.current = 'select'; // Ensure this stays as 'select'
-        
-        onCitySelect?.(citySuggestion.label, { latitude, longitude });
+
+      // Use cached geocoding for faster repeat searches
+      const coords = await getCachedGeocode(citySuggestion.label);
+
+      if (coords) {
+        // Keep the city name visible in search bar (don't clear it)
+        lastActionRef.current = 'select';
+        // Clear suggestions so they don't reappear on focus/tab switch
+        setSuggestions([]);
+        setShowSuggestions(false);
+        onCitySelect?.(citySuggestion.label, coords);
       } else {
         Alert.alert("Error", "Could not find coordinates for this city.");
-        // Reset flags on error
         setIsSelecting(false);
         lastActionRef.current = null;
       }
     } catch (error) {
       console.error('Error handling city selection:', error);
       Alert.alert("Error", "Failed to process city selection.");
-      // Reset flags on error
       setIsSelecting(false);
       lastActionRef.current = null;
     } finally {
@@ -285,6 +321,9 @@ const SearchBar = ({
     if (storeSuggestion.location) {
       // Maintain the selecting state to prevent dropdown from reopening
       lastActionRef.current = 'select';
+      // Clear suggestions so they don't reappear on focus/tab switch
+      setSuggestions([]);
+      setShowSuggestions(false);
       onStoreSelect?.(storeSuggestion);
     } else {
       Alert.alert("Error", "Store location not available.");

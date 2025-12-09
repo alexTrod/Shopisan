@@ -66,10 +66,18 @@ const App = () => {
   const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
 
   // Load custom fonts
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'Roboto-Regular': require('./assets/fonts/Roboto-Regular.ttf'),
     'Roboto-Medium': require('./assets/fonts/Roboto-Medium.ttf'),
   });
+
+  // Debug font loading
+  useEffect(() => {
+    if (fontError) {
+      console.error('Font loading error:', fontError);
+    }
+    console.log('Font loading status:', { fontsLoaded, fontError: fontError?.message });
+  }, [fontsLoaded, fontError]);
 
   useEffect(() => {
     // Check if i18n is ready
@@ -139,8 +147,16 @@ const App = () => {
     return () => backHandler.remove();
   }, [currentRoute]);
 
-  if (loading || !i18nReady || !fontsLoaded) {
-    return <CustomText>Loading...</CustomText>;
+  // Debug: log which condition is blocking
+  console.log('App render check:', { loading, i18nReady, fontsLoaded, fontError: !!fontError });
+
+  // Skip font loading check - use system fonts as fallback
+  if (loading || !i18nReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <Text style={{ fontSize: 18, color: '#333' }}>Loading...</Text>
+      </View>
+    );
   }
 
   return (
@@ -225,11 +241,12 @@ const styles = StyleSheet.create({
   tagline: {
     position: 'absolute',
     bottom: 100,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#666',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
     textAlign: 'center',
     paddingHorizontal: 40,
     fontFamily: 'Roboto-Bold',
+    letterSpacing: 0.5,
   },
 });

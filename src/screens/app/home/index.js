@@ -51,48 +51,38 @@ export default function HomeScreen({ navigation, route }) {
   // Remove duplicate suggestions state - handled by SearchBar component
 
   useEffect(() => {
-    const applyRadiusFilter = async () => {
+    const applyStores = async () => {
       if (showFavoritesOnly || showMyStoresOnly) return;
 
-      // Don't show stores until user has requested them
-      if (!hasRequestedStores && !customLocation) {
+      // Show stores if we have any location (auto-detected or user-selected)
+      if (!hasRequestedStores && !customLocation && !userLocation) {
         setStores([]);
         setLoading(false);
         return;
       }
 
       try {
-        // Prioritize customLocation over userLocation (customLocation is more recent/user-selected)
-        const { latitude, longitude } = customLocation || userLocation || {};
+        // filteredStores from StoreContext is already filtered by:
+        // 1. Category filters
+        // 2. 10km radius from userLocation
+        // Just use it directly - no need to re-filter!
+        setStores(filteredStores);
 
-        if (!latitude || !longitude) {
-          // If no location, don't show stores - let the user search or find nearby
-          setStores([]);
-          return;
-        }
-
-        // Use location service with expanding radius to find stores
-        const nearbyStores = locationService.getStoresWithExpandingRadius(
-          allStores, 
-          { latitude, longitude }, 
-          500 // Max 500km radius
-        );
-
-        setStores(nearbyStores);
+        // Note: Toast removed - the inline "No stores found" message is already visible on screen
+        // No need for duplicate notification
       } catch (error) {
         logging("Erreur lors du filtrage local des magasins :", error);
-        // On error, show empty stores
         setStores([]);
       } finally {
         setLoading(false);
       }
     };
 
-    applyRadiusFilter();
+    applyStores();
     if (showMyStoresOnly) {
       loadMyStores(true);
     }
-  }, [allStores, showFavoritesOnly, showMyStoresOnly, searchQuery, customLocation, hasRequestedStores]); // showMyStoresOnly is defined below
+  }, [filteredStores, showFavoritesOnly, showMyStoresOnly, searchQuery, customLocation, userLocation, hasRequestedStores, loadingStores]);
 
 
   const selectedCategories = useSelector(state => state.categories.selectedCategories);
@@ -373,8 +363,8 @@ export default function HomeScreen({ navigation, route }) {
             // Mark that we have requested stores (to hide "votre ville attend" message)
             setHasRequestedStores(true);
             
-            // Fetch nearby stores for this location
-            const nearbyStores = locationService.getStoresWithExpandingRadius(
+            // Fetch nearby stores for this location (strict 10km radius - synced with map)
+            const nearbyStores = locationService.filterStoresByRadius(
               allStores,
               { latitude, longitude },
               SEARCH_RADIUS_KM
@@ -643,14 +633,15 @@ export default function HomeScreen({ navigation, route }) {
       // Update the context with the user's location
       locationService.updateReduxLocation(dispatch, location);
 
-      // Use expanding radius against existing allStores
-      const nearbyStores = locationService.getStoresWithExpandingRadius(
+      // Use STRICT 10km radius (synchronized with map screen)
+      const nearbyStores = locationService.filterStoresByRadius(
         allStores,
         { latitude: location.latitude, longitude: location.longitude },
-        500
+        SEARCH_RADIUS_KM // Strict 10km - same as map
       );
 
       setStores(nearbyStores);
+      // Note: No toast needed - inline "No stores found" message is shown on screen
       
     } catch (error) {
       console.error("Error finding closest store:", error);
@@ -817,38 +808,9 @@ export default function HomeScreen({ navigation, route }) {
         statusBarColor={AppColors.white_100}
         barStyle="dark-content"
       >
-        {!user && (
-          <TouchableOpacity
-            onPress={handleDirectLogout}
-            style={{
-              alignSelf: 'flex-end',
-              marginTop: 0,
-              marginRight: 20,
-            }}
-          >
-            <CustomText
-              size={3}
-              color={AppColors.primary}
-              textDecorationLine="underline"
-              textStyles={{ fontFamily: "Roboto-Medium", fontWeight: "bold" }}
-            >
-              {t('sign_up')}
-            </CustomText>
-          </TouchableOpacity>
-        )}
+        {/* Sign Up and Search bar moved to unified location in bottom-tab.js */}
 
         <View style={styles.container}>
-          {/* Search bar and category filter with proper z-index layering */}
-          <View style={styles.searchGroupContainer}>
-            <SearchBar
-              placeholder={t('search_placeholder')}
-              onCitySelect={handleCitySearch}
-              onStoreSelect={handleStoreSearch}
-              onSearch={handleSearchChange}
-              allStores={allStores}
-              containerStyle={styles.searchBarContainer}
-            />
-          </View>
 
           {/* Email Verification Banner */}
           <EmailVerificationBanner />
@@ -879,12 +841,12 @@ export default function HomeScreen({ navigation, route }) {
 
           {/* Store List, Loading, or No Store Message */}
           <View style={styles.contentContainer}>
-            {loadingStores ? (
+            {loadingStores || (!userLocation && !customLocation) ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={AppColors.primary} />
                 <Text style={styles.loadingText}>{t('loading_stores')}</Text>
               </View>
-            ) : !loading && (!hasRequestedStores || stores.length === 0) ? (
+            ) : !loading && stores.length === 0 ? (
               <ScrollView 
                 style={styles.scrollContainer}
                 contentContainerStyle={styles.noStoreIntegratedContainer}

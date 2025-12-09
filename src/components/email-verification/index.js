@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View, Alert, TouchableOpacity } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import CustomText from '../text';
 import Button from '../button';
@@ -7,12 +7,18 @@ import { AppColors } from '../../utils';
 import { height, width } from '../../utils/dimension';
 import { resendVerificationEmail, checkVerificationStatus } from '../../Redux/Actions/UserActions';
 import { useTranslation } from '../../utils/useTranslation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+
+const DISMISS_STORAGE_KEY = '@email_verification_dismissed';
+const DISMISS_DURATION = 24 * 60 * 60 * 1000; // 24 hours - will show again after this
 
 const EmailVerificationBanner = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  
+  const [isDismissed, setIsDismissed] = useState(false);
+
   const {
     emailVerificationStatus,
     canResendVerification,
@@ -20,14 +26,46 @@ const EmailVerificationBanner = () => {
     userData
   } = useSelector(state => state.user);
 
+  // Check if banner was dismissed recently
+  useEffect(() => {
+    const checkDismissed = async () => {
+      try {
+        const dismissedTime = await AsyncStorage.getItem(DISMISS_STORAGE_KEY);
+        if (dismissedTime) {
+          const elapsed = Date.now() - parseInt(dismissedTime);
+          if (elapsed < DISMISS_DURATION) {
+            setIsDismissed(true);
+          } else {
+            // Clear expired dismissal
+            await AsyncStorage.removeItem(DISMISS_STORAGE_KEY);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking dismiss status:', error);
+      }
+    };
+    checkDismissed();
+  }, []);
+
   useEffect(() => {
     if (userData) {
       dispatch(checkVerificationStatus());
     }
   }, [userData]);
 
-  // Don't show banner if user is verified or not authenticated
-  if (!userData || emailVerificationStatus === 'verified') {
+  // Handle dismiss - saves to AsyncStorage for 24 hours
+  const handleDismiss = async () => {
+    try {
+      await AsyncStorage.setItem(DISMISS_STORAGE_KEY, Date.now().toString());
+      setIsDismissed(true);
+    } catch (error) {
+      console.error('Error saving dismiss status:', error);
+      setIsDismissed(true); // Still dismiss locally even if storage fails
+    }
+  };
+
+  // Don't show banner if user is verified, not authenticated, or dismissed
+  if (!userData || emailVerificationStatus === 'verified' || isDismissed) {
     return null;
   }
 
@@ -115,10 +153,26 @@ const EmailVerificationBanner = () => {
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.1,
       shadowRadius: 2,
+      position: 'relative',
     }}>
+      {/* Dismiss button */}
+      <TouchableOpacity
+        onPress={handleDismiss}
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          padding: 4,
+          zIndex: 1,
+        }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="close" size={20} color={AppColors.textSecondary || '#666666'} />
+      </TouchableOpacity>
+
       <CustomText
         color={AppColors.text || '#333333'}
-        textStyles={{ fontFamily: 'Roboto-Medium' }}
+        textStyles={{ fontFamily: 'Roboto-Medium', paddingRight: width(6) }}
         size={2.0}
         textAlign="center"
       >

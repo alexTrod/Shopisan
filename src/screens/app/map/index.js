@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useContext, useMemo } from "react";
+import React, { useEffect, useState, useRef, useContext, useMemo, useCallback } from "react";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import { height, width } from "../../../utils/dimension";
@@ -18,11 +18,13 @@ import CustomText from "../../../components/text";
 import { StoreContext } from '../../../context/StoreContext';
 import { signOut } from "../../../Redux/Actions/UserActions";
 import { useTranslation } from "../../../utils/useTranslation";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
 import { setSelectedCategories } from '../../../Redux/Actions/CategoriesActions';
 import locationService from "../../../utils/locationService";
 import CustomMarker from "../../../components/customMarker";
+import Toast from 'react-native-toast-message';
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
@@ -55,15 +57,24 @@ export default function Map({ navigation, route  }) {
   const [suggestions, setSuggestions] = useState([]);
 
   // Get all necessary data from StoreContext
-  const { 
-    userLocation, 
-    customLocation, 
-    searchQuery, 
-    setSearchQuery, 
-    filteredStores, 
+  const {
+    userLocation,
+    customLocation,
+    searchQuery,
+    setSearchQuery,
+    filteredStores,
     allStores,
-    setHasRequestedStores 
+    setHasRequestedStores
   } = useContext(StoreContext);
+
+  // Debug: Log searchQuery and customLocation changes on Map
+  useEffect(() => {
+    console.log('[Map] searchQuery from context:', searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    console.log('[Map] customLocation from context:', customLocation);
+  }, [customLocation]);
   
   const [cameraCoordinates, setCameraCoordinates] = useState(
     initialStore
@@ -93,6 +104,8 @@ export default function Map({ navigation, route  }) {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const previousLocationRef = useRef(null);
+  const shouldIgnoreRegionChange = useRef(false);
+  const isExploring = useRef(false);
 
   const dispatch = useDispatch();
 
@@ -199,19 +212,28 @@ export default function Map({ navigation, route  }) {
   const fetchNearbyStores = async (latitude, longitude, useAllStores = false, maxRadius = SEARCH_RADIUS_KM) => {
     try {
       setLoading(true);
-      
-      // Use allStores when exploring (ignore category filters), otherwise use filteredStores
+
       const userLocation = { latitude, longitude };
-      const storesToUse = useAllStores || isExploring.current ? allStores : filteredStores;
-      
+      let storesToUse = useAllStores || isExploring.current ? allStores : filteredStores;
+
+      // Apply category filter (OR logic) even when using allStores
+      // This ensures map respects category selections from StoreContext
+      if (selectedCategories?.length > 0) {
+        const selectedCatStrings = selectedCategories.map(c => String(c));
+        storesToUse = storesToUse.filter(store =>
+          Array.isArray(store.category) &&
+          store.category.some(catId => selectedCatStrings.includes(String(catId)))
+        );
+      }
+
       // For map: Use strict radius filter (don't expand, don't return all stores if none found)
       // This ensures we show the modal when there are truly no stores nearby
       const nearbyStores = locationService.filterStoresByRadius(
-        storesToUse, 
-        userLocation, 
+        storesToUse,
+        userLocation,
         maxRadius
       );
-      
+
       setStores(nearbyStores);
       setSuggestions([]);
     } catch (error) {
@@ -230,17 +252,65 @@ export default function Map({ navigation, route  }) {
     }
   }, [allStores]);
 
-  // Refetch stores when category filters change
+  // Refetch stores when category filters change or filteredStores updates
   useEffect(() => {
     if (currentRegion && !isExploring.current && allStores.length > 0) {
       fetchNearbyStores(currentRegion.latitude, currentRegion.longitude);
     }
-  }, [selectedCategories]);
+  }, [selectedCategories, filteredStores]);
 
-  const shouldIgnoreRegionChange = useRef(false);
-  const isExploring = useRef(false);
+  // Sync camera to customLocation when Map tab becomes focused
+  // This ensures the map moves to the searched location when switching tabs
+  useFocusEffect(
+    useCallback(() => {
+      if (!customLocation?.latitude || !customLocation?.longitude) return;
 
-  // Debounce the "no stores" message/modal to prevent it from flashing during searches/movements
+      console.log('[Map] Tab focused, syncing to customLocation:', customLocation);
+
+      // Reset exploring mode
+      isExploring.current = false;
+
+      // Update state
+      setCameraCoordinates({
+        latitude: customLocation.latitude,
+        longitude: customLocation.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+        zoom: 12
+      });
+      setCurrentRegion({
+        latitude: customLocation.latitude,
+        longitude: customLocation.longitude,
+      });
+      setLastPosition({
+        latitude: customLocation.latitude,
+        longitude: customLocation.longitude,
+      });
+
+      // Animate camera with delay to ensure it's mounted
+      const animateToLocation = () => {
+        if (cameraRef.current) {
+          console.log('[Map] Animating camera to:', customLocation.latitude, customLocation.longitude);
+          cameraRef.current.setCamera({
+            centerCoordinate: [customLocation.longitude, customLocation.latitude],
+            zoomLevel: 12,
+            animationDuration: 500,
+          });
+        } else {
+          setTimeout(animateToLocation, 100);
+        }
+      };
+
+      // Small delay to ensure the map is ready
+      setTimeout(animateToLocation, 100);
+
+      // Fetch stores for this location
+      fetchNearbyStores(customLocation.latitude, customLocation.longitude, true);
+    }, [customLocation?.latitude, customLocation?.longitude])
+  );
+
+  // Debounce the "no stores" message to prevent it from flashing during searches/movements
+  // Now uses Toast for consistency with Home screen (replaces Modal)
   useEffect(() => {
     if (loading || initialStore) { // Don't show if we have an initial store
       setShowNoStoresMessage(false);
@@ -257,17 +327,14 @@ export default function Map({ navigation, route  }) {
     // Only show "no stores" after stores have been empty for 1.5 seconds
     const timer = setTimeout(() => {
       if (stores.length === 0 && !loading && !initialStore) {
-        // If no category filters, show modal. Otherwise show inline message.
-        if (!selectedCategories || selectedCategories.length === 0) {
-          setShowNoStoresModal(true);
-        } else {
-          setShowNoStoresMessage(true);
-        }
+        // Show inline message with action buttons (no toast - inline is enough)
+        setShowNoStoresMessage(true);
+        setShowNoStoresModal(false);
       }
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [stores.length, loading, initialStore, selectedCategories]);
+  }, [stores.length, loading, initialStore, selectedCategories, t]);
 
   const handleDirectLogout = () => {
       setLoggingOut(true);
@@ -502,33 +569,8 @@ export default function Map({ navigation, route  }) {
     }
   };
 
-  useEffect(() => {
-    const getSuggestions = async () => {
-      if (!searchQuery.trim()) {
-        setSuggestions([]);
-        return;
-      }
-
-      if (searchQuery.length === 0) {
-        setSuggestions([]);
-        return;
-      }
-  
-      const citySuggestions = await fetchCitySuggestions(searchQuery);
-      const storeSuggestions = await fetchStoreNameSuggestions(searchQuery);
-  
-      const formattedCities = citySuggestions.map(city => ({ label: city, type: "city" }));
-      const formattedStores = storeSuggestions.map(store => ({ label: store.name, id: store.id, location: store.location, type: "store" }));
-  
-      setSuggestions([...formattedCities, ...formattedStores]);
-    };
-  
-    const delayDebounce = setTimeout(() => {
-      getSuggestions();
-    }, 300);
-    
-    return () => clearTimeout(delayDebounce);
-  }, [searchQuery]);  
+  // Note: Suggestions are now handled internally by the SearchBar component
+  // The Map's local suggestions state is no longer used  
 
   const fetchCitySuggestions = async (query) => {
     if (!query.trim()) return [];
@@ -547,10 +589,13 @@ export default function Map({ navigation, route  }) {
   const handleMapCitySelect = async (cityName, coordinates) => {
     try {
       const { latitude, longitude } = coordinates;
-      
+
+      // Reset exploring mode - we're now at an explicit search location
+      isExploring.current = false;
+
       // Prevent region change from refetching during animation
       shouldIgnoreRegionChange.current = true;
-      
+
       setCameraCoordinates({
         latitude,
         longitude,
@@ -584,10 +629,13 @@ export default function Map({ navigation, route  }) {
     if (storeSuggestion.location) {
       try {
         const { latitude, longitude } = storeSuggestion.location;
-        
+
+        // Reset exploring mode - we're now at an explicit search location
+        isExploring.current = false;
+
         // Prevent region change from refetching during animation
         shouldIgnoreRegionChange.current = true;
-        
+
         setCameraCoordinates({
           latitude,
           longitude,
@@ -669,6 +717,8 @@ export default function Map({ navigation, route  }) {
   };  
 
 
+  const lastZoomRef = useRef(12);
+
   const onMapIdle = async () => {
     try {
       const center = await getCameraCenterFromBounds();
@@ -680,6 +730,16 @@ export default function Map({ navigation, route  }) {
 
       if (shouldIgnoreRegionChange.current) return;
 
+      // Get current zoom level to detect zoom changes vs pan
+      let currentZoomLevel = 12;
+      if (cameraRef.current && cameraRef.current.getZoom) {
+        try {
+          currentZoomLevel = await cameraRef.current.getZoom();
+        } catch (e) {
+          // Fallback if getZoom fails
+        }
+      }
+
       const previous = lastPosition || region;
       const distanceMoved = locationService.getDistanceInKm(
         previous.latitude,
@@ -688,11 +748,24 @@ export default function Map({ navigation, route  }) {
         region.longitude
       );
 
+      const zoomChanged = Math.abs(currentZoomLevel - lastZoomRef.current) > 0.5;
+      const zoomedOut = currentZoomLevel < lastZoomRef.current;
+      lastZoomRef.current = currentZoomLevel;
+
+      // Don't refetch stores when only zooming out - keep existing pins visible
+      // Only refetch when user pans significantly (not just zooms)
+      if (zoomedOut && distanceMoved < REFRESH_DISTANCE_KM * 2) {
+        // User zoomed out without significant pan - keep current stores
+        return;
+      }
+
       if (distanceMoved >= REFRESH_DISTANCE_KM) {
         setHasRequestedStores?.(true);
         setLastPosition({ latitude: region.latitude, longitude: region.longitude });
-        dispatch(setCustomLocation({ latitude: region.latitude, longitude: region.longitude }));
-        await fetchNearbyStores(region.latitude, region.longitude);
+        // Don't update customLocation when panning - only update it via explicit search
+        // This keeps the Stores tab synced with search bar, not with map pan
+        isExploring.current = true; // Mark as exploring so we use allStores
+        await fetchNearbyStores(region.latitude, region.longitude, true);
       }
     } catch (e) {
       console.warn('onMapIdle error:', e);
@@ -738,37 +811,7 @@ export default function Map({ navigation, route  }) {
 
   return (
     <ScreenWrapper backgroundColor={AppColors.white_100} statusBarColor={AppColors.white_100} barStyle="dark-content">
-      {!user && (
-        <TouchableOpacity
-          onPress={handleDirectLogout}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 20,
-            zIndex: 10000,
-            marginTop: 0,
-          }}
-        >
-          <CustomText
-            size={3}
-            color={AppColors.primary}
-            textDecorationLine="underline"
-            textStyles={{ fontFamily: "Roboto-Medium", fontWeight: "bold" }}
-          >
-            {t('sign_up')}
-          </CustomText>
-        </TouchableOpacity>
-      )}
-      <View style={styles.topBar}>
-        <SearchBar
-          placeholder={t('search_placeholder')}
-          onCitySelect={handleMapCitySelect}
-          onStoreSelect={handleMapStoreSelect}
-          onSearch={handleMapSearch}
-          allStores={allStores}
-          containerStyle={styles.searchBarContainer}
-        />
-      </View>
+      {/* Sign Up and Search bar moved to unified location in bottom-tab.js */}
 
       <View style={styles.container}>
         {cameraCoordinates ? (
@@ -838,7 +881,7 @@ export default function Map({ navigation, route  }) {
                       key={store.id}
                       store={{ ...store, latitude: lat, longitude: lng }}
                       selected={selectedStore?.id === store.id}
-                      showLabel={currentZoom > 12}
+                      showLabel={currentZoom > 13}
                       onPress={() => {
                         setSelectedStore(store);
                         setSelectedStoreDetails({
@@ -1046,12 +1089,12 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     position: "absolute",
-    top: -15,
-    left: 10,
-    right: 10,
+    top: 8,
+    left: 16,
+    right: 16,
     zIndex: 10,
     borderRadius: 10,
-    padding: 10,
+    paddingBottom: 12,
   },
   centerButton: {
     position: "absolute",

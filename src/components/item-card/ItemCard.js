@@ -265,27 +265,37 @@ const ItemCard = React.memo(({
 
             <View style={styles.tags}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {tags.map((tag, index) => (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={[
-                      styles.tag,
-                      selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTag
-                    ]}
-                    onPress={() => handleCategoryPress(tag)}
-                  >
-                    <Text
+                {/* Sort tags: selected categories first */}
+                {[...tags].sort((a, b) => {
+                  const aSelected = selectedCategories.includes(categories.find(cat => cat.name === a)?.id);
+                  const bSelected = selectedCategories.includes(categories.find(cat => cat.name === b)?.id);
+                  if (aSelected && !bSelected) return -1;
+                  if (!aSelected && bSelected) return 1;
+                  return 0;
+                }).map((tag, index) => {
+                  const isSelected = selectedCategories.includes(categories.find(cat => cat.name === tag)?.id);
+                  return (
+                    <TouchableOpacity
+                      key={index}
                       style={[
-                        styles.tagText,
-                        selectedCategories.includes(categories.find(cat => cat.name === tag)?.id) && styles.selectedTagText
+                        styles.tag,
+                        isSelected && styles.selectedTag
                       ]}
-                      allowFontScaling={true}
-                      numberOfLines={1}
+                      onPress={() => handleCategoryPress(tag)}
                     >
-                      {tag}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.tagText,
+                          isSelected && styles.selectedTagText
+                        ]}
+                        allowFontScaling={true}
+                        numberOfLines={1}
+                      >
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </View>
 
@@ -453,7 +463,8 @@ const styles = StyleSheet.create({
     borderColor: AppColors.primary,
   },
   selectedTag: {
-    borderColor: AppColors.primary_faded_dark,
+    backgroundColor: AppColors.primary,
+    borderColor: AppColors.primary,
     borderWidth: 2,
   },
   tagText: {
@@ -462,7 +473,8 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
   },
   selectedTagText: {
-    color: AppColors.primary,
+    color: AppColors.white,
+    fontWeight: 'bold',
   },
   description: {
     marginTop: 2,

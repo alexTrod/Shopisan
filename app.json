@@ -10,6 +10,24 @@
       "eas": {
         "projectId": "d9297f62-d439-4940-91a8-caca65d96a32"
       }
-    }
+    },
+    "ios": {
+      "bundleIdentifier": "com.lukini.Shopisan-v1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Shopisan needs your location to find nearby stores.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Shopisan needs your location to find nearby stores."
+      }
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Shopisan needs your location to find nearby stores."
+        }
+      ]
+    ]
   }
 }

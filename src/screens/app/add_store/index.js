@@ -35,6 +35,21 @@ MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2
 export default function AddStoreScreen({ navigation }) {
   const { t } = useTranslation();
   const user = useSelector((state) => state.user.userData);
+
+  // Auth check - only signed-up users can add stores
+  useEffect(() => {
+    if (!user) {
+      Alert.alert(
+        t('login_required') || 'Login Required',
+        t('login_required_add_store_message') || 'Please sign up or log in to add a store.',
+        [
+          { text: t('cancel') || 'Cancel', onPress: () => navigation.goBack() },
+          { text: t('sign_up') || 'Sign Up', onPress: () => navigation.navigate('Signup') }
+        ]
+      );
+    }
+  }, [user, navigation, t]);
+
   const [name, setName] = useState("");
   const [streetNumber, setStreetNumber] = useState("");
   const [street, setStreet] = useState("");
@@ -732,12 +747,33 @@ export default function AddStoreScreen({ navigation }) {
         />
 
         <Text style={styles.label}>{t('street')}</Text>
-        <TextInput
-          style={getInputStyle('street')}
-          placeholder={t('street')}
-          value={street}
-          onChangeText={setStreet}
-        />
+        <View style={{ position: 'relative', zIndex: 1000 }}>
+          <TextInput
+            style={getInputStyle('street')}
+            placeholder={t('street')}
+            value={street}
+            onChangeText={fetchAddressSuggestions}
+          />
+          {suggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                style={{ maxHeight: 200 }}
+                nestedScrollEnabled={true}
+              >
+                {suggestions.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.id || index}
+                    style={styles.suggestionItem}
+                    onPress={() => handleAddressSelect(item)}
+                  >
+                    <Text style={styles.suggestionText}>{item.place_name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
 
         <Text style={styles.label}>{t('city')}</Text>
         <TextInput
@@ -1326,6 +1362,22 @@ const styles = StyleSheet.create({
     top: 5,
     right: 5,
   },  
+  suggestionsContainer: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: AppColors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
   suggestionItem: {
     padding: 15,
     borderBottomWidth: 1,
