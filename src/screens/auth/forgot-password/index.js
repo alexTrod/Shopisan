@@ -15,8 +15,10 @@ import { height, width } from "../../../utils/dimension";
 import Button from "../../../components/button";
 import Toast from "react-native-toast-message";
 import ForgotPasswordForm from "./valdiation";
+import { useTranslation } from "../../../utils/useTranslation";
 
 export default function ForgotPassword({ navigation }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -43,19 +45,15 @@ export default function ForgotPassword({ navigation }) {
 
       Toast.show({
         type: "success",
-        text1: "Email Sent!",
-        text2: "Check your inbox for the password reset link.",
+        text1: t('email_sent') || "Email Sent!",
+        text2: t('password_reset_sent') || "Check your inbox for the password reset link.",
       });
 
-      Alert.alert(
-        "Password Reset Email Sent",
-        "A reset link has been sent to your email.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
+      navigation.goBack();
     } catch (error) {
       Toast.show({
         type: "error",
-        text1: "Error",
+        text1: t('error') || "Error",
         text2: error.message,
       });
     }

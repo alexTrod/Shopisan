@@ -33,7 +33,7 @@ function TabsWithSearch() {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const { allStores, setHasRequestedStores } = useContext(StoreContext);
-  const user = useSelector(state => state.user.user);
+  const user = useSelector(state => state.user.userData);
 
   // Handler for city selection from unified search
   const handleCitySelect = (cityName, coordinates) => {

@@ -112,6 +112,9 @@ export default {
         error: 'Error',
         success: 'Success',
         warning: 'Warning',
+        account_created_successfully: 'Account created successfully',
+        email_sent: 'Email sent!',
+        password_reset_sent: 'Password reset email sent',
         no_results: 'No results found',
         store_added_successfully: 'Store added successfully! Your store will be visible after validation.',
         store_validation_pending: 'Your store is pending validation and will be visible soon.',
@@ -131,9 +134,12 @@ export default {
         finding_location: 'Finding location...',
         loading_stores: 'Loading stores...',
         
-        // Welcome messages
-        welcome_message: 'Your city is still waiting for its stores on Shopisan',
-        welcome_description: 'Help us grow, add your favorite stores',
+        // Welcome messages / No stores popup
+        welcome_message: 'Your city is still waiting for its shops on Shopisan.',
+        welcome_description: 'Help us grow: add your favorite shops.',
+        city_waiting_for_shops: 'Your city is still waiting for its shops on Shopisan.',
+        help_us_grow: 'Help us grow: add your favorite shops.',
+        or_search_another_city: 'Or search for another city.',
         
         // Email verification banner
         email_verification_required_title: 'Email Verification Required',
@@ -149,9 +155,9 @@ export default {
         explore_another_city_question: 'No stores found within 10km. Would you like to explore another city?',
         explore_city_question: 'No stores found within 10km. Would you like to explore {city}?',
         store_saved_success: 'Store saved! We will verify it quickly. Thank you for growing Shopisan with us',
-        no_stores_in_area: 'No stores found in this area.',
-        no_stores_modal_description: 'There are no stores in your current location. You can add a store or explore a random city.',
-        add_store_or_explore: 'Add a store or explore a random city',
+        no_stores_in_area: 'Your city is still waiting for its shops on Shopisan.',
+        no_stores_modal_description: 'Help us grow: add your favorite shops.',
+        add_store_or_explore: 'Add your favorite shops',
         no_stores_available: 'No stores available at the moment.',
         explore_random_city: 'Explore a random city',
         no_stores_with_filters: 'No stores found with current filters. Try removing some category filters.',
@@ -271,6 +277,9 @@ export default {
         error: 'Erreur',
         success: 'Succès',
         warning: 'Avertissement',
+        account_created_successfully: 'Compte créé avec succès',
+        email_sent: 'Email envoyé !',
+        password_reset_sent: 'Email de réinitialisation envoyé',
         no_results: 'Aucun résultat trouvé',
         store_added_successfully: 'Magasin ajouté avec succès ! Votre magasin sera visible après validation.',
         store_validation_pending: 'Votre magasin est en cours de validation et sera bientôt visible.',
@@ -290,9 +299,12 @@ export default {
         finding_location: 'Recherche de localisation...',
         loading_stores: 'Chargement des magasins...',
         
-        // Welcome messages
-        welcome_message: 'Votre ville attend encore ses commerces sur Shopisan',
-        welcome_description: 'Aidez-nous à grandir, ajoutez vos commerces préférés',
+        // Welcome messages / No stores popup
+        welcome_message: 'Votre ville attend encore ses commerces sur Shopisan.',
+        welcome_description: 'Aidez-nous à grandir : ajoutez vos commerces préférés.',
+        city_waiting_for_shops: 'Votre ville attend encore ses commerces sur Shopisan.',
+        help_us_grow: 'Aidez-nous à grandir : ajoutez vos commerces préférés.',
+        or_search_another_city: 'Ou recherchez une autre ville.',
         
         // Email verification banner
         email_verification_required_title: 'Vérification de l\'email requise',
@@ -308,9 +320,9 @@ export default {
         explore_another_city_question: 'Aucun magasin trouvé dans un rayon de 10km. Souhaitez-vous explorer une autre ville ?',
         explore_city_question: 'Aucun magasin trouvé dans un rayon de 10km. Souhaitez-vous explorer {city} ?',
         store_saved_success: 'Boutique enregistrée ! Nous allons le vérifier rapidement. Merci de faire grandir Shopisan avec nous',
-        no_stores_in_area: 'Aucun magasin trouvé dans cette zone.',
-        no_stores_modal_description: 'Il n\'y a aucun magasin dans votre localisation actuelle. Vous pouvez ajouter un magasin ou explorer une ville aléatoire.',
-        add_store_or_explore: 'Ajouter un magasin ou explorer une ville aléatoire',
+        no_stores_in_area: 'Votre ville attend encore ses commerces sur Shopisan.',
+        no_stores_modal_description: 'Aidez-nous à grandir : ajoutez vos commerces préférés.',
+        add_store_or_explore: 'Ajoutez vos commerces préférés',
         no_stores_available: 'Aucun magasin disponible pour le moment.',
         explore_random_city: 'Explorer une ville aléatoire',
         no_stores_with_filters: 'Aucun magasin trouvé avec les filtres actuels. Essayez de supprimer certains filtres de catégorie.',

@@ -854,53 +854,56 @@ export default function HomeScreen({ navigation, route }) {
                 bounces={true}
               >
                 <View style={styles.noStoreContent}>
-                  <Text style={styles.noStoreIntegratedText}>
-                    {!hasRequestedStores ? t('welcome_message') : t('no_stores_found')}
-                  </Text>
-                  <Text style={styles.noStoreSubText}>
-                    {!hasRequestedStores 
-                      ? t('welcome_description') || 'Discover local stores and unique finds near you. Start by finding stores nearby or search for a specific location.'
-                      : selectedCategories && selectedCategories.length > 0
-                        ? t('no_stores_with_filters') || 'No stores found with current filters. Try removing some category filters.'
-                        : t('no_stores_description') || 'Try adjusting your search or location to find stores nearby.'
-                    }
-                  </Text>
-                  {selectedCategories && selectedCategories.length > 0 && hasRequestedStores && (
-                    <TouchableOpacity 
-                      onPress={() => dispatch(setSelectedCategories([]))}
-                      style={styles.clearFiltersButton}
-                    >
-                      <Text style={styles.clearFiltersButtonText}>
-                        {t('clear_filters') || 'Clear filters'}
+                  {selectedCategories && selectedCategories.length > 0 && hasRequestedStores ? (
+                    <>
+                      <Text style={styles.noStoreIntegratedText}>
+                        {t('no_stores_with_filters') || 'No stores found with current filters.'}
                       </Text>
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => dispatch(setSelectedCategories([]))}
+                        style={styles.clearFiltersButton}
+                      >
+                        <Text style={styles.clearFiltersButtonText}>
+                          {t('clear_filters') || 'Clear filters'}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.noStoreIntegratedText}>
+                        {t('city_waiting_for_shops') || t('welcome_message') || 'Your city is still waiting for its shops on Shopisan.'}
+                      </Text>
+                      <Text style={styles.noStoreSubText}>
+                        {t('help_us_grow') || t('welcome_description') || 'Help us grow: add your favorite shops.'}
+                      </Text>
+                      <View style={styles.welcomeButtonsContainer}>
+                        <TouchableOpacity
+                          onPress={handleNavigateAddStore}
+                          style={styles.addStoreButton}
+                        >
+                          <Ionicons name="add" size={20} color="#fff" />
+                          <Text style={styles.addStoreButtonText}>
+                            {t('add_store_or_explore') || 'Add your favorite shops'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={findClosestStore}
+                          style={[styles.expandSearchButton, loading && styles.nearbyButtonLoading]}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <ActivityIndicator size="small" color={AppColors.black} />
+                          ) : (
+                            <Ionicons name="search-outline" size={20} color={AppColors.black} />
+                          )}
+                          <Text style={styles.expandSearchButtonText}>
+                            {loading ? t('finding_location') : (t('or_search_another_city') || 'Or search for another city.')}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
                   )}
-                  <View style={styles.welcomeButtonsContainer}>
-                    <TouchableOpacity 
-                      onPress={findClosestStore} 
-                      style={[styles.expandSearchButton, loading && styles.nearbyButtonLoading]}
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <ActivityIndicator size="small" color={AppColors.black} />
-                      ) : (
-                        <Ionicons name="location-outline" size={20} color={AppColors.black} />
-                      )}
-                      <Text style={styles.expandSearchButtonText}>
-                        {loading ? t('finding_location') : t('expand_search_around_me')}
-                      </Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      onPress={handleNavigateAddStore} 
-                      style={styles.addStoreButton}
-                    >
-                      <Ionicons name="add" size={20} color="#fff" />
-                      <Text style={styles.addStoreButtonText}>
-                        {t('add_a_store')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
               </ScrollView>
             ) : (

@@ -20,11 +20,13 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import Toast from "react-native-toast-message";
 import i18n from "../../../translations/i18n";
 import { signUp, setNoAuthenticationWanted } from "../../../Redux/Actions/UserActions";
+import { useTranslation } from "../../../utils/useTranslation";
 
 export default function SignUp({ navigation }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const locale = useSelector(state => state.locale?.currentLocale) || 'en';
-  
+
   if (locale) {
     i18n.locale = locale;
   }
@@ -46,48 +48,25 @@ export default function SignUp({ navigation }) {
 
   const signupHandler = async (values) => {
     setLoading(true);
-    dispatch(signUp(values.email, values.username, values.password, userType));
-    setLoading(false);
-  };
-
-  const handleSignup = async (values) => {
-    setLoading(true);
     try {
-      const userRef = doc(firestore, "users", values.email.trim());
-      await setDoc(userRef, {
-        email: values.email,
-        username: values.username,
-        userType,
-        createdAt: serverTimestamp(),
-      });
-
-      if (userType === "merchant") {
-        const merchantRef = doc(firestore, "users", values.email.trim());
-        await setDoc(merchantRef, {
-          email: values.email,
-          stores: [],
-          status: "active",
-          createdAt: serverTimestamp(),
-        });
-        navigation.replace("MerchantHome");
-      } else {
-        navigation.replace("Home");
-      }
-
+      await dispatch(signUp(values.email, values.username, values.password, userType));
       Toast.show({
-        text1: "Success",
-        text2: "Account created successfully",
+        text1: t('success') || "Success",
+        text2: t('account_created_successfully') || "Account created successfully",
         type: "success",
       });
     } catch (error) {
       Toast.show({
-        text1: "Error",
+        text1: t('error') || "Error",
         text2: error.message,
         type: "error",
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  // handleSignup removed - using signupHandler which calls Redux signUp action
 
   const goToSignIn = () => {
     navigation.navigate(ScreenNames.SIGN_IN);

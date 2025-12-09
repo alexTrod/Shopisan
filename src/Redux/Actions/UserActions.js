@@ -6,12 +6,22 @@ import { pbkdf2 } from '@react-native-module/pbkdf2';
 import { Alert } from 'react-native';
 import { selectIsAuthenticated, selectUserData } from '../Selectors/UserSelectors';
 
+// Flag to prevent race condition during signup - when Firebase Auth creates a user,
+// onAuthStateChanged fires before the Firestore document is created
+let isSigningUp = false;
+
 export const checkAuthStatus = () => async (dispatch) => {
   try {
     dispatch({ type: 'AUTH_LOADING' });
-    
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Skip fetching user data if we're in the middle of signing up
+        // The signUp action will dispatch AUTH_SUCCESS with the user data
+        if (isSigningUp) {
+          logging(user.uid, 'skipping fetch - signup in progress');
+          return;
+        }
         logging(user.uid,'trying to fetch user data');
         fetchUserData(user.uid)(dispatch);
       } else {
@@ -114,6 +124,7 @@ export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
 export const signUp = (email, username, password, userType) => async (dispatch) => {
   try {
     dispatch({ type: 'AUTH_LOADING' });
+    isSigningUp = true; // Prevent onAuthStateChanged from fetching user data
 
     const safeEmail = email.trim().toLowerCase();
 
@@ -190,7 +201,10 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
       }
     });
 
+    isSigningUp = false; // Reset flag after successful signup
+
   } catch (error) {
+    isSigningUp = false; // Reset flag on error too
     logError('Shopper signup failed', error);
 
     let message = 'An error occurred during sign up.';

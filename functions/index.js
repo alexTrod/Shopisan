@@ -32,10 +32,10 @@ const shopperEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -46,15 +46,14 @@ const shopperEmailTemplate = {
     <div class="content">
       <p>Bonjour {{username}},</p>
       <p>Merci pour ton inscription ! Tu fais maintenant partie de la communauté Shopisan qui aide les commerces de proximité à gagner en visibilité.</p>
-      <p>On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli.</p>
-      <p>En attendant, n'hésite pas à en parler autour de toi et à ajouter tes commerces préférés sur Shopisan.</p>
+      <p>On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli. En attendant, n'hésite pas à en parler autour de toi et à ajouter tes commerces préférés sur Shopisan.</p>
       <p>À très vite,<br>L'équipe Shopisan</p>
     </div>
     <div class="footer">
       <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a>
+        <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{verificationUrl}}">Lien vers l'application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
-        <a href="{{verificationUrl}}" class="button">Accéder à l'application</a>
       </div>
     </div>
   </div>
@@ -75,10 +74,10 @@ const shopperEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -88,16 +87,15 @@ const shopperEmailTemplate = {
     </div>
     <div class="content">
       <p>Hello {{username}},</p>
-      <p>Thank you for your registration! You are now part of the Shopisan community that helps local businesses gain visibility.</p>
-      <p>We'll send you a message as soon as your favorite stores arrive on the app.</p>
-      <p>In the meantime, feel free to talk about it around you and add your favorite stores on Shopisan.</p>
-      <p>See you soon,<br>The Shopisan team</p>
+      <p>Thank you for signing up! You are now part of the Shopisan community that helps local businesses gain visibility.</p>
+      <p>We'll send you a message as soon as your favorite shops arrive on the app. In the meantime, feel free to spread the word and add your favorite shops on Shopisan.</p>
+      <p>See you soon,<br>The Shopisan Team</p>
     </div>
     <div class="footer">
       <div class="social-links">
-        <a href="{{appUrl}}">Website</a>
+        <a href="{{appUrl}}">Website</a> |
+        <a href="{{verificationUrl}}">Link to application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
-        <a href="{{verificationUrl}}" class="button">Access the app</a>
       </div>
     </div>
   </div>
@@ -121,10 +119,10 @@ const merchantEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -134,18 +132,16 @@ const merchantEmailTemplate = {
     </div>
     <div class="content">
       <p>Bonjour {{storeName}},</p>
-      <p>Merci pour votre inscription sur Shopisan !</p>
-      <p>Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
-      <p>Votre demande a bien été enregistrée et sera validée sous peu par notre équipe.</p>
-      <p>Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
+      <p>Merci pour votre inscription sur Shopisan ! Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
+      <p>Votre demande a bien été reçue et sera validée sous peu par notre équipe. Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
       <p>On vous tient au courant très vite par e-mail.</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
     </div>
     <div class="footer">
       <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a>
+        <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{verificationUrl}}">Lien vers l'application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
-        <a href="{{verificationUrl}}" class="button">Accéder à l'application</a>
       </div>
     </div>
   </div>
@@ -166,10 +162,10 @@ const merchantEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -179,18 +175,16 @@ const merchantEmailTemplate = {
     </div>
     <div class="content">
       <p>Hello {{storeName}},</p>
-      <p>Thank you for your registration on Shopisan!</p>
-      <p>We are delighted to welcome you to the community that highlights local businesses.</p>
-      <p>Your request has been registered and will be validated shortly by our team.</p>
-      <p>As soon as your registration is confirmed, you will be able to configure your account and start presenting your store to application users.</p>
-      <p>We'll keep you updated very soon by email.</p>
-      <p>See you soon,<br>The Shopisan team</p>
+      <p>Thank you for registering on Shopisan! We are delighted to welcome you to the community that highlights local businesses.</p>
+      <p>Your request has been successfully received and will be validated shortly by our team. As soon as your registration is confirmed, you will be able to set up your account and start presenting your shop to the app's users.</p>
+      <p>We will keep you updated by email very soon.</p>
+      <p>See you soon,<br>The Shopisan Team</p>
     </div>
     <div class="footer">
       <div class="social-links">
-        <a href="{{appUrl}}">Website</a>
+        <a href="{{appUrl}}">Website</a> |
+        <a href="{{verificationUrl}}">Link to application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
-        <a href="{{verificationUrl}}" class="button">Access the app</a>
       </div>
     </div>
   </div>
@@ -230,7 +224,7 @@ const adminNotificationTemplate = `
 // Store validation confirmation email templates
 const storeValidationEmailTemplate = {
   fr: {
-    subject: "Félicitations ! Votre boutique est maintenant validée 🎉",
+    subject: "Votre boutique est maintenant en ligne sur Shopisan !",
     template: `
 <!DOCTYPE html>
 <html>
@@ -242,35 +236,35 @@ const storeValidationEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+    .contact { margin-top: 20px; font-size: 13px; color: #666; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h2>Félicitations ! Votre boutique est maintenant validée 🎉</h2>
+      <h2>Votre boutique est maintenant en ligne sur Shopisan !</h2>
     </div>
     <div class="content">
       <p>Bonjour {{storeName}},</p>
-      <p>Excellente nouvelle ! Votre boutique "{{storeName}}" a été validée par notre équipe et est maintenant visible sur l'application Shopisan.</p>
-      <p>Vous pouvez dès maintenant :</p>
-      <ul>
-        <li>Gérer votre profil de boutique</li>
-        <li>Mettre à jour vos informations</li>
-        <li>Voir les statistiques de votre boutique</li>
-        <li>Recevoir les avis de vos clients</li>
-      </ul>
-      <p>Merci de faire partie de la communauté Shopisan !</p>
+      <p>C'est officiel : votre inscription sur Shopisan a été validée.</p>
+      <p>Votre boutique rejoint aujourd'hui la communauté qui met en avant les commerces de proximité. Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
+      <p style="text-align: center;">
+        <a href="{{appUrl}}" class="button">Accéder à mon compte</a>
+      </p>
+      <p>Bienvenue dans l'aventure Shopisan !</p>
+      <p>Nous sommes ravis de vous compter parmi nous !</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
+      <p class="contact">Notre équipe est à votre disposition à info@shopisan.com</p>
     </div>
     <div class="footer">
       <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a>
+        <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{appUrl}}">Lien vers l'application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
-        <a href="{{appUrl}}" class="button">Gérer ma boutique</a>
       </div>
     </div>
   </div>
@@ -279,7 +273,7 @@ const storeValidationEmailTemplate = {
     `
   },
   en: {
-    subject: "Congratulations! Your store is now validated 🎉",
+    subject: "Your store is now live on Shopisan!",
     template: `
 <!DOCTYPE html>
 <html>
@@ -291,35 +285,35 @@ const storeValidationEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #007BFF; text-decoration: none; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+    .contact { margin-top: 20px; font-size: 13px; color: #666; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h2>Congratulations! Your store is now validated 🎉</h2>
+      <h2>Your store is now live on Shopisan!</h2>
     </div>
     <div class="content">
       <p>Hello {{storeName}},</p>
-      <p>Great news! Your store "{{storeName}}" has been validated by our team and is now visible on the Shopisan app.</p>
-      <p>You can now:</p>
-      <ul>
-        <li>Manage your store profile</li>
-        <li>Update your information</li>
-        <li>View your store statistics</li>
-        <li>Receive customer reviews</li>
-      </ul>
-      <p>Thank you for being part of the Shopisan community!</p>
-      <p>See you soon,<br>The Shopisan team</p>
+      <p>It's official: your registration on Shopisan has been validated.</p>
+      <p>Your store is joining today the community that highlights local businesses. All that's left is for you to configure your account to present your products and welcome your first customers through the app.</p>
+      <p style="text-align: center;">
+        <a href="{{appUrl}}" class="button">Access my account</a>
+      </p>
+      <p>Welcome to the Shopisan adventure!</p>
+      <p>We are delighted to have you on board!</p>
+      <p>See you soon,<br>The Shopisan Team</p>
+      <p class="contact">Our team is at your disposal at info@shopisan.com</p>
     </div>
     <div class="footer">
       <div class="social-links">
-        <a href="{{appUrl}}">Website</a>
+        <a href="{{appUrl}}">Website</a> |
+        <a href="{{appUrl}}">Link to app</a> |
         <a href="{{instagramUrl}}">Instagram</a>
-        <a href="{{appUrl}}" class="button">Manage my store</a>
       </div>
     </div>
   </div>

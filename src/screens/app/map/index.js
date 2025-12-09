@@ -902,48 +902,44 @@ export default function Map({ navigation, route  }) {
 
             {showNoStoresMessage && (
               <View style={styles.noStoreContainer}>
-                <Text style={styles.noStoreText}>
-                  {selectedCategories && selectedCategories.length > 0
-                    ? t('no_stores_with_filters') || 'No stores found with current filters.'
-                    : t('no_stores_in_area') || 'No stores found in this area.'
-                  }
-                </Text>
-
                 {selectedCategories && selectedCategories.length > 0 ? (
-                  <TouchableOpacity 
-                    style={styles.clearFiltersButton}
-                    onPress={() => dispatch(setSelectedCategories([]))}
-                  >
-                    <Text style={styles.clearFiltersButtonText}>
-                      {t('clear_filters') || 'Clear filters'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
                   <>
-                    <TouchableOpacity 
-                      style={styles.expandButton}
-                      onPress={expandSearchAround}
+                    <Text style={styles.noStoreText}>
+                      {t('no_stores_with_filters') || 'No stores found with current filters.'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.clearFiltersButton}
+                      onPress={() => dispatch(setSelectedCategories([]))}
                     >
-                      <Text style={styles.expandButtonText}>
-                        {t('expand_search_around_me') || 'Expand search around me'}
+                      <Text style={styles.clearFiltersButtonText}>
+                        {t('clear_filters') || 'Clear filters'}
                       </Text>
                     </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.noStoreText}>
+                      {t('city_waiting_for_shops') || t('no_stores_in_area') || 'Your city is still waiting for its shops on Shopisan.'}
+                    </Text>
+                    <Text style={styles.noStoreSubtext}>
+                      {t('help_us_grow') || 'Help us grow: add your favorite shops.'}
+                    </Text>
 
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.addStoreButton}
                       onPress={() => navigation.navigate('AddStore')}
                     >
                       <Text style={styles.addStoreButtonText}>
-                        {t('add_a_store') || 'Add a store'}
+                        {t('add_store_or_explore') || 'Add your favorite shops'}
                       </Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.exploreButton}
                       onPress={exploreRandomCity}
                     >
                       <Text style={styles.exploreButtonText}>
-                        {t('explore_random_city') || 'Explore a random city'}
+                        {t('or_search_another_city') || 'Or search for another city.'}
                       </Text>
                     </TouchableOpacity>
                   </>
@@ -1126,9 +1122,17 @@ const styles = StyleSheet.create({
   
   noStoreText: {
     fontSize: 16,
-    fontWeight: "500",
-    color: "#444",
+    fontWeight: "600",
+    color: "#333",
     textAlign: "center",
+    marginBottom: 8,
+  },
+  noStoreSubtext: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 16,
   },
   closestStoreButtonText: {
     marginTop: 10,
