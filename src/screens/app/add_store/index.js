@@ -16,7 +16,7 @@ import {
   Platform
 } from "react-native";
 import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
-import { firestore, storage } from "../../../../firebaseconfig";
+import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
 import { width, height } from "../../../utils/dimension";
@@ -29,6 +29,7 @@ import { useTranslation } from "../../../utils/useTranslation";
 import * as Location from 'expo-location';
 import Toast from "react-native-toast-message";
 import { ensureCityExists } from "../../../utils/cityManagement";
+import OpeningHoursPicker from "../../../components/opening-hours-picker";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
@@ -73,130 +74,8 @@ export default function AddStoreScreen({ navigation }) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState(null);
   const [showMap, setShowMap] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [expandedDay, setExpandedDay] = useState(null);
-  const [groupedDays, setGroupedDays] = useState([]);
-
-  const timePresets = [
-    { label: "Fermé", type: "closed" },
-    { label: "9–12 / 14–19", type: "split", morning: { start: "9", end: "12" }, afternoon: { start: "14", end: "19" } },
-    { label: "10–19 (journée)", type: "day", start: "10", end: "19" },
-  ];
-
-  const isPeriodEmpty = (p) => !p || ((p.start ?? "") === "" && (p.end ?? "") === "");
-  const isClosed = (d) => {
-    const day = openingHours[d] || {};
-    return isPeriodEmpty(day.morning) && isPeriodEmpty(day.afternoon);
-  };
-  const isSplit = (d) => openingHours[d].morning && openingHours[d].afternoon;
-  const isDay = (d) => openingHours[d].morning && !openingHours[d].afternoon;
-
-  const clampHour = (v) => {
-    if (v === "" || v == null) return "";
-    const n = Math.max(0, Math.min(23, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
-    return String(n);
-  };
-
-  const clampMinute = (v) => {
-    if (v === "" || v == null) return "";
-    const n = Math.max(0, Math.min(59, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
-    return String(n);
-  };
-
-  // Helper function to parse time string (e.g., "9:30" or "9")
-  const parseTime = (timeStr) => {
-    if (!timeStr) return { hour: "", minute: "" };
-    const parts = timeStr.split(':');
-    return {
-      hour: parts[0] || "",
-      minute: parts[1] || "00"
-    };
-  };
-
-  // Helper function to format time string
-  const formatTime = (hour, minute) => {
-    if (!hour) return "";
-    const min = minute === "00" || !minute ? "" : `:${minute}`;
-    return `${hour}${min}`;
-  };
-
-  const setDayClosed = (day, closed) => {
-    setOpeningHours(prev => {
-      const next = { ...prev };
-      next[day] = closed
-        ? { morning: null, afternoon: null }
-        : { morning: { start: "9:00", end: "19:00" }, afternoon: null };
-      return next;
-    });
-  };
-
-  const normalizeDay = (dayObj = {}) => {
-    const norm = { ...dayObj };
-    if (isPeriodEmpty(norm.morning)) norm.morning = null;
-    if (isPeriodEmpty(norm.afternoon)) norm.afternoon = null;
-    return norm;
-  };
-
-  const setDayMode = (day, mode) => {
-    setOpeningHours(prev => {
-      const cur = normalizeDay(prev[day] || { morning: null, afternoon: null });
-      if (mode === "day") {
-        const start = cur.morning?.start ?? "9:00";
-        const end = (cur.afternoon?.end ?? cur.morning?.end) ?? "19:00";
-        return { ...prev, [day]: normalizeDay({ morning: { start, end }, afternoon: null }) };
-      } else {
-        const mStart = cur.morning?.start ?? "9:00";
-        const mEnd = "12:00";
-        return {
-          ...prev,
-          [day]: normalizeDay({
-            morning: { start: mStart, end: mEnd },
-            afternoon: { start: "14:00", end: cur.morning?.end ?? "19:00" },
-          }),
-        };
-      }
-    });
-  };
-
-  const setTime = (day, period, field, hour, minute = "00") => {
-    const timeValue = formatTime(hour, minute);
-    setOpeningHours(prev => {
-      const cur = prev[day] || { morning: null, afternoon: null };
-      const p = cur[period] ? { ...cur[period], [field]: timeValue } : { [field]: timeValue, ...(field === "start" ? { end: "" } : { start: "" }) };
-      const next = { ...prev, [day]: normalizeDay({ ...cur, [period]: p }) };
-      return next;
-    });
-  };
-
-  const applyPresetToAllDays = (preset) => {
-    const next = {};
-    days.forEach((d) => {
-      if (preset.type === "closed") {
-        next[d] = { morning: null, afternoon: null };
-      } else if (preset.type === "day") {
-        next[d] = { morning: { start: preset.start, end: preset.end }, afternoon: null };
-      } else {
-        next[d] = { morning: { ...preset.morning }, afternoon: { ...preset.afternoon } };
-      }
-    });
-    setOpeningHours(next);
-    setSelectedPreset(preset.label);
-  };
-
-  const copyMondayToWeekdays = () => {
-    setOpeningHours((prev) => {
-      const mon = prev.monday;
-      return {
-        ...prev,
-        tuesday: mon,
-        wednesday: mon,
-        thursday: mon,
-        friday: mon,
-      };
-    });
-  };
 
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
@@ -289,44 +168,7 @@ export default function AddStoreScreen({ navigation }) {
     friday: { morning: null, afternoon: null },
     saturday: { morning: null, afternoon: null },
     sunday: { morning: null, afternoon: null },
-  });  
-
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday"
-  ]; 
-  
-  const daysLabels = {
-    monday: "Lundi",
-    tuesday: "Mardi",
-    wednesday: "Mercredi",
-    thursday: "Jeudi",
-    friday: "Vendredi",
-    saturday: "Samedi",
-    sunday: "Dimanche"
-  };
-
-  const updateOpeningHour = (day, period, field, value) => {
-    if (field !== 'start' && field !== 'end') {
-      console.error('Champ non supporté:', field);
-      return;
-    }
-  
-    setOpeningHours(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [period]: prev[day][period]
-          ? { ...prev[day][period], [field]: value }
-          : { [field]: value }
-      }
-    }));
-  };      
+  });      
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -374,7 +216,6 @@ export default function AddStoreScreen({ navigation }) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiToken}`,
-        'Content-Type': 'multipart/form-data'
       },
       body: formData
     });
@@ -383,7 +224,7 @@ export default function AddStoreScreen({ navigation }) {
 
     if (!data.success) {
       console.error("Erreur Cloudflare:", data.errors);
-      throw new Error('Échec de l’upload vers Cloudflare');
+      throw new Error('Échec de l\'upload vers Cloudflare');
     }
 
     return data.result.variants[0];
@@ -433,7 +274,7 @@ export default function AddStoreScreen({ navigation }) {
 
   const handleAddStore = async () => {
     setHasAttemptedSubmit(true);
-    
+
     if (!validateAllFields()) {
       Alert.alert(t('error'), t('required_fields_error'));
       return;
@@ -450,10 +291,20 @@ export default function AddStoreScreen({ navigation }) {
     }
 
     let imageUrl = null;
-  
+
     try {
       if (selectedImage) {
-        imageUrl = await uploadImageToCloudflare(selectedImage.uri);
+        try {
+          imageUrl = await uploadImageToCloudflare(selectedImage.uri);
+        } catch (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          Toast.show({
+            text1: t('warning') || 'Warning',
+            text2: 'Image upload failed. Store will be created without image.',
+            type: 'info',
+          });
+          // Continue without image
+        }
       }
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
@@ -598,48 +449,9 @@ export default function AddStoreScreen({ navigation }) {
       }
     };
 
-  const updateGroupedDays = (hours) => {
-    const groups = [];
-    let currentGroup = { days: [], hours: null };
-
-    days.forEach((day, index) => {
-      const dayHours = JSON.stringify(hours[day]);
-      
-      if (currentGroup.hours === null) {
-        currentGroup = { days: [day], hours: dayHours };
-      } else if (currentGroup.hours === dayHours) {
-        currentGroup.days.push(day);
-      } else {
-        groups.push(currentGroup);
-        currentGroup = { days: [day], hours: dayHours };
-      }
-
-      if (index === days.length - 1) {
-        groups.push(currentGroup);
-      }
-    });
-
-    setGroupedDays(groups);
-  };
-
-  useEffect(() => {
-    updateGroupedDays(openingHours);
-  }, [openingHours]);
-
-  const copyToNextDay = (day) => {
-    const currentIndex = days.indexOf(day);
-    if (currentIndex < days.length - 1) {
-      const nextDay = days[currentIndex + 1];
-      setOpeningHours(prev => ({
-        ...prev,
-        [nextDay]: { ...prev[day] }
-      }));
-    }
-  };
-
   const formatHours = (hours) => {
     if (!hours.morning && !hours.afternoon) return "Fermé";
-    
+
     const formatTimeDisplay = (timeStr) => {
       if (!timeStr) return "";
       const parts = timeStr.split(':');
@@ -647,7 +459,7 @@ export default function AddStoreScreen({ navigation }) {
       const minute = parts[1];
       return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
     };
-    
+
     let result = "";
     if (hours.morning) {
       result += `${formatTimeDisplay(hours.morning.start)}-${formatTimeDisplay(hours.morning.end)}`;
@@ -897,231 +709,13 @@ export default function AddStoreScreen({ navigation }) {
           </View>
         )}
 
-        <Text style={styles.label}>{t('opening_hours')}</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          {timePresets.map((p) => (
-            <TouchableOpacity
-              key={p.label}
-              onPress={() => applyPresetToAllDays(p)}
-              style={[
-                { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: AppColors.primary },
-                selectedPreset === p.label
-                  ? { backgroundColor: AppColors.primary }
-                  : { backgroundColor: AppColors.white }
-              ]}
-            >
-              <Text style={{ color: selectedPreset === p.label ? AppColors.white : AppColors.primary, fontWeight: "600" }}>
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            onPress={copyMondayToWeekdays}
-            style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: AppColors.grey_200 }}
-          >
-            <Text style={{ color: AppColors.black }}>Copier Lundi → Ven</Text>
-          </TouchableOpacity>
-        </View>
-
-        {days.map((day) => {
-          const closed = isClosed(day);
-          const split = isSplit(day);
-          const dayMode = split ? "split" : isDay(day) ? "day" : "closed";
-
-          const m = openingHours[day].morning;
-          const a = openingHours[day].afternoon;
-
-          const mErr = m && m.start !== "" && m.end !== "" && parseInt(m.start, 10) >= parseInt(m.end, 10);
-          const aErr = a && a.start !== "" && a.end !== "" && parseInt(a.start, 10) >= parseInt(a.end, 10);
-          const overlapErr = m && a && m.end !== "" && a.start !== "" && parseInt(m.end, 10) > parseInt(a.start, 10);
-
-          return (
-            <View key={day} style={{ borderWidth: 1, borderColor: AppColors.grey_200, borderRadius: 8, padding: 12, marginBottom: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={{ fontSize: 14, fontWeight: "bold" }}>{daysLabels[day]}</Text>
-
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ fontSize: 12, color: AppColors.grey_200 }}>Fermé</Text>
-                  <TouchableOpacity
-                    onPress={() => setDayClosed(day, !closed)}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      borderColor: closed ? AppColors.primary : AppColors.grey_200,
-                      backgroundColor: closed ? AppColors.primary_faded : AppColors.white_100,
-                    }}
-                  >
-                    <Text style={{ color: closed ? AppColors.primary : AppColors.black, fontSize: 12 }}>{closed ? "Oui" : "Non"}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {!closed && (
-                <>
-                  <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-                    <TouchableOpacity
-                      onPress={() => setDayMode(day, "day")}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: dayMode === "day" ? AppColors.primary : AppColors.grey_200,
-                        backgroundColor: dayMode === "day" ? AppColors.primary_faded : AppColors.white_100,
-                      }}
-                    >
-                      <Text style={{ color: dayMode === "day" ? AppColors.primary : AppColors.black, fontSize: 12 }}>Journée</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => setDayMode(day, "split")}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: dayMode === "split" ? AppColors.primary : AppColors.grey_200,
-                        backgroundColor: dayMode === "split" ? AppColors.primary_faded : AppColors.white_100,
-                      }}
-                    >
-                      <Text style={{ color: dayMode === "split" ? AppColors.primary : AppColors.black, fontSize: 12 }}>Coupure midi</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={{ marginTop: 10, gap: 8 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={{ width: 70, fontSize: 12, color: AppColors.grey_200 }}>{split ? "Matin" : "Heures"}</Text>
-                      <View style={styles.timeInputContainer}>
-                        <TextInput
-                          style={[styles.timeInput, mErr && styles.timeInputError]}
-                          placeholder="09"
-                          value={parseTime(m?.start).hour}
-                          onChangeText={(t) => {
-                            const hour = clampHour(t);
-                            const minute = parseTime(m?.start).minute;
-                            setTime(day, "morning", "start", hour, minute);
-                          }}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                        <Text style={styles.timeSeparator}>h</Text>
-                        <TextInput
-                          style={[styles.timeInput, styles.minuteInput, mErr && styles.timeInputError]}
-                          placeholder="00"
-                          value={parseTime(m?.start).minute}
-                          onChangeText={(t) => {
-                            const minute = clampMinute(t);
-                            const hour = parseTime(m?.start).hour;
-                            setTime(day, "morning", "start", hour, minute);
-                          }}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                      </View>
-                      <Text style={styles.timeSeparator}>-</Text>
-                      <View style={styles.timeInputContainer}>
-                        <TextInput
-                          style={[styles.timeInput, mErr && styles.timeInputError]}
-                          placeholder={split ? "12" : "19"}
-                          value={parseTime(m?.end).hour}
-                          onChangeText={(t) => {
-                            const hour = clampHour(t);
-                            const minute = parseTime(m?.end).minute;
-                            setTime(day, "morning", "end", hour, minute);
-                          }}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                        <Text style={styles.timeSeparator}>h</Text>
-                        <TextInput
-                          style={[styles.timeInput, styles.minuteInput, mErr && styles.timeInputError]}
-                          placeholder="00"
-                          value={parseTime(m?.end).minute}
-                          onChangeText={(t) => {
-                            const minute = clampMinute(t);
-                            const hour = parseTime(m?.end).hour;
-                            setTime(day, "morning", "end", hour, minute);
-                          }}
-                          keyboardType="numeric"
-                          maxLength={2}
-                        />
-                      </View>
-                      {mErr && <Text style={[styles.timeInputErrorText, { marginLeft: 8 }]}>Fin &gt; Début</Text>}
-                    </View>
-
-                    {split && (
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
-                        <Text style={{ width: 70, fontSize: 12, color: AppColors.grey_200 }}>Après-midi</Text>
-                        <View style={styles.timeInputContainer}>
-                          <TextInput
-                            style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
-                            placeholder="14"
-                            value={parseTime(a?.start).hour}
-                            onChangeText={(t) => {
-                              const hour = clampHour(t);
-                              const minute = parseTime(a?.start).minute;
-                              setTime(day, "afternoon", "start", hour, minute);
-                            }}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                          <Text style={styles.timeSeparator}>h</Text>
-                          <TextInput
-                            style={[styles.timeInput, styles.minuteInput, (aErr || overlapErr) && styles.timeInputError]}
-                            placeholder="00"
-                            value={parseTime(a?.start).minute}
-                            onChangeText={(t) => {
-                              const minute = clampMinute(t);
-                              const hour = parseTime(a?.start).hour;
-                              setTime(day, "afternoon", "start", hour, minute);
-                            }}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                        </View>
-                        <Text style={styles.timeSeparator}>-</Text>
-                        <View style={styles.timeInputContainer}>
-                          <TextInput
-                            style={[styles.timeInput, (aErr || overlapErr) && styles.timeInputError]}
-                            placeholder="19"
-                            value={parseTime(a?.end).hour}
-                            onChangeText={(t) => {
-                              const hour = clampHour(t);
-                              const minute = parseTime(a?.end).minute;
-                              setTime(day, "afternoon", "end", hour, minute);
-                            }}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                          <Text style={styles.timeSeparator}>h</Text>
-                          <TextInput
-                            style={[styles.timeInput, styles.minuteInput, (aErr || overlapErr) && styles.timeInputError]}
-                            placeholder="00"
-                            value={parseTime(a?.end).minute}
-                            onChangeText={(t) => {
-                              const minute = clampMinute(t);
-                              const hour = parseTime(a?.end).hour;
-                              setTime(day, "afternoon", "end", hour, minute);
-                            }}
-                            keyboardType="numeric"
-                            maxLength={2}
-                          />
-                        </View>
-                        {(aErr || overlapErr) && (
-                          <Text style={[styles.timeInputErrorText, { marginLeft: 8 }]}>
-                            {aErr ? "Fin > Début" : "Chevauchement"}
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                </>
-              )}
-            </View>
-          );
-        })}
+        <OpeningHoursPicker
+          value={openingHours}
+          onChange={setOpeningHours}
+          locale={t('locale') === 'en' ? 'en' : 'fr'}
+          showPresets={true}
+          t={t}
+        />
 
         {!selectedImage ? (
           <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>

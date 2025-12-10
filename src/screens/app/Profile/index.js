@@ -184,15 +184,14 @@ export default function Profile({ navigation }) {
         </View>
 
         <TouchableOpacity
-          style={[styles.optionTile, { backgroundColor: AppColors.red }]}
+          style={styles.logoutButton}
           onPress={handleLogout}
+          activeOpacity={0.8}
         >
-          <View style={styles.optionContent}>
-            <CustomText size={3} color={AppColors.white} >
-              {user ? t('log_out') : t('go_to_signup')}
-            </CustomText>
-            <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
-          </View>
+          <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
+          <CustomText size={2} color={AppColors.white} style={{ marginLeft: 10, fontWeight: '600' }}>
+            {user ? t('log_out') : t('go_to_signup')}
+          </CustomText>
         </TouchableOpacity>
       </ScrollView>
     </ScreenWrapper>
@@ -263,5 +262,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 3,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: AppColors.primary,
+    marginTop: 20,
+    marginBottom: 40,
+    shadowColor: AppColors.primary,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

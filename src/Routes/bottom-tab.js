@@ -71,10 +71,9 @@ function TabsWithSearch() {
         {!user && (
           <TouchableOpacity onPress={handleSignUp} style={styles.signUpButton}>
             <CustomText
-              size={3}
-              color={AppColors.primary}
-              textDecorationLine="underline"
-              textStyles={{ fontFamily: "Roboto-Medium", fontWeight: "bold" }}
+              size={1.8}
+              color={AppColors.white}
+              textStyles={{ fontWeight: "600" }}
             >
               {t('sign_up')}
             </CustomText>
@@ -166,7 +165,10 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white,
   },
   signUpButton: {
-    paddingVertical: height(0.5),
+    backgroundColor: AppColors.primary,
+    paddingVertical: height(1),
+    paddingHorizontal: width(4),
+    borderRadius: 20,
   },
   searchContainer: {
     paddingHorizontal: width(4),
