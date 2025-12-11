@@ -5,17 +5,31 @@ const handlebars = require('handlebars');
 
 admin.initializeApp();
 
-// Gmail configuration with Nodemailer
+// Namecheap Private Email SMTP configuration
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'mail.privateemail.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: 'alex.n.feldman@gmail.com',
-    pass: 'vvas iqzc htor hmli' // NOT your regular password!
+    user: 'info@shopisan.com',
+    pass: 'xW4MFyjIMCA0eo'
   }
 });
 
-const ADMIN_EMAIL = functions.config().admin?.email || 'alexandra.fd1000@gmail.com';
-const SENDER_EMAIL = functions.config().email?.sender || 'alex.n.feldman@gmail.com';
+// Support email transporter (for receiving feedback)
+const supportTransporter = nodemailer.createTransport({
+  host: 'mail.privateemail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: 'support@shopisan.com',
+    pass: 'oAn797mV0teNo7'
+  }
+});
+
+const ADMIN_EMAIL = 'info@shopisan.com';
+const SENDER_EMAIL = 'info@shopisan.com';
+const SUPPORT_EMAIL = 'support@shopisan.com';
 
 // Email templates for different user types
 const shopperEmailTemplate = {
@@ -323,11 +337,109 @@ const storeValidationEmailTemplate = {
   }
 };
 
+// Store creation notification template (for admin)
+const storeCreationAdminTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>New Store Registration</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .container { max-width: 500px; margin: 0 auto; padding: 24px; }
+    .header { background-color: #6B2D5C; color: white; padding: 16px; border-radius: 8px 8px 0 0; }
+    .content { background-color: #fff; padding: 16px; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .footer { margin-top: 24px; font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>New Store Pending Validation</h2>
+    </div>
+    <div class="content">
+      <p><strong>Store Name:</strong> {{storeName}}</p>
+      <p><strong>City:</strong> {{city}}</p>
+      <p><strong>Email:</strong> {{email}}</p>
+      <p><strong>Categories:</strong> {{categories}}</p>
+      <p><strong>Date:</strong> {{registrationDate}}</p>
+    </div>
+    <div class="footer">
+      <p>Please validate this store in the admin dashboard</p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+// Function to send store creation notification (called when a new store is added)
+exports.sendStoreCreationEmail = functions.https.onCall(async (data, context) => {
+  try {
+    const { storeName, storeEmail, city, categories, language = 'fr' } = data;
+
+    if (!storeName || !storeEmail) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+    }
+
+    const lang = language === 'en' ? 'en' : 'fr';
+
+    // Send confirmation to merchant
+    const emailTemplate = merchantEmailTemplate[lang];
+    const subject = emailTemplate.subject;
+
+    const template = handlebars.compile(emailTemplate.template);
+    const htmlContent = template({
+      storeName,
+      username: storeName,
+      appUrl: 'https://shopisan-bad76.web.app',
+      verificationUrl: 'https://shopisan-bad76.web.app',
+      instagramUrl: 'https://instagram.com/shopisanapp'
+    });
+
+    // Send to merchant
+    const merchantMailOptions = {
+      from: `"Shopisan" <${SENDER_EMAIL}>`,
+      to: storeEmail,
+      subject: subject,
+      html: htmlContent
+    };
+
+    await transporter.sendMail(merchantMailOptions);
+    console.log('Store creation email sent to merchant:', storeEmail);
+
+    // Send notification to admin
+    const adminTemplate = handlebars.compile(storeCreationAdminTemplate);
+    const adminHtmlContent = adminTemplate({
+      storeName,
+      city: city || 'Not specified',
+      email: storeEmail,
+      categories: Array.isArray(categories) ? categories.join(', ') : (categories || 'Not specified'),
+      registrationDate: new Date().toLocaleDateString()
+    });
+
+    const adminMailOptions = {
+      from: `"Shopisan System" <${SENDER_EMAIL}>`,
+      to: ADMIN_EMAIL,
+      subject: `New Store Registration: ${storeName}`,
+      html: adminHtmlContent
+    };
+
+    await transporter.sendMail(adminMailOptions);
+    console.log('Store creation notification sent to admin');
+
+    return { success: true, message: 'Store creation emails sent successfully' };
+
+  } catch (error) {
+    console.error('Error sending store creation email:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send store creation email');
+  }
+});
+
 // Function to send verification email
 exports.sendVerificationEmail = functions.https.onCall(async (data, context) => {
   try {
     const { email, username, token, userType, language = 'fr', storeName } = data;
-    
+
     if (!email || !username || !token || !userType) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
     }
@@ -381,7 +493,7 @@ exports.sendVerificationEmail = functions.https.onCall(async (data, context) => 
 exports.sendAdminNotification = functions.https.onCall(async (data, context) => {
   try {
     const { email, username, userType } = data;
-    
+
     if (!email || !username || !userType) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
     }
@@ -418,7 +530,7 @@ exports.sendAdminNotification = functions.https.onCall(async (data, context) => 
 exports.verifyEmail = functions.https.onCall(async (data, context) => {
   try {
     const { token } = data;
-    
+
     if (!token) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing verification token');
     }
@@ -499,8 +611,8 @@ exports.expireVerificationTokens = functions.pubsub.schedule('every 24 hours').o
 // Function to resend verification email
 exports.resendVerificationEmail = functions.https.onCall(async (data, context) => {
   try {
-    const { email, username, userType } = data;
-    
+    const { email, username, userType, language = 'fr', storeName } = data;
+
     if (!email || !username || !userType) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
     }
@@ -526,10 +638,10 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
 
     // Send new verification email
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${newToken}`;
-    
+
     // Select template based on user type and language
     let emailTemplate, subject;
-    const lang = language === 'en' ? 'en' : 'fr'; // Default to French
+    const lang = language === 'en' ? 'en' : 'fr';
     
     if (userType === 'merchant') {
       emailTemplate = merchantEmailTemplate[lang];
@@ -642,10 +754,10 @@ exports.sendFeedback = functions.https.onRequest(async (req, res) => {
       date: new Date().toLocaleString()
     });
 
-    // Send feedback email to info@shopisan.com
+    // Send feedback email to support@shopisan.com
     const mailOptions = {
       from: `"Shopisan App" <${SENDER_EMAIL}>`,
-      to: 'info@shopisan.com',
+      to: SUPPORT_EMAIL,
       subject: `Shopisan Feedback: ${type}`,
       html: htmlContent
     };
@@ -677,7 +789,6 @@ exports.onStoreValidated = functions.firestore
         // Get store owner information
         const storeEmail = after.storeEmail || after.email;
         const storeName = after.name;
-        const merchantId = after.merchantId;
 
         if (!storeEmail) {
           console.error('No email found for store:', storeId);

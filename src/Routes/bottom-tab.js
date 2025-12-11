@@ -37,8 +37,9 @@ function TabsWithSearch() {
   const user = useSelector(state => state.user.userData);
   const emailVerificationStatus = useSelector(state => state.user.emailVerificationStatus);
 
-  // Show badge if user is logged in and email is not verified
-  const showVerificationBadge = user && emailVerificationStatus !== 'verified';
+  // Show badge only when verification is explicitly needed (pending or expired)
+  const needsVerification = emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired';
+  const showVerificationBadge = user && needsVerification;
 
   // Handler for city selection from unified search
   const handleCitySelect = (cityName, coordinates) => {

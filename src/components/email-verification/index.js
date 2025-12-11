@@ -18,6 +18,7 @@ const EmailVerificationBanner = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const locale = useSelector(state => state.locale?.currentLocale) || 'en';
 
   const {
     emailVerificationStatus,
@@ -64,8 +65,11 @@ const EmailVerificationBanner = () => {
     }
   };
 
-  // Don't show banner if user is verified, not authenticated, or dismissed
-  if (!userData || emailVerificationStatus === 'verified' || isDismissed) {
+  // Don't show banner until we explicitly know verification is needed
+  // This prevents the banner from flashing during initial load
+  const needsVerification = emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired';
+
+  if (!userData || !needsVerification || isDismissed) {
     return null;
   }
 
@@ -84,7 +88,8 @@ const EmailVerificationBanner = () => {
       await dispatch(resendVerificationEmail(
         userData.email,
         userData.username,
-        userData.userType
+        userData.userType,
+        locale
       ));
       
       Alert.alert(t('success'), t('email_verification_instruction'), [{ text: t('ok') }]);

@@ -121,7 +121,7 @@ export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
   }
 };
 
-export const signUp = (email, username, password, userType) => async (dispatch) => {
+export const signUp = (email, username, password, userType, language = 'fr') => async (dispatch) => {
   try {
     dispatch({ type: 'AUTH_LOADING' });
     isSigningUp = true; // Prevent onAuthStateChanged from fetching user data
@@ -162,8 +162,8 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
 
     // Send verification email
     try {
-      await sendVerificationEmail(safeEmail, username, verificationToken, userType);
-      
+      await sendVerificationEmail(safeEmail, username, verificationToken, userType, language);
+
       // Send admin notification
       await sendAdminNotification(safeEmail, username, userType);
       
@@ -225,11 +225,11 @@ export const signUp = (email, username, password, userType) => async (dispatch) 
 };
 
 // New email verification actions
-export const resendVerificationEmail = (email, username, userType) => async (dispatch) => {
+export const resendVerificationEmail = (email, username, userType, language = 'fr') => async (dispatch) => {
   try {
     const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const verificationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    
+
     // Update user document with new token
     const userRef = doc(firestore, 'users', auth.currentUser.uid);
     await updateDoc(userRef, {
@@ -239,7 +239,7 @@ export const resendVerificationEmail = (email, username, userType) => async (dis
     });
 
     // Send new verification email
-    await sendVerificationEmail(email, username, verificationToken, userType);
+    await sendVerificationEmail(email, username, verificationToken, userType, language);
     
     dispatch({
       type: 'SET_EMAIL_VERIFICATION_STATUS',
@@ -475,19 +475,20 @@ export const setCountries = (countries) => (dispatch) => {
 };
 
 // Helper functions for sending emails
-const sendVerificationEmail = async (email, username, token, userType) => {
+const sendVerificationEmail = async (email, username, token, userType, language = 'fr') => {
   try {
     const { getFunctions, httpsCallable } = await import('firebase/functions');
     const functions = getFunctions();
-    
+
     const sendVerificationEmailFunction = httpsCallable(functions, 'sendVerificationEmail');
     const result = await sendVerificationEmailFunction({
       email,
       username,
       token,
-      userType
+      userType,
+      language
     });
-    
+
     console.log('Verification email sent successfully:', result.data);
     return result.data;
   } catch (error) {

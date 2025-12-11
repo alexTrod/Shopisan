@@ -13,10 +13,12 @@ import {
   DeviceEventEmitter,
   Keyboard,
   BackHandler,
-  Platform
+  Platform,
+  ActivityIndicator
 } from "react-native";
-import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
-import { firestore } from "../../../../firebaseconfig";
+import { collection, addDoc, getDocs, doc, getDoc, query as firestoreQuery, orderBy, limit } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { firestore, functions } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
 import { width, height } from "../../../utils/dimension";
@@ -74,6 +76,7 @@ export default function AddStoreScreen({ navigation }) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [isAddingStore, setIsAddingStore] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
@@ -201,7 +204,7 @@ export default function AddStoreScreen({ navigation }) {
 
   const uploadImageToCloudflare = async (uri) => {
     const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
-    const apiToken = 'o44MNleTjEPJpsfbegB9ocnlFA1DJh0ZUlrxIrNI';
+    const apiToken = 'mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K';
 
     const fileName = `photo_${Date.now()}.jpg`;
 
@@ -290,6 +293,7 @@ export default function AddStoreScreen({ navigation }) {
       Keyboard.dismiss();
     }
 
+    setIsAddingStore(true);
     let imageUrl = null;
 
     try {
@@ -298,12 +302,12 @@ export default function AddStoreScreen({ navigation }) {
           imageUrl = await uploadImageToCloudflare(selectedImage.uri);
         } catch (uploadError) {
           console.error('Image upload failed:', uploadError);
-          Toast.show({
-            text1: t('warning') || 'Warning',
-            text2: 'Image upload failed. Store will be created without image.',
-            type: 'info',
-          });
-          // Continue without image
+          setIsAddingStore(false);
+          Alert.alert(
+            t('error') || 'Error',
+            t('image_upload_failed') || 'Image upload failed. Please try again or remove the image.'
+          );
+          return; // Stop - don't create store without image
         }
       }
 
@@ -316,6 +320,7 @@ export default function AddStoreScreen({ navigation }) {
       const data = await response.json();
 
       if (data.status !== "OK" || data.results.length === 0) {
+        setIsAddingStore(false);
         Alert.alert("Erreur", "Impossible de trouver l'adresse. Vérifiez les informations.");
         return;
       }
@@ -327,15 +332,16 @@ export default function AddStoreScreen({ navigation }) {
       const ownerId = user ? await getOwnerId(user.id) || null : null;
 
       const storesRef = collection(firestore, "stores");
-      const storesSnapshot = await getDocs(storesRef);
+
+      // Only fetch the store with highest ID instead of all stores
+      const maxIdQuery = firestoreQuery(storesRef, orderBy('id', 'desc'), limit(1));
+      const maxIdSnapshot = await getDocs(maxIdQuery);
 
       let maxId = 0;
-      storesSnapshot.forEach((doc) => {
-        const storeData = doc.data();
-        if (storeData.id && typeof storeData.id === "number" && storeData.id > maxId) {
-          maxId = storeData.id;
-        }
-      });
+      if (!maxIdSnapshot.empty) {
+        const topStore = maxIdSnapshot.docs[0].data();
+        maxId = topStore.id || 0;
+      }
 
       const newStoreId = maxId + 1;
 
@@ -381,18 +387,35 @@ export default function AddStoreScreen({ navigation }) {
 
       await addDoc(storesRef, storeData);
 
-      // Ensure city exists in the cities collection
-      try {
-        const cityResult = await ensureCityExists(city, postalCode, latitude, longitude, "FR");
-        if (cityResult.success) {
-          console.log(cityResult.message);
-        } else {
-          console.warn('City creation/update had issues:', cityResult.error);
-        }
-      } catch (cityError) {
-        console.error('Error ensuring city exists:', cityError);
-        // Continue even if city creation fails - store is already created
+      // Fire-and-forget: send store creation notification emails
+      const emailToUse = storeEmail || user?.email;
+      if (emailToUse) {
+        const sendStoreCreationEmail = httpsCallable(functions, 'sendStoreCreationEmail');
+        sendStoreCreationEmail({
+          storeName: name,
+          storeEmail: emailToUse,
+          city: city,
+          categories: selectedCategories,
+          language: t('locale') === 'fr' ? 'fr' : 'en'
+        }).then(() => {
+          console.log('Store creation emails sent successfully');
+        }).catch(emailError => {
+          console.error('Error sending store creation emails:', emailError);
+        });
       }
+
+      // Fire-and-forget: update city in background (don't block UI)
+      ensureCityExists(city, postalCode, latitude, longitude, "FR")
+        .then(cityResult => {
+          if (cityResult.success) {
+            console.log(cityResult.message);
+          } else {
+            console.warn('City creation/update had issues:', cityResult.error);
+          }
+        })
+        .catch(cityError => {
+          console.error('Error ensuring city exists:', cityError);
+        });
 
       DeviceEventEmitter.emit('stores:refresh');
       dispatch(setSelectedCategories([]));
@@ -406,6 +429,7 @@ export default function AddStoreScreen({ navigation }) {
       navigation.goBack();
     } catch (error) {
       console.error("Erreur lors de l'ajout du magasin :", error);
+      setIsAddingStore(false);
       Alert.alert("Erreur", "Impossible d'ajouter le magasin");
     }
   };  
@@ -731,9 +755,19 @@ export default function AddStoreScreen({ navigation }) {
           </View>
         )}
 
-        <TouchableOpacity style={styles.addButton} onPress={handleAddStore}>
-          <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.addButtonText}>{t('add_store')}</Text>
+        <TouchableOpacity
+          style={[styles.addButton, isAddingStore && styles.addButtonDisabled]}
+          onPress={handleAddStore}
+          disabled={isAddingStore}
+        >
+          {isAddingStore ? (
+            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+          ) : (
+            <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+          )}
+          <Text style={styles.addButtonText}>
+            {isAddingStore ? (t('adding_store') || 'Adding...') : t('add_store')}
+          </Text>
         </TouchableOpacity>
 
         <Modal animationType="slide" transparent={true} visible={modalVisible}>
@@ -845,6 +879,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     flexDirection: "row",
     justifyContent: "center",
+  },
+  addButtonDisabled: {
+    opacity: 0.7,
   },
   addButtonText: {
     color: "#fff",

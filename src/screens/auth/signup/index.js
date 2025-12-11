@@ -49,7 +49,7 @@ export default function SignUp({ navigation }) {
   const signupHandler = async (values) => {
     setLoading(true);
     try {
-      await dispatch(signUp(values.email, values.username, values.password, userType));
+      await dispatch(signUp(values.email, values.username, values.password, userType, locale));
       Toast.show({
         text1: t('success') || "Success",
         text2: t('account_created_successfully') || "Account created successfully",
