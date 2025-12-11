@@ -3,7 +3,7 @@ import { View, Image, StyleSheet, BackHandler, Text } from 'react-native';
 import { useDispatch, useSelector, Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useFonts } from 'expo-font';
+// Removed expo-font - Roboto is a system font on iOS
 import { store } from './src/Redux/index';
 import { checkAuthStatus } from './src/Redux/Actions/UserActions';
 import BottomTabs from './src/Routes/bottom-tab';
@@ -65,19 +65,7 @@ const App = () => {
   const [i18nReady, setI18nReady] = useState(false);
   const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
 
-  // Load custom fonts
-  const [fontsLoaded, fontError] = useFonts({
-    'Roboto-Regular': require('./assets/fonts/Roboto-Regular.ttf'),
-    'Roboto-Medium': require('./assets/fonts/Roboto-Medium.ttf'),
-  });
-
-  // Debug font loading
-  useEffect(() => {
-    if (fontError) {
-      console.error('Font loading error:', fontError);
-    }
-    console.log('Font loading status:', { fontsLoaded, fontError: fontError?.message });
-  }, [fontsLoaded, fontError]);
+  // Note: Roboto fonts are used as system fonts on iOS (no custom loading needed)
 
   useEffect(() => {
     // Check if i18n is ready
@@ -148,13 +136,17 @@ const App = () => {
   }, [currentRoute]);
 
   // Debug: log which condition is blocking
-  console.log('App render check:', { loading, i18nReady, fontsLoaded, fontError: !!fontError });
+  console.log('App render check:', { loading, i18nReady });
 
-  // Skip font loading check - use system fonts as fallback
+  // Show logo while loading for seamless experience
   if (loading || !i18nReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <Text style={{ fontSize: 18, color: '#333' }}>Loading...</Text>
+      <View style={styles.splashContainer}>
+        <Image
+          source={require('./assets/LogoIcon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
     );
   }

@@ -24,7 +24,7 @@ import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
 import { setSelectedCategories } from '../../../Redux/Actions/CategoriesActions';
 import SearchBar from '../../../components/search-bar';
 import { useTranslation } from '../../../utils/useTranslation';
-import EmailVerificationBanner from "../../../components/email-verification";
+// EmailVerificationBanner moved to Profile page only
 import locationService from '../../../utils/locationService';
 import Toast from 'react-native-toast-message';
 
@@ -811,23 +811,15 @@ export default function HomeScreen({ navigation, route }) {
         {/* Sign Up and Search bar moved to unified location in bottom-tab.js */}
 
         <View style={styles.container}>
-
-          {/* Email Verification Banner */}
-          <EmailVerificationBanner />
-
           {/* Category filter handled by SearchBar component */}
 
           <View style={styles.categoryChipRow}>
             <CategoryFilter />
           </View>
 
-          {/* Filters */}
-          <View style={styles.filtersRow}>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionsRow}>
-            {user?.userType === 'merchant' && (
+          {/* Action Buttons - only show for merchants */}
+          {user?.userType === 'merchant' && (
+            <View style={styles.actionsRow}>
               <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
                 <MaterialIcons
                   name={showMyStoresOnly ? "store" : "storefront"}
@@ -836,8 +828,8 @@ export default function HomeScreen({ navigation, route }) {
                 />
                 <Text style={styles.switchText}>{showMyStoresOnly ? t('my_stores') : t('all_categories')}</Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* Store List, Loading, or No Store Message */}
           <View style={styles.contentContainer}>
@@ -1003,11 +995,11 @@ const styles = {
   },
   categoryChipRow: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingTop: 4,
+    paddingBottom: 4,
     zIndex: 1000,
     position: 'relative',
-    marginBottom: 8,
+    marginBottom: 0,
   },
   filtersRow: {
     flexDirection: "row",

@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import ShopUnfilled from "../../assets/icons/shop-unfilled";
 import { height, width } from "../utils/dimension";
 import PinFilled from "../../assets/icons/pin-filled";
@@ -34,6 +35,10 @@ function TabsWithSearch() {
   const navigation = useNavigation();
   const { allStores, setHasRequestedStores } = useContext(StoreContext);
   const user = useSelector(state => state.user.userData);
+  const emailVerificationStatus = useSelector(state => state.user.emailVerificationStatus);
+
+  // Show badge if user is logged in and email is not verified
+  const showVerificationBadge = user && emailVerificationStatus !== 'verified';
 
   // Handler for city selection from unified search
   const handleCitySelect = (cityName, coordinates) => {
@@ -111,11 +116,20 @@ function TabsWithSearch() {
                 return <PinUnfilled height={height(3)} width={height(3)} />;
               }
             } else if (route.name === ScreenNames.PROFILE) {
-              if (focused) {
-                return <ProfileFilled height={height(3)} width={height(3)} />;
-              } else {
-                return <ProfileUnfilled height={height(3)} width={height(3)} />;
-              }
+              return (
+                <View style={{ position: 'relative' }}>
+                  {focused ? (
+                    <ProfileFilled height={height(3)} width={height(3)} />
+                  ) : (
+                    <ProfileUnfilled height={height(3)} width={height(3)} />
+                  )}
+                  {showVerificationBadge && (
+                    <View style={styles.notificationBadge}>
+                      <Ionicons name="alert" size={10} color={AppColors.white} />
+                    </View>
+                  )}
+                </View>
+              );
             }
           },
           tabBarActiveTintColor: AppColors.primary,
@@ -178,6 +192,19 @@ const styles = StyleSheet.create({
   },
   searchBarWrapper: {
     marginBottom: 0,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    backgroundColor: AppColors.error || '#FF3B30',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: AppColors.white,
   },
 });
 
