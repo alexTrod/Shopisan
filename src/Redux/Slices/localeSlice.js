@@ -2,10 +2,17 @@ import { createSlice } from '@reduxjs/toolkit';
 import * as Localization from 'expo-localization';
 import i18n from 'i18n-js';
 
+// Normalize device locale to 'en' or 'fr' (default to 'en')
+const getInitialLocale = () => {
+  const deviceLocale = Localization.locale || 'en';
+  // Check if device is set to French (fr, fr-FR, fr-CA, etc.)
+  return deviceLocale.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+};
+
 const localeSlice = createSlice({
   name: 'locale',
   initialState: {
-    currentLocale: Localization.locale,
+    currentLocale: getInitialLocale(),
     isRTL: Localization.isRTL,
   },
   reducers: {

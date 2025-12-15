@@ -135,34 +135,17 @@ export default function Profile({ navigation }) {
             {t('feedback')}
           </CustomText>
           <View style={{ height: 20 }} />
-          {[
-            { titleKey: "report_issue", screen: "ReportIssueScreen" },
-            { titleKey: "suggest_idea", screen: "SuggestIdeaScreen" },
-          ].map((option) => (
-            <TouchableOpacity
-              key={option.titleKey}
-              style={styles.optionTile}
-              onPress={() => handlePress(option.screen)}
-            >
-              <View style={styles.optionContent}>
-                <CustomText size={1.8} color={AppColors.black}>
-                  {t(option.titleKey)}
-                </CustomText>
-                <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
-              </View>
-            </TouchableOpacity>
-          ))}
 
-          {/* Contact Support Email */}
+          {/* Contact Support */}
           <TouchableOpacity
             style={styles.optionTile}
-            onPress={() => Linking.openURL('mailto:support@shopisan.com')}
+            onPress={() => handlePress("ContactSupportScreen")}
           >
             <View style={styles.optionContent}>
               <CustomText size={1.8} color={AppColors.black}>
                 {t('contact_support')}
               </CustomText>
-              <Ionicons name="mail-outline" size={20} color={AppColors.grey_300} />
+              <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
             </View>
           </TouchableOpacity>
 

@@ -1,14 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
 import { parseTime } from './utils';
 import { AppColors } from '../../utils';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
+const ITEM_HEIGHT = 44; // paddingVertical (10) * 2 + fontSize approximate height + marginVertical (2) * 2
 
 export default function TimePicker({ value, onChange, label }) {
   const [showPicker, setShowPicker] = useState(false);
   const { hour, minute } = parseTime(value);
+  const hoursScrollRef = useRef(null);
+  const minutesScrollRef = useRef(null);
+
+  // Scroll to selected values when picker opens
+  useEffect(() => {
+    if (showPicker) {
+      setTimeout(() => {
+        if (hoursScrollRef.current) {
+          const hourOffset = hour * ITEM_HEIGHT;
+          hoursScrollRef.current.scrollTo({ y: hourOffset, animated: false });
+        }
+        if (minutesScrollRef.current) {
+          const minuteIndex = MINUTES.indexOf(minute);
+          const minuteOffset = minuteIndex >= 0 ? minuteIndex * ITEM_HEIGHT : 0;
+          minutesScrollRef.current.scrollTo({ y: minuteOffset, animated: false });
+        }
+      }, 100);
+    }
+  }, [showPicker, hour, minute]);
 
   const displayTime = minute === 0 ? `${hour}h` : `${hour}h${String(minute).padStart(2, '0')}`;
 
@@ -51,6 +71,7 @@ export default function TimePicker({ value, onChange, label }) {
               <View style={styles.column}>
                 <Text style={styles.columnLabel}>Hour</Text>
                 <ScrollView
+                  ref={hoursScrollRef}
                   style={styles.scrollView}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.scrollContent}
@@ -81,6 +102,7 @@ export default function TimePicker({ value, onChange, label }) {
               <View style={styles.column}>
                 <Text style={styles.columnLabel}>Min</Text>
                 <ScrollView
+                  ref={minutesScrollRef}
                   style={styles.scrollView}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.scrollContent}

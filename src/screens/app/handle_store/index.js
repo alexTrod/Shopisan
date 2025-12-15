@@ -429,10 +429,12 @@ export default function HandleStoreScreen({ route, navigation }) {
       console.log('handling image picker');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
       });
       console.log('picker result', result);
-  
+
       if (!result?.canceled) {
         if (result?.assets?.length > 0) {
           setSelectedImage(result.assets[0]);

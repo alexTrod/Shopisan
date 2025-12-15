@@ -438,7 +438,7 @@ exports.sendStoreCreationEmail = functions.https.onCall(async (data, context) =>
 // Function to send verification email
 exports.sendVerificationEmail = functions.https.onCall(async (data, context) => {
   try {
-    const { email, username, token, userType, language = 'fr', storeName } = data;
+    const { email, username, token, userType, language = 'en', storeName } = data;
 
     if (!email || !username || !token || !userType) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
@@ -446,10 +446,11 @@ exports.sendVerificationEmail = functions.https.onCall(async (data, context) => 
 
     // Create verification URL - using Firebase Hosting
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
-    
+
     // Select template based on user type and language
+    // Handle full locale strings like 'en-US', 'fr-FR', etc.
     let emailTemplate, subject;
-    const lang = language === 'en' ? 'en' : 'fr'; // Default to French
+    const lang = (language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
     
     if (userType === 'merchant') {
       emailTemplate = merchantEmailTemplate[lang];
@@ -611,7 +612,7 @@ exports.expireVerificationTokens = functions.pubsub.schedule('every 24 hours').o
 // Function to resend verification email
 exports.resendVerificationEmail = functions.https.onCall(async (data, context) => {
   try {
-    const { email, username, userType, language = 'fr', storeName } = data;
+    const { email, username, userType, language = 'en', storeName } = data;
 
     if (!email || !username || !userType) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
@@ -640,8 +641,9 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${newToken}`;
 
     // Select template based on user type and language
+    // Handle full locale strings like 'en-US', 'fr-FR', etc.
     let emailTemplate, subject;
-    const lang = language === 'en' ? 'en' : 'fr';
+    const lang = (language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
     
     if (userType === 'merchant') {
       emailTemplate = merchantEmailTemplate[lang];

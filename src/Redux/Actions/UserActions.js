@@ -121,7 +121,7 @@ export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
   }
 };
 
-export const signUp = (email, username, password, userType, language = 'fr') => async (dispatch) => {
+export const signUp = (email, username, password, userType, language = 'en') => async (dispatch) => {
   try {
     dispatch({ type: 'AUTH_LOADING' });
     isSigningUp = true; // Prevent onAuthStateChanged from fetching user data
@@ -225,7 +225,7 @@ export const signUp = (email, username, password, userType, language = 'fr') => 
 };
 
 // New email verification actions
-export const resendVerificationEmail = (email, username, userType, language = 'fr') => async (dispatch) => {
+export const resendVerificationEmail = (email, username, userType, language = 'en') => async (dispatch) => {
   try {
     const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const verificationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);

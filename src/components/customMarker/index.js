@@ -2,26 +2,33 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
 import { Ionicons } from "@expo/vector-icons";
+import { AppColors } from "../../utils";
 
 export default function CustomMarker({ store, selected, onPress, showLabel }) {
+  // Truncate long names to prevent clutter
+  const displayName = store.name?.length > 15
+    ? store.name.substring(0, 13) + '...'
+    : store.name;
+
   return (
     <MapboxGL.PointAnnotation
-      key={`${store.id}-${selected ? 'selected' : 'unselected'}-${showLabel ? 'label' : 'nolabel'}`}
+      key={`${store.id}-${showLabel ? 'label' : 'nolabel'}`}
       id={store.id.toString()}
       coordinate={[store.longitude, store.latitude]}
       onSelected={onPress}
     >
       <TouchableOpacity activeOpacity={0.8}>
         <View style={styles.annotationContainer}>
-          {showLabel &&
-            <Text style={styles.labelText}>{store.name}</Text>
-          }
-
           <Ionicons
             name="location-sharp"
-            size={30}
-            color={selected ? "blue" : "red"}
+            size={selected ? 36 : 30}
+            color={selected ? AppColors.primary : "#E53935"}
           />
+          {showLabel && (
+            <Text style={styles.labelText} numberOfLines={1}>
+              {displayName}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     </MapboxGL.PointAnnotation>
@@ -34,12 +41,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   labelText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "black",
-    backgroundColor: "white",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    textShadowColor: 'white',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+    maxWidth: 80,
   },
 });

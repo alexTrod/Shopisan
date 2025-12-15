@@ -719,6 +719,20 @@ export default function Map({ navigation, route  }) {
 
   const lastZoomRef = useRef(12);
 
+  // Handle camera changes to track zoom level in real-time
+  const onCameraChanged = (state) => {
+    if (state?.properties?.zoom !== undefined) {
+      const newZoom = state.properties.zoom;
+      // Only update state if zoom crossed the threshold to avoid unnecessary renders
+      const wasAboveThreshold = currentZoom > 14;
+      const isAboveThreshold = newZoom > 14;
+      if (wasAboveThreshold !== isAboveThreshold) {
+        setCurrentZoom(newZoom);
+      }
+      lastZoomRef.current = newZoom;
+    }
+  };
+
   const onMapIdle = async () => {
     try {
       const center = await getCameraCenterFromBounds();
@@ -730,15 +744,11 @@ export default function Map({ navigation, route  }) {
 
       if (shouldIgnoreRegionChange.current) return;
 
-      // Get current zoom level to detect zoom changes vs pan
-      let currentZoomLevel = 12;
-      if (cameraRef.current && cameraRef.current.getZoom) {
-        try {
-          currentZoomLevel = await cameraRef.current.getZoom();
-        } catch (e) {
-          // Fallback if getZoom fails
-        }
-      }
+      // Get current zoom level from lastZoomRef (updated by onCameraChanged)
+      const currentZoomLevel = lastZoomRef.current;
+
+      // Update zoom state for label visibility (in case onCameraChanged missed it)
+      setCurrentZoom(currentZoomLevel);
 
       const previous = lastPosition || region;
       const distanceMoved = locationService.getDistanceInKm(
@@ -750,7 +760,6 @@ export default function Map({ navigation, route  }) {
 
       const zoomChanged = Math.abs(currentZoomLevel - lastZoomRef.current) > 0.5;
       const zoomedOut = currentZoomLevel < lastZoomRef.current;
-      lastZoomRef.current = currentZoomLevel;
 
       // Don't refetch stores when only zooming out - keep existing pins visible
       // Only refetch when user pans significantly (not just zooms)
@@ -835,6 +844,7 @@ export default function Map({ navigation, route  }) {
               attributionEnabled={false}
               compassEnabled={true}
               onMapIdle={onMapIdle}
+              onCameraChanged={onCameraChanged}
             >
               <MapboxGL.Camera
                 ref={cameraRef}
@@ -881,7 +891,7 @@ export default function Map({ navigation, route  }) {
                       key={store.id}
                       store={{ ...store, latitude: lat, longitude: lng }}
                       selected={selectedStore?.id === store.id}
-                      showLabel={currentZoom > 13}
+                      showLabel={currentZoom > 14}
                       onPress={() => {
                         setSelectedStore(store);
                         setSelectedStoreDetails({

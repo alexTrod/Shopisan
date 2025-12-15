@@ -80,6 +80,26 @@ export default function AddStoreScreen({ navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
+  const [userProximity, setUserProximity] = useState(null);
+
+  // Get user's location for search proximity on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({});
+          setUserProximity({
+            longitude: location.coords.longitude,
+            latitude: location.coords.latitude
+          });
+        }
+      } catch (error) {
+        console.log('Could not get location for proximity:', error);
+      }
+    })();
+  }, []);
+
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
     setStreet(text);
@@ -88,11 +108,24 @@ export default function AddStoreScreen({ navigation }) {
       return;
     }
     setLoadingSuggestions(true);
-  
+
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
-  
+
+    // Use user's location if available, otherwise default to Paris center
+    const proximity = userProximity
+      ? `${userProximity.longitude},${userProximity.latitude}`
+      : '2.3522,48.8566'; // Paris coordinates
+
     try {
-      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${mapboxToken}&autocomplete=true&limit=10&country=fr,gr,gb,es,be,it`);
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
+        `access_token=${mapboxToken}` +
+        `&autocomplete=true` +
+        `&limit=10` +
+        `&country=fr,gr,gb,es,be,it` +
+        `&proximity=${proximity}` +
+        `&types=address,poi,place,locality,neighborhood`
+      );
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
@@ -436,12 +469,13 @@ export default function AddStoreScreen({ navigation }) {
 
   const handlePickImage = async () => {
     try {
-      // Keep it as compatible and simple as possible; don't block on permission
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // backward-compatible enum
-        quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
       });
-  
+
       if (!result?.canceled) {
         if (result?.assets?.length > 0) {
           setSelectedImage(result.assets[0]);

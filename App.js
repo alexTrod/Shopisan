@@ -22,6 +22,7 @@ import RecoverPasswordScreen from './src/screens/app/Profile/recover-password/';
 import RecoverAccountScreen from './src/screens/app/Profile/recover-account/';
 import ReportIssueScreen from './src/screens/app/Profile/report-issue';
 import SuggestIdeaScreen from './src/screens/app/Profile/suggest-idea';
+import ContactSupportScreen from './src/screens/app/Profile/contact-support';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from './src/utils/useTranslation';
 //import LanguageSelectionScreen from './src/screens/app/language-selection';
@@ -176,6 +177,7 @@ const App = () => {
             <Stack.Screen name="AddStoreScreen" component={AddStore} />
             <Stack.Screen name="ReportIssueScreen" component={ReportIssueScreen} />
             <Stack.Screen name="SuggestIdeaScreen" component={SuggestIdeaScreen} />
+            <Stack.Screen name="ContactSupportScreen" component={ContactSupportScreen} />
           </>
         ) : (
           <>

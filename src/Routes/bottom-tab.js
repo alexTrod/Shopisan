@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,6 +36,7 @@ function TabsWithSearch() {
   const { allStores, setHasRequestedStores } = useContext(StoreContext);
   const user = useSelector(state => state.user.userData);
   const emailVerificationStatus = useSelector(state => state.user.emailVerificationStatus);
+  const [currentTab, setCurrentTab] = useState(ScreenNames.HOME);
 
   // Show badge only when verification is explicitly needed (pending or expired)
   const needsVerification = emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired';
@@ -87,20 +88,28 @@ function TabsWithSearch() {
         )}
       </View>
 
-      {/* Unified Search Bar */}
-      <View style={styles.searchContainer}>
-        <SearchBar
-          placeholder={t('search_placeholder')}
-          onCitySelect={handleCitySelect}
-          onStoreSelect={handleStoreSelect}
-          allStores={allStores}
-          containerStyle={styles.searchBarWrapper}
-        />
-      </View>
+      {/* Unified Search Bar - only show on Home and Map tabs */}
+      {currentTab !== ScreenNames.PROFILE && (
+        <View style={styles.searchContainer}>
+          <SearchBar
+            placeholder={t('search_placeholder')}
+            onCitySelect={handleCitySelect}
+            onStoreSelect={handleStoreSelect}
+            allStores={allStores}
+            containerStyle={styles.searchBarWrapper}
+          />
+        </View>
+      )}
 
       {/* Tab Navigator */}
       <Tab.Navigator
         initialRouteName={ScreenNames.HOME}
+        screenListeners={{
+          state: (e) => {
+            const routeName = e.data.state.routes[e.data.state.index].name;
+            setCurrentTab(routeName);
+          },
+        }}
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
