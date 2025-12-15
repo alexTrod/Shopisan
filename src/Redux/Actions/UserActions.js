@@ -14,7 +14,7 @@ export const checkAuthStatus = () => async (dispatch) => {
   try {
     dispatch({ type: 'AUTH_LOADING' });
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
         // Skip fetching user data if we're in the middle of signing up
         // The signUp action will dispatch AUTH_SUCCESS with the user data
@@ -23,7 +23,12 @@ export const checkAuthStatus = () => async (dispatch) => {
           return;
         }
         logging(user.uid,'trying to fetch user data');
-        fetchUserData(user.uid)(dispatch);
+        try {
+          await fetchUserData(user.uid)(dispatch);
+        } catch (error) {
+          // Silently handle deleted users on app startup - they'll see login screen
+          logging('Auto-login failed, user will see login screen');
+        }
       } else {
         dispatch({ type: 'AUTH_FAILURE', payload: "Not logged in" });
       }
@@ -141,6 +146,7 @@ export const signUp = (email, username, password, userType, language = 'en') => 
       id: new_id,
       email: safeEmail,
       username,
+      language, // Store user's language preference
       date_of_birth: null,
       is_active: false, // Changed to false until email verification
       is_admin: false,
@@ -395,7 +401,11 @@ const fetchUserData = (uid) => async (dispatch) => {
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
-      throw new Error('User not found');
+      // User document was deleted - sign out and go to login
+      logging('User document not found, signing out');
+      await firebaseSignOut(auth);
+      dispatch({ type: 'SIGN_OUT' });
+      throw new Error('Account not found');
     }
 
     const userData = userDoc.data();
@@ -416,8 +426,12 @@ const fetchUserData = (uid) => async (dispatch) => {
     }
 
   } catch (error) {
-    logError('Fetch user data failed', error);
+    // Don't show error toast for deleted users - this is expected
+    if (error.message !== 'Account not found') {
+      logError('Fetch user data failed', error);
+    }
     dispatch({ type: 'SIGN_UP_ERROR', payload: error.message });
+    throw error; // Re-throw so signin handler can catch it and show Alert
   }
 };
 
@@ -462,8 +476,15 @@ const fetchUserDataByLoginIdentifier = (loginIdentifier, password) => async (dis
 
   } catch (error) {
     logError('Fetch user data by login identifier failed', error);
-    dispatch({ type: 'AUTH_FAILURE', payload: error.message });
-    throw error; 
+    // Convert technical errors to user-friendly messages
+    let userFriendlyMessage = error.message;
+    if (error.message === 'User not found') {
+      userFriendlyMessage = 'Account not found. Please check your email or create a new account.';
+    } else if (error.message === 'Invalid password') {
+      userFriendlyMessage = 'Incorrect password. Please try again.';
+    }
+    dispatch({ type: 'AUTH_FAILURE', payload: userFriendlyMessage });
+    throw error;
   }
 };
 

@@ -14,6 +14,8 @@ import { ScreenNames } from "../../../Routes/routes";
 import EmailVerificationBanner from "../../../components/email-verification";
 import { setLocale } from "../../../Redux/Slices/localeSlice";
 import LanguageSelector from "../../../components/language-selector";
+import { doc, updateDoc } from "firebase/firestore";
+import { firestore, auth } from "../../../../firebaseconfig";
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
   const user = useSelector(state => state.user.userData);
@@ -29,8 +31,18 @@ export default function Profile({ navigation }) {
     dispatch(signOut());
   };
 
-  const handleLanguageChange = (selectedValue) => {
+  const handleLanguageChange = async (selectedValue) => {
     dispatch(setLocale(selectedValue));
+
+    // Update language in user's Firestore profile
+    if (auth.currentUser) {
+      try {
+        const userRef = doc(firestore, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, { language: selectedValue });
+      } catch (error) {
+        console.warn('Failed to update language in profile:', error);
+      }
+    }
   };
 
   return (

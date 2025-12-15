@@ -34,13 +34,14 @@ const ItemCard = React.memo(({
   tags,
   description,
   image,
-  address, 
+  address,
   id,
   isFavorite,
   onPressFavorite,
   owner_id,
   onPress,
-  openingHours
+  openingHours,
+  is_validated
 }) => {
 
   const { t, locale } = useTranslation();
@@ -231,14 +232,26 @@ const ItemCard = React.memo(({
                 </View>
               </View>
             )}
-            <Text 
-              style={[styles.title, !image && styles.titleNoImage]} 
-              numberOfLines={2}
-              allowFontScaling={true}
-              adjustsFontSizeToFit={false}
-            >
-              {title}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text
+                style={[styles.title, !image && styles.titleNoImage, isOwner && styles.titleWithIcon]}
+                numberOfLines={2}
+                allowFontScaling={true}
+                adjustsFontSizeToFit={false}
+              >
+                {title}
+                {isOwner && (
+                  <Text>
+                    {"  "}
+                    <Ionicons
+                      name={is_validated ? "checkmark-circle" : "time-outline"}
+                      size={16}
+                      color={is_validated ? AppColors.primary : "#f59e0b"}
+                    />
+                  </Text>
+                )}
+              </Text>
+            </View>
 
             <View style={styles.rating}>
               <View style={styles.starsContainer}>
@@ -403,6 +416,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     position: 'relative',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  titleWithIcon: {
+    paddingRight: 80, // Less padding when icon is inline
   },
   title: {
     fontSize: height(2),

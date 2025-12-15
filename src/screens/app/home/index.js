@@ -483,7 +483,8 @@ export default function HomeScreen({ navigation, route }) {
           console.warn("Pas de coordonnées GPS valides pour cet item :", item);
         }
       }}  
-      openingHours={item.openingHours || null}         
+      openingHours={item.openingHours || null}
+      is_validated={item.is_validated}
     />
   ), [getCategoriesNamesByIds, locale, handleToggleFavorite, navigation]);   
 

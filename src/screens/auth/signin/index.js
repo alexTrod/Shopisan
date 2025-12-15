@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Image, Switch, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Switch, TouchableOpacity, View } from "react-native";
 import { useForm } from "react-hook-form";
 import { signIn, setNoAuthenticationWanted } from "../../../Redux/Actions/UserActions";
 import SignInFormValidation from "./validation";
@@ -20,7 +20,6 @@ import i18n from "../../../translations/i18n";
 
 export default function SignIn({ navigation }) {
   const [loading, setLoading] = useState(false);
-  const errorMessage = useSelector(state => state.user.signInError);
   const locale = useSelector(state => state.locale.currentLocale);
   const dispatch = useDispatch();
 
@@ -41,7 +40,11 @@ export default function SignIn({ navigation }) {
       await dispatch(signIn(values.loginIdentifier, values.password));
       // Navigation is handled by the auth state change in App.js
     } catch (error) {
-      console.error("Erreur lors de la connexion :", error);
+      Alert.alert(
+        "Login Failed",
+        "Incorrect email or password. Please try again.",
+        [{ text: "OK" }]
+      );
     } finally {
       setLoading(false);
     }
@@ -79,22 +82,6 @@ export default function SignIn({ navigation }) {
             </View>
           </View>
 
-          {errorMessage && (
-            <View style={{
-              backgroundColor: "#FFE8E8",
-              padding: 10,
-              marginVertical: 10,
-              borderRadius: 5,
-              width: "90%",
-              alignSelf: "center",
-              borderWidth: 1,
-              borderColor: AppColors.red,
-            }}>
-              <CustomText color={AppColors.red_100_full} size={1.6}>
-                {errorMessage}
-              </CustomText>
-            </View>
-          )}
 
           <Spacer vertical={height(2)} />
 
@@ -118,7 +105,7 @@ export default function SignIn({ navigation }) {
             textFieldContainer={{
               width: "100%",
               backgroundColor: AppColors.white,
-              borderColor: errors.loginIdentifier || errorMessage ? AppColors.red : AppColors.secondary,
+              borderColor: errors.loginIdentifier ? AppColors.red : AppColors.secondary,
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
@@ -143,7 +130,7 @@ export default function SignIn({ navigation }) {
             textFieldContainer={{
               width: "100%",
               backgroundColor: AppColors.white,
-              borderColor: errors.password || errorMessage ? AppColors.red : AppColors.secondary,
+              borderColor: errors.password ? AppColors.red : AppColors.secondary,
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}

@@ -12,7 +12,7 @@ export default function CustomMarker({ store, selected, onPress, showLabel }) {
 
   return (
     <MapboxGL.PointAnnotation
-      key={`${store.id}-${showLabel ? 'label' : 'nolabel'}`}
+      key={`${store.id}-${selected ? 'selected' : 'default'}-${showLabel ? 'label' : 'nolabel'}`}
       id={store.id.toString()}
       coordinate={[store.longitude, store.latitude]}
       onSelected={onPress}

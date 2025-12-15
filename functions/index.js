@@ -381,7 +381,8 @@ exports.sendStoreCreationEmail = functions.https.onCall(async (data, context) =>
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
     }
 
-    const lang = language === 'en' ? 'en' : 'fr';
+    // Handle locale strings like 'en-US', 'fr-FR', etc. Default to French
+    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
 
     // Send confirmation to merchant
     const emailTemplate = merchantEmailTemplate[lang];
@@ -435,7 +436,7 @@ exports.sendStoreCreationEmail = functions.https.onCall(async (data, context) =>
   }
 });
 
-// Function to send verification email
+// Function to send verification email (same email for all account types - shopper or merchant)
 exports.sendVerificationEmail = functions.https.onCall(async (data, context) => {
   try {
     const { email, username, token, userType, language = 'en', storeName } = data;
@@ -447,23 +448,15 @@ exports.sendVerificationEmail = functions.https.onCall(async (data, context) => 
     // Create verification URL - using Firebase Hosting
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
 
-    // Select template based on user type and language
-    // Handle full locale strings like 'en-US', 'fr-FR', etc.
-    let emailTemplate, subject;
-    const lang = (language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
-    
-    if (userType === 'merchant') {
-      emailTemplate = merchantEmailTemplate[lang];
-      subject = emailTemplate.subject;
-    } else {
-      emailTemplate = shopperEmailTemplate[lang];
-      subject = emailTemplate.subject;
-    }
-    
+    // Same template for all account types (shopper and merchant). Default to French
+    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
+    const emailTemplate = shopperEmailTemplate[lang];
+    const subject = emailTemplate.subject;
+
     // Compile email template
     const template = handlebars.compile(emailTemplate.template);
     const htmlContent = template({
-      username: userType === 'merchant' ? (storeName || username) : username,
+      username,
       storeName: storeName || username,
       verificationUrl,
       email,
@@ -641,17 +634,13 @@ exports.resendVerificationEmail = functions.https.onCall(async (data, context) =
     const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${newToken}`;
 
     // Select template based on user type and language
-    // Handle full locale strings like 'en-US', 'fr-FR', etc.
+    // Handle full locale strings like 'en-US', 'fr-FR', etc. Default to French
     let emailTemplate, subject;
-    const lang = (language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
-    
-    if (userType === 'merchant') {
-      emailTemplate = merchantEmailTemplate[lang];
-      subject = emailTemplate.subject;
-    } else {
-      emailTemplate = shopperEmailTemplate[lang];
-      subject = emailTemplate.subject;
-    }
+    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
+
+    // Same template for all user types (shopper and merchant)
+    emailTemplate = shopperEmailTemplate[lang];
+    subject = emailTemplate.subject;
     
     // Compile email template
     const template = handlebars.compile(emailTemplate.template);
@@ -783,23 +772,37 @@ exports.onStoreValidated = functions.firestore
     const after = change.after.data();
     const storeId = context.params.storeId;
 
-    // Check if store was just validated (is_validated changed from false to true)
-    if (before.is_validated === false && after.is_validated === true) {
+    // Check if store was just validated (is_validated changed to true from false or undefined)
+    if (!before.is_validated && after.is_validated === true) {
       try {
         console.log(`Store ${storeId} has been validated, sending confirmation email`);
 
         // Get store owner information
-        const storeEmail = after.storeEmail || after.email;
+        let storeEmail = after.storeEmail || after.email;
         const storeName = after.name;
+
+        // If no email on store, try to get it from the owner
+        let ownerLanguage = null;
+        if (after.owner_id) {
+          const ownerDoc = await admin.firestore().collection('users').doc(after.owner_id).get();
+          if (ownerDoc.exists) {
+            const ownerData = ownerDoc.data();
+            if (!storeEmail) {
+              storeEmail = ownerData.email;
+              console.log(`Found owner email: ${storeEmail}`);
+            }
+            ownerLanguage = ownerData.language || ownerData.locale;
+          }
+        }
 
         if (!storeEmail) {
           console.error('No email found for store:', storeId);
           return null;
         }
 
-        // Determine language preference (default to French)
-        const language = after.language || 'fr';
-        const lang = language === 'en' ? 'en' : 'fr';
+        // Determine language preference from owner, then store, default to French
+        const language = ownerLanguage || after.language || 'fr';
+        const lang = language.toLowerCase().startsWith('en') ? 'en' : 'fr';
 
         // Get email template
         const emailTemplate = storeValidationEmailTemplate[lang];
