@@ -114,10 +114,12 @@ export default function Map({ navigation, route  }) {
   // Load stores and initialize map on mount
   useEffect(() => {
     const initializeMap = async () => {
+      console.log('[Map] initializeMap started');
       try {
         setLoading(true);
-        
+
         // Priority 1: If we have an initial store, use its location
+        console.log('[Map] Checking initialStore:', !!initialStore);
         if (initialStore) {
           setCameraCoordinates({
             latitude: initialStore.latitude,
@@ -132,6 +134,7 @@ export default function Map({ navigation, route  }) {
         }
         
         // Priority 2: Use customLocation from home screen if available (for synchronization)
+        console.log('[Map] Checking customLocation:', customLocation);
         if (customLocation?.latitude && customLocation?.longitude) {
           setCameraCoordinates({
             latitude: customLocation.latitude,
@@ -147,12 +150,29 @@ export default function Map({ navigation, route  }) {
           return;
         }
         
-        // Priority 3: Get user's current location
-        const location = userLocation || await locationService.getUserLocation({
-          useCache: true,
-          showToast: false
-        });
-        
+        // Priority 3: Get user's current location with timeout
+        console.log('[Map] Getting user location, userLocation from context:', userLocation);
+        let location = userLocation;
+        if (!location) {
+          try {
+            // Wrap in timeout to prevent hanging forever
+            location = await Promise.race([
+              locationService.getUserLocation({
+                useCache: true,
+                showToast: false
+              }),
+              new Promise((resolve) => setTimeout(() => {
+                console.log('[Map] Location service timeout after 10s');
+                resolve(null);
+              }, 10000))
+            ]);
+          } catch (e) {
+            console.log('[Map] Location service error:', e);
+            location = null;
+          }
+        }
+        console.log('[Map] Got location result:', location);
+
         if (location) {
           setCameraCoordinates({
             latitude: location.latitude,
@@ -161,15 +181,44 @@ export default function Map({ navigation, route  }) {
             longitudeDelta: 0.01,
             zoom: 12
           });
-          
+
           // Fetch nearby stores within 10km
           await fetchNearbyStores(location.latitude, location.longitude);
         } else {
-          // Fallback: no location available
+          // Fallback: use Brussels as default location
+          console.log('[Map] Using Brussels fallback location');
+          const fallbackLat = 50.8503;
+          const fallbackLng = 4.3517;
+          setCameraCoordinates({
+            latitude: fallbackLat,
+            longitude: fallbackLng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+            zoom: 12
+          });
+          // Delay fetchNearbyStores to let the map render first
+          setTimeout(async () => {
+            try {
+              await fetchNearbyStores(fallbackLat, fallbackLng, true);
+            } catch (e) {
+              console.log('[Map] fetchNearbyStores error:', e);
+            }
+          }, 500);
           setLoading(false);
         }
       } catch (error) {
-        console.error('Error initializing map:', error);
+        console.error('[Map] Error initializing map:', error);
+        // Even on error, use fallback location
+        console.log('[Map] Using Brussels fallback due to error');
+        const fallbackLat = 50.8503;
+        const fallbackLng = 4.3517;
+        setCameraCoordinates({
+          latitude: fallbackLat,
+          longitude: fallbackLng,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+          zoom: 12
+        });
         setLoading(false);
       }
     };
@@ -679,6 +728,11 @@ export default function Map({ navigation, route  }) {
         useCache: false, // Force fresh location
         showToast: true
       });
+
+      if (!location) {
+        console.log('[Map] getUserLocation: No location available');
+        return;
+      }
 
       const { latitude, longitude } = location;
   
