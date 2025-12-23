@@ -24,6 +24,7 @@ import { useTranslation } from "../utils/useTranslation";
 import SearchBar from "../components/search-bar";
 import CustomText from "../components/text";
 import { setCustomLocation } from "../Redux/Actions/LocationActions";
+import { auth } from "../../firebaseconfig";
 
 const Tab = createBottomTabNavigator();
 
@@ -38,8 +39,21 @@ function TabsWithSearch() {
   const emailVerificationStatus = useSelector(state => state.user.emailVerificationStatus);
   const [currentTab, setCurrentTab] = useState(ScreenNames.HOME);
 
-  // Show badge only when verification is explicitly needed (pending or expired)
-  const needsVerification = emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired';
+  // Check Firebase Auth's emailVerified status
+  const firebaseUser = auth.currentUser;
+  const isFirebaseVerified = firebaseUser?.emailVerified === true;
+
+  // User is verified if any of these are true:
+  // 1. Firebase Auth emailVerified is true
+  // 2. Firestore emailVerificationStatus is 'verified'
+  // 3. Firestore is_active is true
+  const isVerified = isFirebaseVerified ||
+                     emailVerificationStatus === 'verified' ||
+                     user?.is_active === true;
+
+  // Show badge only when verification is explicitly needed AND user is not verified
+  const needsVerification = !isVerified &&
+                            (emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired');
   const showVerificationBadge = user && needsVerification;
 
   // Handler for city selection from unified search
@@ -65,9 +79,10 @@ function TabsWithSearch() {
     }
   };
 
-  // Navigate to sign up
+  // Navigate to sign up by exiting guest mode
   const handleSignUp = () => {
-    navigation.navigate(ScreenNames.SIGNUP);
+    // Dispatch AUTH_LOGOUT to exit guest mode and show auth screens
+    dispatch({ type: 'AUTH_LOGOUT' });
   };
 
   return (

@@ -11,9 +11,8 @@ import { useTranslation } from '../../../../utils/useTranslation';
 import { Linking } from 'react-native';
 
 const CATEGORIES = [
-  { key: 'report_issue', type: 'Report an Issue', icon: 'alert-circle', color: '#E74C3C' },
+  { key: 'report_problem', type: 'Report a Problem / Bug', icon: 'bug', color: '#E74C3C' },
   { key: 'suggest_idea', type: 'Suggest an Idea', icon: 'bulb', color: '#F39C12' },
-  { key: 'report_bug', type: 'Report a Bug', icon: 'bug', color: '#9B59B6' },
   { key: 'general_question', type: 'General Question', icon: 'chatbubble-ellipses', color: '#3498DB' },
 ];
 

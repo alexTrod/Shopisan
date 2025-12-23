@@ -128,7 +128,9 @@ export const toggleFavoriteStore = (storeId) => async (dispatch, getState) => {
 
 export const signUp = (email, username, password, userType, language = 'en') => async (dispatch) => {
   try {
-    dispatch({ type: 'AUTH_LOADING' });
+    // Note: We don't dispatch AUTH_LOADING here because the signup screen manages its own loading state
+    // Dispatching AUTH_LOADING would show the splash screen and unmount the signup form
+    dispatch({ type: 'SIGN_UP_ERROR', payload: null }); // Clear any previous error
     isSigningUp = true; // Prevent onAuthStateChanged from fetching user data
 
     const safeEmail = email.trim().toLowerCase();
@@ -148,7 +150,8 @@ export const signUp = (email, username, password, userType, language = 'en') => 
       username,
       language, // Store user's language preference
       date_of_birth: null,
-      is_active: false, // Changed to false until email verification
+      is_validated: false, // Email not verified yet
+      is_active: true, // Account is active (not archived)
       is_admin: false,
       is_owner: userType !== 'shopper',
       last_login: serverTimestamp(),
@@ -192,7 +195,8 @@ export const signUp = (email, username, password, userType, language = 'en') => 
         email: safeEmail,
         username,
         userType,
-        is_active: false, // Changed to false
+        is_validated: false, // Email not verified yet
+        is_active: true, // Account is active
         is_admin: false,
         is_owner: userType !== 'shopper',
         name: null,
@@ -303,7 +307,7 @@ export const verifyEmail = (token) => async (dispatch) => {
     // Mark email as verified
     await updateDoc(userRef, {
       emailVerificationStatus: 'verified',
-      is_active: true,
+      is_validated: true,
       verificationToken: null,
       verificationExpiresAt: null,
     });
@@ -319,7 +323,7 @@ export const verifyEmail = (token) => async (dispatch) => {
       payload: {
         ...userData,
         emailVerificationStatus: 'verified',
-        is_active: true,
+        is_validated: true,
         verificationToken: null,
         verificationExpiresAt: null,
       }
@@ -347,7 +351,7 @@ export const checkVerificationStatus = () => async (dispatch) => {
     if (userData.verificationExpiresAt && now > userData.verificationExpiresAt.toDate()) {
       await updateDoc(userRef, {
         emailVerificationStatus: 'expired',
-        is_active: false,
+        is_validated: false,
       });
       
       dispatch({
@@ -409,7 +413,24 @@ const fetchUserData = (uid) => async (dispatch) => {
     }
 
     const userData = userDoc.data();
-    
+
+    // Sync Firebase Auth email with Firestore if they differ
+    // This handles the case when user verified a new email via verifyBeforeUpdateEmail
+    const currentAuthEmail = auth.currentUser?.email;
+    if (currentAuthEmail && userData.email && currentAuthEmail !== userData.email) {
+      logging('Email mismatch detected, syncing Firestore with Auth email');
+      logging(`Auth email: ${currentAuthEmail}, Firestore email: ${userData.email}`);
+
+      await updateDoc(userDocRef, {
+        email: currentAuthEmail,
+        pendingEmail: null, // Clear pending email since it's now verified
+      });
+
+      // Update userData with the new email
+      userData.email = currentAuthEmail;
+      userData.pendingEmail = null;
+    }
+
     dispatch({
       type: 'AUTH_SUCCESS',
       payload: {
@@ -542,3 +563,234 @@ export const setSelectedCountry = (country) => ({
   type: 'SET_SELECTED_COUNTRY',
   payload: country
 });
+
+// Merchant signup with store creation
+export const signUpMerchantWithStore = (data) => async (dispatch) => {
+  const { email, username, password, language, store } = data;
+  let userCreated = false;
+  let userId = null;
+
+  try {
+    dispatch({ type: 'SIGN_UP_ERROR', payload: null });
+    isSigningUp = true;
+
+    const safeEmail = email.trim().toLowerCase();
+
+    // Step 1: Create Firebase Auth user
+    const cred = await createUserWithEmailAndPassword(auth, safeEmail, password);
+    userId = cred.user.uid;
+    userCreated = true;
+
+    // Step 2: Generate verification token
+    const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const verificationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Step 3: Create user document in Firestore
+    const userCollection = collection(firestore, 'users');
+    await setDoc(doc(userCollection, userId), {
+      userType: 'merchant',
+      id: userId,
+      email: safeEmail,
+      username,
+      language,
+      date_of_birth: null,
+      is_validated: false, // Email not verified yet
+      is_active: true, // Account is active (not archived)
+      is_admin: false,
+      is_owner: true,
+      last_login: serverTimestamp(),
+      created: serverTimestamp(),
+      surname: null,
+      name: null,
+      picture_id: null,
+      reset_password_token: null,
+      reset_password_validity: null,
+      user_id: userId,
+      emailVerificationStatus: 'pending',
+      verificationToken: verificationToken,
+      verificationExpiresAt: verificationExpiresAt,
+      lastVerificationSent: serverTimestamp(),
+    });
+
+    // Step 4: Create store in Firestore
+    const { addDoc, getDocs, query: firestoreQuery, orderBy, limit } = await import('firebase/firestore');
+    const storesRef = collection(firestore, 'stores');
+
+    // Get next store ID
+    const maxIdQuery = firestoreQuery(storesRef, orderBy('id', 'desc'), limit(1));
+    const maxIdSnapshot = await getDocs(maxIdQuery);
+    let maxId = 0;
+    if (!maxIdSnapshot.empty) {
+      const topStore = maxIdSnapshot.docs[0].data();
+      maxId = topStore.id || 0;
+    }
+    const newStoreId = maxId + 1;
+
+    // Geocode address
+    const fullAddress = `${store.streetNumber || ''} ${store.street}, ${store.postalCode} ${store.city}, France`;
+    const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
+
+    const geoResponse = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
+    );
+    const geoData = await geoResponse.json();
+
+    let latitude = store.selectedLocation?.latitude || 48.8566;
+    let longitude = store.selectedLocation?.longitude || 2.3522;
+
+    if (geoData.status === "OK" && geoData.results.length > 0) {
+      const location = geoData.results[0].geometry.location;
+      latitude = Number(location.lat);
+      longitude = Number(location.lng);
+    }
+
+    // Upload image if present
+    let imageUrl = "";
+    if (store.selectedImage) {
+      try {
+        const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
+        const apiToken = 'mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K';
+        const fileName = `photo_${Date.now()}.jpg`;
+
+        const formData = new FormData();
+        formData.append('file', {
+          uri: store.selectedImage.uri,
+          name: fileName,
+          type: 'image/jpeg'
+        });
+
+        const uploadResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiToken}` },
+            body: formData,
+          }
+        );
+        const uploadData = await uploadResponse.json();
+        if (uploadData.success) {
+          imageUrl = uploadData.result.variants[0];
+        }
+      } catch (imgError) {
+        console.warn('Image upload failed, continuing without image:', imgError);
+      }
+    }
+
+    const storeData = {
+      id: newStoreId,
+      name: store.name,
+      owner_id: userId,
+      address: [
+        {
+          location: {
+            address: { street: store.street },
+            city: {
+              name: store.city,
+              postal_code: store.postalCode,
+              country_id: "FR",
+            },
+            geopoint: { latitude, longitude },
+          },
+        },
+      ],
+      latitude,
+      longitude,
+      cityName: store.city,
+      description: { fr: store.description },
+      category: store.selectedCategories || [],
+      storeStatus: 0,
+      website: store.website || "",
+      openingHours: store.openingHours || {},
+      imageUrl: imageUrl,
+      is_validated: false,
+      email: store.storeEmail || "",
+      phone: store.phone || "",
+      managerFirstName: store.managerFirstName || "",
+      managerLastName: store.managerLastName || "",
+    };
+
+    await addDoc(storesRef, storeData);
+
+    // Step 5: Send merchant verification email (with store info)
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions();
+
+      const sendMerchantVerificationEmailFn = httpsCallable(functions, 'sendMerchantVerificationEmail');
+      await sendMerchantVerificationEmailFn({
+        email: safeEmail,
+        username,
+        token: verificationToken,
+        storeName: store.name,
+        storeCity: store.city,
+        language,
+      });
+
+      // Send admin notification
+      await sendAdminNotification(safeEmail, username, 'merchant');
+    } catch (emailError) {
+      console.warn('[signUpMerchantWithStore] Email sending failed:', emailError);
+    }
+
+    // Step 6: Dispatch success
+    dispatch({
+      type: 'SET_EMAIL_VERIFICATION_STATUS',
+      payload: {
+        status: 'pending',
+        token: verificationToken,
+        expiresAt: verificationExpiresAt,
+      }
+    });
+
+    dispatch({
+      type: 'AUTH_SUCCESS',
+      payload: {
+        id: userId,
+        email: safeEmail,
+        username,
+        userType: 'merchant',
+        is_validated: false, // Email not verified yet
+        is_active: true, // Account is active
+        is_admin: false,
+        is_owner: true,
+        name: null,
+        surname: null,
+        picture_id: null,
+        reset_password_token: null,
+        reset_password_validity: null,
+        user_id: userId,
+        emailVerificationStatus: 'pending',
+        verificationToken: verificationToken,
+        verificationExpiresAt: verificationExpiresAt,
+      }
+    });
+
+    isSigningUp = false;
+
+  } catch (error) {
+    isSigningUp = false;
+    console.error('Merchant signup with store failed:', error);
+
+    // Rollback: Delete user if created but something else failed
+    if (userCreated && userId) {
+      try {
+        await auth.currentUser?.delete();
+        console.log('Rolled back user creation');
+      } catch (rollbackError) {
+        console.error('Failed to rollback user:', rollbackError);
+      }
+    }
+
+    let message = 'An error occurred during registration.';
+    if (error.code === 'auth/email-already-in-use') {
+      message = 'The email address is already in use.';
+    } else if (error.code === 'auth/invalid-email') {
+      message = 'The email address is not valid.';
+    } else if (error.code === 'auth/weak-password') {
+      message = 'The password is too weak.';
+    }
+
+    dispatch({ type: 'SIGN_UP_ERROR', payload: message });
+    throw error;
+  }
+};

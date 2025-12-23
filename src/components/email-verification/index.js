@@ -9,9 +9,10 @@ import { resendVerificationEmail, checkVerificationStatus } from '../../Redux/Ac
 import { useTranslation } from '../../utils/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '../../../firebaseconfig';
 
 const DISMISS_STORAGE_KEY = '@email_verification_dismissed';
-const DISMISS_DURATION = 24 * 60 * 60 * 1000; // 24 hours - will show again after this
+const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days - will show again after this
 
 const EmailVerificationBanner = () => {
   const { t } = useTranslation();
@@ -65,9 +66,21 @@ const EmailVerificationBanner = () => {
     }
   };
 
+  // Check Firebase Auth's emailVerified status as a fallback
+  const firebaseUser = auth.currentUser;
+  const isFirebaseVerified = firebaseUser?.emailVerified === true;
+
+  // Don't show banner if:
+  // 1. User's email is verified in Firebase Auth
+  // 2. User's Firestore status is 'verified'
+  // 3. User is_active is true (indicates verified)
+  const isVerified = isFirebaseVerified ||
+                     emailVerificationStatus === 'verified' ||
+                     userData?.is_active === true;
+
   // Don't show banner until we explicitly know verification is needed
-  // This prevents the banner from flashing during initial load
-  const needsVerification = emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired';
+  const needsVerification = !isVerified &&
+                           (emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired');
 
   if (!userData || !needsVerification || isDismissed) {
     return null;
@@ -107,7 +120,23 @@ const EmailVerificationBanner = () => {
   const handleRefreshVerification = async () => {
     setLoading(true);
     try {
+      // Reload the Firebase Auth user to get the latest emailVerified status
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+      }
       await dispatch(checkVerificationStatus());
+
+      // Check if now verified after refresh
+      const refreshedUser = auth.currentUser;
+      if (refreshedUser?.emailVerified || userData?.is_active) {
+        Alert.alert(
+          t('success') || 'Success',
+          'Your email has been verified!',
+          [{ text: t('ok') }]
+        );
+        // Force re-render by dismissing
+        setIsDismissed(true);
+      }
     } catch (error) {
       Alert.alert(t('error'), t('error_fetching_media') || 'Failed to check verification status. Please try again.', [{ text: t('ok') }]);
     } finally {

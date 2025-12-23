@@ -115,124 +115,83 @@ const ItemCard = React.memo(({
     }
   };
 
+  // Render the action buttons (edit, map, info, favorite)
+  const renderActionButtons = (forImage = false) => {
+    const iconColor = forImage ? AppColors.white : AppColors.primary;
+    return (
+      <View style={[styles.topIconsRowNoImage, forImage && styles.topIconsRowImage]}>
+        <View style={styles.rightIcons}>
+          {isOwner && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleEditPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="create-outline" size={24} color={iconColor} />
+            </TouchableOpacity>
+          )}
+          {is_validated && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={onPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="location-sharp" size={24} color={iconColor} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleInfoPress}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="information-circle-outline" size={24} color={iconColor} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={onPressFavorite}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={24}
+              color={iconColor}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.card, !image && styles.cardNoImage]}>
-      <TouchableOpacity 
-        activeOpacity={0.9} 
-        onPress={handleInfoPress}
-        style={{ flex: 1 }}
-      >
+      {/* Image section with overlay buttons */}
+      {image && (
         <View>
-          <View>
-            {image && (
-              <>
-                <Image style={styles.image} source={image} />
-                <View
-                  style={[
-                    styles.image,
-                    { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
-                  ]}
-                />
-                <View style={styles.topIconsRowNoImage}>
-                  <View style={styles.rightIcons}>
-                    <TouchableOpacity 
-                      style={[styles.iconButton, { zIndex: 100 }]} 
-                      onPress={() => {
-                        onPress();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="map-outline" size={24} color={AppColors.white} />
-                    </TouchableOpacity>
-                    {isOwner && (
-                      <TouchableOpacity 
-                        style={[styles.iconButton, { zIndex: 1 }]} 
-                        onPress={() => {
-                          handleEditPress();
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="create-outline" size={24} color={AppColors.white} />
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity 
-                      style={[styles.iconButton, { zIndex: 1 }]} 
-                      onPress={() => {
-                        handleInfoPress();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="information-circle-outline" size={24} color={AppColors.white} />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.iconButton, { zIndex: 1 }]} 
-                      onPress={() => {
-                        onPressFavorite();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons 
-                        name={isFavorite ? "heart" : "heart-outline"} 
-                        size={24} 
-                        color={AppColors.white} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleInfoPress}>
+            <Image style={styles.image} source={image} />
+            <View
+              style={[
+                styles.image,
+                { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
+              ]}
+            />
+          </TouchableOpacity>
+          {renderActionButtons(true)}
+        </View>
+      )}
 
-          <View style={[styles.cardContent, !image && styles.cardContentNoImage]}>
-            {!image && (
-              <View style={styles.topIconsRowNoImage}>
-                <View style={styles.rightIcons}>
-                  {isOwner && (
-                    <TouchableOpacity 
-                      style={[styles.iconButton, { zIndex: 1 }]} 
-                      onPress={() => {
-                        handleEditPress();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="create-outline" size={24} color={AppColors.primary} />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity 
-                    style={[styles.iconButton, { zIndex: 1 }]} 
-                    onPress={() => {
-                      onPress();
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="map-outline" size={24} color={AppColors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.iconButton, { zIndex: 1 }]} 
-                    onPress={() => {
-                      handleInfoPress();
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="information-circle-outline" size={24} color={AppColors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.iconButton, { zIndex: 1 }]} 
-                    onPress={() => {
-                      onPressFavorite();
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons 
-                      name={isFavorite ? "heart" : "heart-outline"} 
-                      size={24} 
-                      color={AppColors.primary} 
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-            <View style={styles.titleRow}>
+      {/* Card content section */}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={handleInfoPress}
+        style={{ flex: image ? 0 : 1 }}
+      >
+        <View style={[styles.cardContent, !image && styles.cardContentNoImage]}>
+          <View style={styles.titleRow}>
               <Text
                 style={[styles.title, !image && styles.titleNoImage, isOwner && styles.titleWithIcon]}
                 numberOfLines={2}
@@ -312,20 +271,18 @@ const ItemCard = React.memo(({
               </ScrollView>
             </View>
 
-            {
-              <>
-                <Text 
-                  style={styles.description} 
-                  numberOfLines={2}
-                  allowFontScaling={true}
-                >
-                  {description.length > 150 ? `${description.substring(0, 150)}...` : description}
-                </Text>
-              </>
-            }
+            <Text
+              style={styles.description}
+              numberOfLines={2}
+              allowFontScaling={true}
+            >
+              {description.length > 150 ? `${description.substring(0, 150)}...` : description}
+            </Text>
           </View>
-        </View>
       </TouchableOpacity>
+
+      {/* Action buttons for no-image cards - rendered outside TouchableOpacity */}
+      {!image && renderActionButtons(false)}
 
       <ItemDetailModal
         visible={modalVisible}
@@ -516,6 +473,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
+    zIndex: 10,
+  },
+  topIconsRowImage: {
+    position: 'absolute',
+    top: height(1),
+    right: height(1),
+    zIndex: 10,
   },
   actionButton: {
     backgroundColor: AppColors.white,

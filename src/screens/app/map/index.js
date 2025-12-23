@@ -150,7 +150,7 @@ export default function Map({ navigation, route  }) {
           return;
         }
         
-        // Priority 3: Get user's current location with timeout
+        // Priority 3: Get user's current location with timeout ("Around me" mode)
         console.log('[Map] Getting user location, userLocation from context:', userLocation);
         let location = userLocation;
         if (!location) {
@@ -162,9 +162,9 @@ export default function Map({ navigation, route  }) {
                 showToast: false
               }),
               new Promise((resolve) => setTimeout(() => {
-                console.log('[Map] Location service timeout after 10s');
+                console.log('[Map] Location service timeout after 5s');
                 resolve(null);
-              }, 10000))
+              }, 5000))
             ]);
           } catch (e) {
             console.log('[Map] Location service error:', e);
@@ -174,16 +174,56 @@ export default function Map({ navigation, route  }) {
         console.log('[Map] Got location result:', location);
 
         if (location) {
-          setCameraCoordinates({
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-            zoom: 12
-          });
+          // "Around me" auto-zoom: find stores with expanding radius and zoom to show them
+          const nearbyStores = locationService.getStoresWithExpandingRadius(
+            allStores,
+            { latitude: location.latitude, longitude: location.longitude },
+            30 // Max city-level radius
+          );
 
-          // Fetch nearby stores within 10km
-          await fetchNearbyStores(location.latitude, location.longitude);
+          if (nearbyStores.length > 0) {
+            // Find the furthest store to determine appropriate zoom
+            const maxDistance = Math.max(...nearbyStores.map(s => s.distance || 0));
+            let autoZoom = 12; // Default
+            if (maxDistance <= 1) autoZoom = 14;
+            else if (maxDistance <= 2) autoZoom = 13;
+            else if (maxDistance <= 5) autoZoom = 12;
+            else if (maxDistance <= 10) autoZoom = 11;
+            else if (maxDistance <= 20) autoZoom = 10;
+            else autoZoom = 9;
+
+            console.log(`[Map] Auto-zoom: found ${nearbyStores.length} stores, max distance ${maxDistance}km, zoom ${autoZoom}`);
+
+            setCameraCoordinates({
+              latitude: location.latitude,
+              longitude: location.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+              zoom: autoZoom
+            });
+            setStores(nearbyStores);
+            setLoading(false);
+          } else {
+            // No stores in city - show toast and use default zoom
+            console.log('[Map] No stores found in city area');
+            Toast.show({
+              type: 'info',
+              text1: t('no_stores_in_city') || 'No stores in your city yet',
+              text2: t('add_store_or_explore') || 'Add your favorite shops or explore another city',
+              position: 'bottom',
+              visibilityTime: 4000,
+            });
+            setCameraCoordinates({
+              latitude: location.latitude,
+              longitude: location.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+              zoom: 12
+            });
+            setStores([]);
+            setLoading(false);
+          }
+          return;
         } else {
           // Fallback: use Brussels as default location
           console.log('[Map] Using Brussels fallback location');
@@ -196,14 +236,10 @@ export default function Map({ navigation, route  }) {
             longitudeDelta: 0.01,
             zoom: 12
           });
-          // Delay fetchNearbyStores to let the map render first
-          setTimeout(async () => {
-            try {
-              await fetchNearbyStores(fallbackLat, fallbackLng, true);
-            } catch (e) {
-              console.log('[Map] fetchNearbyStores error:', e);
-            }
-          }, 500);
+          // Fetch stores immediately - no delay needed
+          fetchNearbyStores(fallbackLat, fallbackLng, true).catch(e => {
+            console.log('[Map] fetchNearbyStores error:', e);
+          });
           setLoading(false);
         }
       } catch (error) {
@@ -319,29 +355,33 @@ export default function Map({ navigation, route  }) {
       // Reset exploring mode
       isExploring.current = false;
 
+      // Ensure coordinates are numbers to avoid Mapbox decoding errors
+      const numLat = Number(customLocation.latitude);
+      const numLng = Number(customLocation.longitude);
+
       // Update state
       setCameraCoordinates({
-        latitude: customLocation.latitude,
-        longitude: customLocation.longitude,
+        latitude: numLat,
+        longitude: numLng,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
         zoom: 12
       });
       setCurrentRegion({
-        latitude: customLocation.latitude,
-        longitude: customLocation.longitude,
+        latitude: numLat,
+        longitude: numLng,
       });
       setLastPosition({
-        latitude: customLocation.latitude,
-        longitude: customLocation.longitude,
+        latitude: numLat,
+        longitude: numLng,
       });
 
       // Animate camera with delay to ensure it's mounted
       const animateToLocation = () => {
         if (cameraRef.current) {
-          console.log('[Map] Animating camera to:', customLocation.latitude, customLocation.longitude);
+          console.log('[Map] Animating camera to:', numLat, numLng);
           cameraRef.current.setCamera({
-            centerCoordinate: [customLocation.longitude, customLocation.latitude],
+            centerCoordinate: [numLng, numLat],
             zoomLevel: 12,
             animationDuration: 500,
           });
@@ -354,7 +394,7 @@ export default function Map({ navigation, route  }) {
       setTimeout(animateToLocation, 100);
 
       // Fetch stores for this location
-      fetchNearbyStores(customLocation.latitude, customLocation.longitude, true);
+      fetchNearbyStores(numLat, numLng, true);
     }, [customLocation?.latitude, customLocation?.longitude])
   );
 
@@ -373,14 +413,14 @@ export default function Map({ navigation, route  }) {
       return;
     }
 
-    // Only show "no stores" after stores have been empty for 1.5 seconds
+    // Only show "no stores" after stores have been empty for 1 second
     const timer = setTimeout(() => {
       if (stores.length === 0 && !loading && !initialStore) {
         // Show inline message with action buttons (no toast - inline is enough)
         setShowNoStoresMessage(true);
         setShowNoStoresModal(false);
       }
-    }, 1500);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [stores.length, loading, initialStore, selectedCategories, t]);
@@ -486,14 +526,14 @@ export default function Map({ navigation, route  }) {
           await fetchNearbyStores(storeLat, storeLng, true);
           
           // Re-enable region change handling after animation and settling completes
-          // Using 3500ms to ensure the animation (1500ms) + settling time is fully complete
+          // Using 2000ms to ensure the animation (1500ms) + settling time is complete
           setTimeout(() => {
             shouldIgnoreRegionChange.current = false;
-            // Keep exploring mode active longer to preserve the stores
+            // Keep exploring mode active briefly to preserve the stores
             setTimeout(() => {
               isExploring.current = false;
-            }, 2000);
-          }, 3500);
+            }, 1000);
+          }, 2000);
         }
       }
     } catch (error) {
@@ -880,16 +920,16 @@ export default function Map({ navigation, route  }) {
         {cameraCoordinates ? (
           <View style={{ flex: 1 }}>
             <View style={styles.filterContainer}>
-              <MapCategoryFilter 
-                stores={stores} 
+              <MapCategoryFilter
+                stores={stores}
               />
             </View>
+            {/* Invisible overlay on top of Mapbox compass to add locate functionality */}
             <TouchableOpacity
-              style={styles.centerButton}
+              style={styles.compassOverlay}
               onPress={getUserLocation}
-            >
-              <Ionicons name="locate" size={24} color="black" />
-            </TouchableOpacity>
+              activeOpacity={1}
+            />
             <MapboxGL.MapView
               ref={mapRef}
               style={styles.map}
@@ -897,6 +937,7 @@ export default function Map({ navigation, route  }) {
               logoEnabled={false}
               attributionEnabled={false}
               compassEnabled={true}
+              compassPosition={{ top: 8, right: 16 }}
               onMapIdle={onMapIdle}
               onCameraChanged={onCameraChanged}
             >
@@ -1156,19 +1197,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingBottom: 12,
   },
-  centerButton: {
+  compassOverlay: {
     position: "absolute",
-    bottom: 30,
-    right: 10,
-    backgroundColor: "white",
-    borderRadius: 30,
-    padding: 10,
-    elevation: 5,
-    zIndex: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    top: 8,
+    right: 16,
+    width: 44,
+    height: 44,
+    zIndex: 20,
+    backgroundColor: "transparent",
   },
   noStoreContainer: {
     position: "absolute",

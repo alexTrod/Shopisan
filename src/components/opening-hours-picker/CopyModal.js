@@ -8,7 +8,7 @@ import { AppColors } from '../../utils';
 export default function CopyModal({
   visible,
   sourceDay,
-  locale = 'fr',
+  locale = 'en',
   onCopy,
   onClose,
   t,
@@ -70,7 +70,7 @@ export default function CopyModal({
           {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
-              {t?.('copy_hours_from') || 'Copier les horaires de'} {sourceDayLabel}
+              {t?.('copy_hours_from') || 'Copy hours from'} {sourceDayLabel}
             </Text>
             <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
               <Ionicons name="close" size={24} color={AppColors.black} />
@@ -102,14 +102,14 @@ export default function CopyModal({
           <View style={styles.quickSelectRow}>
             <TouchableOpacity style={styles.quickSelectButton} onPress={selectAllWeekdays}>
               <Text style={styles.quickSelectText}>
-                {t?.('select_weekdays') || 'Jours de semaine'}
+                {t?.('select_weekdays') || 'Weekdays'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickSelectButton} onPress={selectAll}>
               <Text style={styles.quickSelectText}>
                 {selectedDays.length === otherDays.length
-                  ? (t?.('deselect_all') || 'Tout désélectionner')
-                  : (t?.('select_all') || 'Tout sélectionner')
+                  ? (t?.('deselect_all') || 'Deselect all')
+                  : (t?.('select_all') || 'Select all')
                 }
               </Text>
             </TouchableOpacity>
@@ -119,7 +119,7 @@ export default function CopyModal({
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
               <Text style={styles.cancelButtonText}>
-                {t?.('cancel') || 'Annuler'}
+                {t?.('cancel') || 'Cancel'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -131,7 +131,7 @@ export default function CopyModal({
               disabled={selectedDays.length === 0}
             >
               <Text style={styles.saveButtonText}>
-                {t?.('copy') || 'Copier'}
+                {t?.('copy') || 'Copy'}
               </Text>
             </TouchableOpacity>
           </View>

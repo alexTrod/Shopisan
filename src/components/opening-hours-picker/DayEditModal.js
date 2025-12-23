@@ -10,7 +10,7 @@ export default function DayEditModal({
   visible,
   day,
   hours,
-  locale = 'fr',
+  locale = 'en',
   onSave,
   onClose,
   onCopyPress,
@@ -98,7 +98,7 @@ export default function DayEditModal({
             {/* Closed Toggle */}
             <View style={styles.closedToggleRow}>
               <Text style={styles.closedToggleLabel}>
-                {t?.('closed_this_day') || 'Fermé ce jour'}
+                {t?.('closed_this_day') || 'Closed this day'}
               </Text>
               <Switch
                 value={isClosed}
@@ -116,8 +116,8 @@ export default function DayEditModal({
                   <View style={styles.timeSlotHeader}>
                     <Text style={styles.timeSlotLabel}>
                       {hasSplit
-                        ? (t?.('morning') || 'Matin')
-                        : (t?.('hours') || 'Horaires')
+                        ? (t?.('morning') || 'Morning')
+                        : (t?.('hours') || 'Hours')
                       }
                     </Text>
                   </View>
@@ -125,13 +125,13 @@ export default function DayEditModal({
                     <TimePicker
                       value={editedHours?.morning?.start || '9:00'}
                       onChange={(val) => handleTimeChange('morning', 'start', val)}
-                      label={t?.('start') || 'Début'}
+                      label={t?.('start') || 'Start'}
                     />
                     <Text style={styles.timeSeparator}>→</Text>
                     <TimePicker
                       value={editedHours?.morning?.end || '19:00'}
                       onChange={(val) => handleTimeChange('morning', 'end', val)}
-                      label={t?.('end') || 'Fin'}
+                      label={t?.('end') || 'End'}
                     />
                   </View>
                 </View>
@@ -141,14 +141,14 @@ export default function DayEditModal({
                   <View style={styles.timeSlotContainer}>
                     <View style={styles.timeSlotHeader}>
                       <Text style={styles.timeSlotLabel}>
-                        {t?.('afternoon') || 'Après-midi'}
+                        {t?.('afternoon') || 'Afternoon'}
                       </Text>
                       <TouchableOpacity
                         style={styles.removeSlotButton}
                         onPress={handleRemoveLunchBreak}
                       >
                         <Text style={styles.removeSlotText}>
-                          {t?.('remove') || 'Supprimer'}
+                          {t?.('remove') || 'Remove'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -156,13 +156,13 @@ export default function DayEditModal({
                       <TimePicker
                         value={editedHours?.afternoon?.start || '14:00'}
                         onChange={(val) => handleTimeChange('afternoon', 'start', val)}
-                        label={t?.('start') || 'Début'}
+                        label={t?.('start') || 'Start'}
                       />
                       <Text style={styles.timeSeparator}>→</Text>
                       <TimePicker
                         value={editedHours?.afternoon?.end || '19:00'}
                         onChange={(val) => handleTimeChange('afternoon', 'end', val)}
-                        label={t?.('end') || 'Fin'}
+                        label={t?.('end') || 'End'}
                       />
                     </View>
                   </View>
@@ -176,7 +176,7 @@ export default function DayEditModal({
                   >
                     <Ionicons name="add" size={20} color={AppColors.primary} />
                     <Text style={styles.addLunchBreakText}>
-                      {t?.('add_lunch_break') || 'Ajouter une pause déjeuner'}
+                      {t?.('add_lunch_break') || 'Add lunch break'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -190,7 +190,7 @@ export default function DayEditModal({
             >
               <Ionicons name="copy-outline" size={20} color={AppColors.primary} />
               <Text style={styles.copyToDaysText}>
-                {t?.('copy_to_other_days') || 'Copier vers d\'autres jours'}
+                {t?.('copy_to_other_days') || 'Copy to other days'}
               </Text>
             </TouchableOpacity>
 
@@ -198,12 +198,12 @@ export default function DayEditModal({
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
                 <Text style={styles.cancelButtonText}>
-                  {t?.('cancel') || 'Annuler'}
+                  {t?.('cancel') || 'Cancel'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={styles.saveButtonText}>
-                  {t?.('save') || 'Enregistrer'}
+                  {t?.('save') || 'Save'}
                 </Text>
               </TouchableOpacity>
             </View>

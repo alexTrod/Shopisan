@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Email Change - Shopisan</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #6B2D5C 0%, #8B4D7C 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 450px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .logo { font-size: 48px; margin-bottom: 20px; }
+    h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+    .message { color: #666; margin-bottom: 30px; line-height: 1.6; }
+    .status {
+      padding: 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+    }
+    .status.loading { background: #e3f2fd; color: #1565c0; }
+    .status.success { background: #e8f5e9; color: #2e7d32; }
+    .status.error { background: #ffebee; color: #c62828; }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #6B2D5C;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .button {
+      display: inline-block;
+      background: #6B2D5C;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 20px;
+      transition: background 0.3s;
+    }
+    .button:hover { background: #8B4D7C; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">📧</div>
+    <h1>Confirm Email Change</h1>
+
+    <div id="loading" class="status loading">
+      <div class="spinner"></div>
+      <p>Verifying your email change request...</p>
+    </div>
+
+    <div id="success" class="status success hidden">
+      <p style="font-size: 48px; margin-bottom: 10px;">✅</p>
+      <p><strong>Email changed successfully!</strong></p>
+      <p style="margin-top: 10px;">Your email has been updated to: <strong id="newEmail"></strong></p>
+      <p style="margin-top: 15px; font-size: 14px;">You can now log in with your new email address.</p>
+    </div>
+
+    <div id="error" class="status error hidden">
+      <p style="font-size: 48px; margin-bottom: 10px;">❌</p>
+      <p><strong>Verification Failed</strong></p>
+      <p id="errorMessage" style="margin-top: 10px;"></p>
+    </div>
+
+    <a href="https://shopisan.com" class="button hidden" id="homeButton">Back to Shopisan</a>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-functions.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBkuDWF88mxHVMkUJx5fPxHxP_xGM1lXuY",
+      authDomain: "shopisan-bad76.firebaseapp.com",
+      projectId: "shopisan-bad76",
+      storageBucket: "shopisan-bad76.firebasestorage.app",
+      messagingSenderId: "699195498748",
+      appId: "1:699195498748:web:0e4b8c34b72f5c6ed9e6f9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const functions = getFunctions(app);
+
+    async function confirmEmailChange() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const userId = urlParams.get('userId');
+
+      const loadingEl = document.getElementById('loading');
+      const successEl = document.getElementById('success');
+      const errorEl = document.getElementById('error');
+      const homeButton = document.getElementById('homeButton');
+      const newEmailEl = document.getElementById('newEmail');
+      const errorMessageEl = document.getElementById('errorMessage');
+
+      if (!token || !userId) {
+        loadingEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        errorMessageEl.textContent = 'Invalid verification link. Missing token or user ID.';
+        homeButton.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const confirmEmailChangeFunc = httpsCallable(functions, 'confirmEmailChange');
+        const result = await confirmEmailChangeFunc({ token, userId });
+
+        loadingEl.classList.add('hidden');
+        successEl.classList.remove('hidden');
+        newEmailEl.textContent = result.data.newEmail;
+        homeButton.classList.remove('hidden');
+
+      } catch (error) {
+        console.error('Error:', error);
+        loadingEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+
+        let errorMsg = 'An error occurred while verifying your email change.';
+        if (error.message.includes('expired')) {
+          errorMsg = 'This verification link has expired. Please request a new email change.';
+        } else if (error.message.includes('Invalid')) {
+          errorMsg = 'Invalid verification link. It may have already been used.';
+        } else if (error.message.includes('already in use') || error.message.includes('email-already-exists')) {
+          errorMsg = 'This email address is already registered to another account. Please choose a different email.';
+        }
+
+        errorMessageEl.textContent = errorMsg;
+        homeButton.classList.remove('hidden');
+      }
+    }
+
+    confirmEmailChange();
+  </script>
+</body>
+</html>

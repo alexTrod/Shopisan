@@ -42,7 +42,7 @@ class LocationService {
       useCache = true,
       showToast = true,
       accuracy = Location.Accuracy.High,
-      timeout = 15000
+      timeout = 8000
     } = options;
 
     try {

@@ -10,7 +10,7 @@ import { AppColors } from '../../utils';
 export default function OpeningHoursPicker({
   value,
   onChange,
-  locale = 'fr',
+  locale = 'en',
   showPresets = true,
   t, // translation function
 }) {
@@ -72,7 +72,7 @@ export default function OpeningHoursPicker({
 
   const getPresetLabel = (preset) => {
     if (preset.label === 'closed') {
-      return t?.('closed') || 'Fermé';
+      return t?.('closed') || 'Closed';
     }
     return preset.label;
   };
@@ -81,7 +81,7 @@ export default function OpeningHoursPicker({
     <View style={styles.container}>
       {/* Section Label */}
       <Text style={styles.sectionLabel}>
-        {t?.('opening_hours') || 'Horaires d\'ouverture'}
+        {t?.('opening_hours') || 'Opening Hours'}
       </Text>
 
       {/* Presets */}
@@ -111,7 +111,7 @@ export default function OpeningHoursPicker({
             onPress={copyMondayToWeekdays}
           >
             <Text style={styles.copyButtonText}>
-              {t?.('copy_monday_to_weekdays') || 'Copier Lun → Ven'}
+              {t?.('copy_monday_to_weekdays') || 'Copy Mon → Fri'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -124,7 +124,7 @@ export default function OpeningHoursPicker({
           day={day}
           hours={value[day]}
           locale={locale}
-          closedLabel={t?.('closed') || 'Fermé'}
+          closedLabel={t?.('closed') || 'Closed'}
           onPress={() => handleDayPress(day)}
         />
       ))}

@@ -372,6 +372,128 @@ const storeCreationAdminTemplate = `
 </html>
 `;
 
+// Merchant verification email template (combines user welcome + store info)
+const merchantVerificationEmailTemplate = {
+  fr: {
+    subject: "Bienvenue sur Shopisan - Confirmez votre inscription",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Inscription Commercant</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+    .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
+    .store-info h3 { margin-top: 0; color: #6B2D5C; }
+    .pending-badge { display: inline-block; background-color: #FFA500; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Bienvenue sur Shopisan !</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour {{username}},</p>
+      <p>Merci pour votre inscription en tant que commercant sur Shopisan !</p>
+
+      <div class="store-info">
+        <h3>Votre boutique enregistree</h3>
+        <p><strong>Nom :</strong> {{storeName}}</p>
+        <p><strong>Ville :</strong> {{storeCity}}</p>
+        <p><span class="pending-badge">En attente de validation</span></p>
+      </div>
+
+      <p>Votre boutique sera examinee par notre equipe et validee sous peu. Vous recevrez un email de confirmation des que votre boutique sera en ligne.</p>
+
+      <p>En attendant, cliquez sur le bouton ci-dessous pour verifier votre adresse email :</p>
+
+      <p style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Verifier mon email</a>
+      </p>
+
+      <p>A bientot,<br>L'equipe Shopisan</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{instagramUrl}}">Instagram</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  },
+  en: {
+    subject: "Welcome to Shopisan - Confirm your registration",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Merchant Registration</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+    .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
+    .store-info h3 { margin-top: 0; color: #6B2D5C; }
+    .pending-badge { display: inline-block; background-color: #FFA500; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Welcome to Shopisan!</h2>
+    </div>
+    <div class="content">
+      <p>Hello {{username}},</p>
+      <p>Thank you for registering as a merchant on Shopisan!</p>
+
+      <div class="store-info">
+        <h3>Your registered store</h3>
+        <p><strong>Name:</strong> {{storeName}}</p>
+        <p><strong>City:</strong> {{storeCity}}</p>
+        <p><span class="pending-badge">Pending validation</span></p>
+      </div>
+
+      <p>Your store will be reviewed by our team and validated shortly. You will receive a confirmation email as soon as your store is live.</p>
+
+      <p>In the meantime, click the button below to verify your email address:</p>
+
+      <p style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Verify my email</a>
+      </p>
+
+      <p>See you soon,<br>The Shopisan Team</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Website</a> |
+        <a href="{{instagramUrl}}">Instagram</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
+
 // Function to send store creation notification (called when a new store is added)
 exports.sendStoreCreationEmail = functions.https.onCall(async (data, context) => {
   try {
@@ -476,10 +598,56 @@ exports.sendVerificationEmail = functions.https.onCall(async (data, context) => 
     
     console.log('Verification email sent successfully via Gmail:', result);
     return { success: true, message: 'Verification email sent successfully', messageId: result.messageId };
-    
+
   } catch (error) {
     console.error('Error sending verification email via Gmail:', error);
     throw new functions.https.HttpsError('internal', 'Failed to send verification email');
+  }
+});
+
+// Function to send merchant verification email (with store info)
+exports.sendMerchantVerificationEmail = functions.https.onCall(async (data, context) => {
+  try {
+    const { email, username, token, storeName, storeCity, language = 'fr' } = data;
+
+    if (!email || !username || !token || !storeName) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+    }
+
+    // Create verification URL
+    const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
+
+    // Select language template
+    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
+    const emailTemplate = merchantVerificationEmailTemplate[lang];
+
+    // Compile email template
+    const template = handlebars.compile(emailTemplate.template);
+    const htmlContent = template({
+      username,
+      storeName,
+      storeCity: storeCity || 'Non specifie',
+      verificationUrl,
+      appUrl: 'https://shopisan-bad76.web.app',
+      instagramUrl: 'https://instagram.com/shopisanapp'
+    });
+
+    // Send email
+    const mailOptions = {
+      from: `"Shopisan" <${SENDER_EMAIL}>`,
+      to: email,
+      subject: emailTemplate.subject,
+      html: htmlContent
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+
+    console.log('Merchant verification email sent successfully:', result);
+    return { success: true, message: 'Merchant verification email sent successfully', messageId: result.messageId };
+
+  } catch (error) {
+    console.error('Error sending merchant verification email:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send merchant verification email');
   }
 });
 
@@ -548,7 +716,7 @@ exports.verifyEmail = functions.https.onCall(async (data, context) => {
     // Mark email as verified
     await userDoc.ref.update({
       emailVerificationStatus: 'verified',
-      is_active: true,
+      is_validated: true,
       verificationToken: null,
       verificationExpiresAt: null,
       emailVerifiedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -584,7 +752,7 @@ exports.expireVerificationTokens = functions.pubsub.schedule('every 24 hours').o
     querySnapshot.docs.forEach(doc => {
       batch.update(doc.ref, {
         emailVerificationStatus: 'expired',
-        is_active: false
+        is_validated: false
       });
       expiredCount++;
     });
@@ -837,3 +1005,321 @@ exports.onStoreValidated = functions.firestore
 
     return null;
   });
+
+// Email change verification templates
+const emailChangeTemplate = {
+  fr: {
+    subject: "Confirmez votre nouvelle adresse email - Shopisan",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Changement d'email</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; }
+    .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 6px; margin: 20px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Confirmez votre nouvelle adresse email</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour {{username}},</p>
+      <p>Vous avez demandé à changer votre adresse email de <strong>{{oldEmail}}</strong> vers <strong>{{newEmail}}</strong>.</p>
+      <p>Cliquez sur le bouton ci-dessous pour confirmer ce changement :</p>
+      <p style="text-align: center; margin: 30px 0;">
+        <a href="{{verificationUrl}}" class="button">Confirmer le changement</a>
+      </p>
+      <div class="warning">
+        <strong>⚠️ Important :</strong> Ce lien expire dans 24 heures. Si vous n'avez pas demandé ce changement, ignorez cet email.
+      </div>
+    </div>
+    <div class="footer">
+      <p>L'équipe Shopisan</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  },
+  en: {
+    subject: "Confirm your new email address - Shopisan",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Email Change</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; }
+    .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 6px; margin: 20px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Confirm your new email address</h2>
+    </div>
+    <div class="content">
+      <p>Hello {{username}},</p>
+      <p>You requested to change your email address from <strong>{{oldEmail}}</strong> to <strong>{{newEmail}}</strong>.</p>
+      <p>Click the button below to confirm this change:</p>
+      <p style="text-align: center; margin: 30px 0;">
+        <a href="{{verificationUrl}}" class="button">Confirm Change</a>
+      </p>
+      <div class="warning">
+        <strong>⚠️ Important:</strong> This link expires in 24 hours. If you didn't request this change, ignore this email.
+      </div>
+    </div>
+    <div class="footer">
+      <p>The Shopisan Team</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
+
+// Function to check if email already exists in Firebase Auth
+// This uses Admin SDK which can reliably check email existence
+exports.checkEmailExists = functions.https.onCall(async (data, context) => {
+  try {
+    const { email } = data;
+
+    if (!email) {
+      throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+    }
+
+    // Normalize email
+    const normalizedEmail = email.trim().toLowerCase();
+
+    try {
+      // Try to get user by email using Admin SDK
+      await admin.auth().getUserByEmail(normalizedEmail);
+      // If we get here, the user exists
+      return { exists: true };
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        // Email is available
+        return { exists: false };
+      }
+      // Re-throw other errors
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error checking email existence:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError('internal', 'Failed to check email');
+  }
+});
+
+// Function to delete a user from both Firebase Auth and Firestore
+exports.deleteUser = functions.https.onCall(async (data, context) => {
+  try {
+    const { userId, email } = data;
+
+    if (!userId && !email) {
+      throw new functions.https.HttpsError('invalid-argument', 'userId or email is required');
+    }
+
+    let authUid = userId;
+
+    // If we only have email, find the user in Auth
+    if (!authUid && email) {
+      try {
+        const userRecord = await admin.auth().getUserByEmail(email);
+        authUid = userRecord.uid;
+      } catch (error) {
+        console.log('User not found in Auth by email, continuing with Firestore deletion only');
+      }
+    }
+
+    // Delete from Firebase Auth
+    if (authUid) {
+      try {
+        await admin.auth().deleteUser(authUid);
+        console.log(`Deleted user ${authUid} from Firebase Auth`);
+      } catch (error) {
+        if (error.code !== 'auth/user-not-found') {
+          console.error('Error deleting from Auth:', error);
+        }
+      }
+    }
+
+    // Delete from Firestore
+    const usersRef = admin.firestore().collection('users');
+
+    // Try to delete by userId first
+    if (authUid) {
+      try {
+        await usersRef.doc(authUid).delete();
+        console.log(`Deleted user document ${authUid} from Firestore`);
+      } catch (error) {
+        console.log('Could not delete by userId, trying by email');
+      }
+    }
+
+    // Also try to delete by email query (in case document ID doesn't match Auth UID)
+    if (email) {
+      const querySnapshot = await usersRef.where('email', '==', email.toLowerCase()).get();
+      const batch = admin.firestore().batch();
+      querySnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+        console.log(`Deleting user document by email: ${doc.id}`);
+      });
+      if (!querySnapshot.empty) {
+        await batch.commit();
+      }
+    }
+
+    // Also delete any stores owned by this user
+    if (authUid) {
+      const storesRef = admin.firestore().collection('stores');
+      const storesSnapshot = await storesRef.where('owner_id', '==', authUid).get();
+      if (!storesSnapshot.empty) {
+        const batch = admin.firestore().batch();
+        storesSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+          console.log(`Deleting store ${doc.id} owned by user ${authUid}`);
+        });
+        await batch.commit();
+      }
+    }
+
+    return { success: true, message: 'User deleted successfully' };
+
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError('internal', 'Failed to delete user: ' + error.message);
+  }
+});
+
+// Function to send email change verification
+exports.sendEmailChangeVerification = functions.https.onCall(async (data, context) => {
+  try {
+    const { userId, oldEmail, newEmail, username, language = 'fr' } = data;
+
+    if (!userId || !oldEmail || !newEmail || !username) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+    }
+
+    // Generate a secure token
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Store the pending email change in Firestore
+    const db = admin.firestore();
+    await db.collection('users').doc(userId).update({
+      emailChangeToken: token,
+      emailChangeNewEmail: newEmail,
+      emailChangeExpiresAt: expiresAt,
+    });
+
+    // Create verification URL
+    const verificationUrl = `https://shopisan-bad76.web.app/confirm-email-change?token=${token}&userId=${userId}`;
+
+    // Select language
+    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
+    const emailTemplate = emailChangeTemplate[lang];
+
+    // Compile email template
+    const template = handlebars.compile(emailTemplate.template);
+    const htmlContent = template({
+      username,
+      oldEmail,
+      newEmail,
+      verificationUrl
+    });
+
+    // Send email to the NEW email address
+    const mailOptions = {
+      from: `"Shopisan" <${SENDER_EMAIL}>`,
+      to: newEmail,
+      subject: emailTemplate.subject,
+      html: htmlContent
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Email change verification sent successfully:', result.messageId);
+
+    return { success: true, message: 'Verification email sent to new address' };
+
+  } catch (error) {
+    console.error('Error sending email change verification:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send verification email');
+  }
+});
+
+// Function to confirm email change (called when user clicks the link)
+exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
+  try {
+    const { token, userId } = data;
+
+    if (!token || !userId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+    }
+
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(userId).get();
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const userData = userDoc.data();
+
+    // Verify token
+    if (userData.emailChangeToken !== token) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid or expired token');
+    }
+
+    // Check expiration
+    if (new Date() > userData.emailChangeExpiresAt.toDate()) {
+      throw new functions.https.HttpsError('invalid-argument', 'Token has expired');
+    }
+
+    const newEmail = userData.emailChangeNewEmail;
+
+    // Update Firebase Auth email using Admin SDK
+    await admin.auth().updateUser(userId, {
+      email: newEmail,
+      emailVerified: true
+    });
+
+    // Update Firestore
+    await db.collection('users').doc(userId).update({
+      email: newEmail,
+      emailChangeToken: null,
+      emailChangeNewEmail: null,
+      emailChangeExpiresAt: null,
+      pendingEmail: null,
+    });
+
+    console.log(`Email changed successfully for user ${userId} to ${newEmail}`);
+
+    return { success: true, message: 'Email changed successfully', newEmail };
+
+  } catch (error) {
+    console.error('Error confirming email change:', error);
+    throw new functions.https.HttpsError('internal', error.message || 'Failed to change email');
+  }
+});

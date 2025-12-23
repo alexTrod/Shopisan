@@ -5,7 +5,7 @@ import { DAY_LABELS, isDayClosed, formatHoursDisplay } from './utils';
 import styles from './styles';
 import { AppColors } from '../../utils';
 
-export default function DayRow({ day, hours, locale = 'fr', closedLabel, onPress }) {
+export default function DayRow({ day, hours, locale = 'en', closedLabel, onPress }) {
   const isClosed = isDayClosed(hours);
   const dayLabel = DAY_LABELS[day]?.[locale] || day;
   const hoursDisplay = formatHoursDisplay(hours, closedLabel);

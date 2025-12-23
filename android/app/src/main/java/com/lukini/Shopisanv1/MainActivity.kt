@@ -1,4 +1,4 @@
-package com.shopisan.beta
+package com.lukini.Shopisanv1
 
 import android.os.Build
 import android.os.Bundle

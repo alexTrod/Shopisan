@@ -9,6 +9,7 @@ import { checkAuthStatus } from './src/Redux/Actions/UserActions';
 import BottomTabs from './src/Routes/bottom-tab';
 import { ScreenNames } from './src/Routes/routes';
 import SignUp from './src/screens/auth/signup';
+import MerchantSignupWizard from './src/screens/auth/signup/MerchantSignupWizard';
 import SignIn from './src/screens/auth/signin';
 import ResetPassword from './src/screens/auth/reset-password';
 import CustomText from './src/components/text';
@@ -44,7 +45,7 @@ const Stack = createNativeStackNavigator();
 
 const SplashScreen = () => {
   const { t } = useTranslation();
-  
+
   return (
     <View style={styles.splashContainer}>
       <Image
@@ -52,6 +53,7 @@ const SplashScreen = () => {
         style={styles.logo}
         resizeMode="contain"
       />
+      <Text style={styles.brandName}>SHOPISAN</Text>
       <Text style={styles.tagline}>
         {t('splash_tagline')}
       </Text>
@@ -182,6 +184,7 @@ const App = () => {
         ) : (
           <>
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
+            <Stack.Screen name="MerchantSignupWizard" component={MerchantSignupWizard} />
             <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
             <Stack.Screen name={ScreenNames.FORGOT_PASSWORD} component={ForgotPassword} />
           </>
@@ -222,7 +225,15 @@ const styles = StyleSheet.create({
   logo: {
     width: 250,
     height: 250,
-    marginBottom: 20,
+    marginBottom: 10,
+  },
+  brandName: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#333',
+    textAlign: 'center',
+    letterSpacing: 2,
+    fontFamily: 'Roboto-Black',
   },
   splashText: {
     fontSize: 20,

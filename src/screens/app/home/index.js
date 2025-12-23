@@ -475,7 +475,7 @@ export default function HomeScreen({ navigation, route }) {
         const store = item;
 
         if (geo?.latitude && geo?.longitude) {
-          dispatch(setCustomLocation({latitude: geo.latitude, longitude: geo.longitude}));
+          dispatch(setCustomLocation({latitude: Number(geo.latitude), longitude: Number(geo.longitude)}));
           navigation.navigate(ScreenNames.MAP, {
             initialStore: store
           });

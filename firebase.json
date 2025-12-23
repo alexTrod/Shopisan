@@ -19,5 +19,23 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/verify-email",
+        "destination": "/verify-email.html"
+      },
+      {
+        "source": "/confirm-email-change",
+        "destination": "/confirm-email-change.html"
+      }
+    ]
   }
 }

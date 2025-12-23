@@ -26,10 +26,12 @@ import MapboxGL from "@rnmapbox/maps";
 import locationService from "../../../utils/locationService";
 import { ensureCityExists } from "../../../utils/cityManagement";
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from '../../../utils/useTranslation';
 
 export default function HandleStoreScreen({ route, navigation }) {
   const { storeId } = route.params;
   const user = useSelector((state) => state.user.userData);
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
@@ -60,8 +62,10 @@ export default function HandleStoreScreen({ route, navigation }) {
     { label: "9h-12h / 14h-19h", morning: { start: "9", end: "12" }, afternoon: { start: "14", end: "19" } },
     { label: "8h-12h / 13h-18h", morning: { start: "8", end: "12" }, afternoon: { start: "13", end: "18" } },
     { label: "10h-19h", morning: { start: "10", end: "19" }, afternoon: null },
-    { label: "Fermé", morning: null, afternoon: null },
+    { label: "closed", morning: null, afternoon: null, isTranslationKey: true },
   ];
+
+  const getPresetLabel = (preset) => preset.isTranslationKey ? t(preset.label) : preset.label;
 
   const days = [
     "monday",
@@ -73,15 +77,7 @@ export default function HandleStoreScreen({ route, navigation }) {
     "sunday"
   ]; 
 
-  const daysLabels = {
-    monday: "Lundi",
-    tuesday: "Mardi",
-    wednesday: "Mercredi",
-    thursday: "Jeudi",
-    friday: "Vendredi",
-    saturday: "Samedi",
-    sunday: "Dimanche"
-  };
+  const getDayLabel = (day) => t(day);
 
   const [openingHours, setOpeningHours] = useState({
     monday: { morning: null, afternoon: null },
@@ -144,12 +140,12 @@ export default function HandleStoreScreen({ route, navigation }) {
           setOpeningHours(hours);
           updateGroupedDays(hours);
           } else {
-            Alert.alert("Erreur", "Magasin introuvable.");
+            Alert.alert(t('error'), t('store_not_found'));
             navigation.goBack();
           }
         } catch (error) {
-          console.error("Erreur lors du chargement du magasin :", error);
-          Alert.alert("Erreur", "Impossible de charger le magasin.");
+          console.error("Error loading store:", error);
+          Alert.alert(t('error'), t('unable_to_load_store'));
           navigation.goBack();
         } finally {
           setLoading(false);
@@ -190,7 +186,7 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   const handleUpdateStore = async () => {
     if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
-      Alert.alert("Erreur", "Tous les champs sont obligatoires, ainsi qu'une catégorie !");
+      Alert.alert(t('error'), t('all_fields_required'));
       return;
     }
 
@@ -215,7 +211,7 @@ export default function HandleStoreScreen({ route, navigation }) {
       const data = await response.json();
 
       if (data.status !== "OK" || data.results.length === 0) {
-        Alert.alert("Erreur", "Impossible de trouver l'adresse. Vérifiez les informations.");
+        Alert.alert(t('error'), t('address_not_found'));
         return;
       }
 
@@ -282,11 +278,11 @@ export default function HandleStoreScreen({ route, navigation }) {
 
       DeviceEventEmitter.emit('stores:refresh');
       dispatch(setSelectedCategories([]));
-      Alert.alert("Succès", "Magasin mis à jour !");
+      Alert.alert(t('success'), t('store_updated_success'));
       navigation.goBack();
     } catch (error) {
-      console.error("Erreur lors de la mise à jour du magasin :", error);
-      Alert.alert("Erreur", "Impossible de mettre à jour le magasin.");
+      console.error("Error updating store:", error);
+      Alert.alert(t('error'), t('unable_to_update_store'));
     }
   };
 
@@ -296,12 +292,12 @@ export default function HandleStoreScreen({ route, navigation }) {
       Keyboard.dismiss();
     }
     Alert.alert(
-      "Supprimer le magasin",
-      "Êtes-vous sûr de vouloir supprimer ce magasin ? Cette action est irréversible.",
+      t('delete_store'),
+      t('delete_store_confirm'),
       [
-        { text: "Annuler", style: "cancel" },
+        { text: t('cancel'), style: "cancel" },
         {
-          text: "Supprimer",
+          text: t('delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -309,11 +305,11 @@ export default function HandleStoreScreen({ route, navigation }) {
               await deleteDoc(storeRef);
               DeviceEventEmitter.emit('stores:refresh');
               dispatch(setSelectedCategories([]));
-              Alert.alert("Succès", "Magasin supprimé !");
+              Alert.alert(t('success'), t('store_deleted_success'));
               navigation.goBack();
             } catch (error) {
-              console.error("Erreur lors de la suppression du magasin :", error);
-              Alert.alert("Erreur", "Impossible de supprimer le magasin.");
+              console.error("Error deleting store:", error);
+              Alert.alert(t('error'), t('unable_to_delete_store'));
             }
           },
         },
@@ -381,7 +377,7 @@ export default function HandleStoreScreen({ route, navigation }) {
       }
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Erreur', 'Impossible d\'obtenir votre position actuelle');
+      Alert.alert(t('error'), t('unable_to_get_location'));
     }
   };
 
@@ -444,7 +440,7 @@ export default function HandleStoreScreen({ route, navigation }) {
       }
     } catch (e) {
       console.error('Image picker error', e);
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le sélecteur d\'images.');
+      Alert.alert(t('error'), t('unable_to_open_image_picker'));
     }
   }; 
 
@@ -488,7 +484,7 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const formatHours = (hours) => {
-    if (!hours.morning && !hours.afternoon) return "Fermé";
+    if (!hours.morning && !hours.afternoon) return t('closed');
     
     const formatTimeDisplay = (timeStr) => {
       if (!timeStr) return "";
@@ -614,7 +610,7 @@ export default function HandleStoreScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Chargement...</Text>
+        <Text>{t('loading')}</Text>
       </View>
     );
   }
@@ -626,7 +622,7 @@ export default function HandleStoreScreen({ route, navigation }) {
           <Icon name="arrow-left" size={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
-          Update a store
+          {t('update_store_title')}
         </Text>
       </View>
       <ScrollView 
@@ -635,17 +631,17 @@ export default function HandleStoreScreen({ route, navigation }) {
         nestedScrollEnabled={true}
       >
         <View style={styles.container}>
-          <Text style={styles.label}>Nom du magasin</Text>
-          <TextInput style={styles.input} placeholder="Entrez le nom" value={name} onChangeText={setName} />
+          <Text style={styles.label}>{t('store_name')}</Text>
+          <TextInput style={styles.input} placeholder={t('store_name')} value={name} onChangeText={setName} />
 
-          <Text style={styles.label}>Adresse</Text>
+          <Text style={styles.label}>{t('store_address')}</Text>
           <View style={styles.addressContainer}>
             <View style={styles.addressInputWrapper}>
               <TextInput
                 style={styles.input}
                 value={addressQuery}
                 onChangeText={fetchAddressSuggestions}
-                placeholder="Adresse"
+                placeholder={t('store_address')}
                 onBlur={() => setSuggestions([])} 
               />
 
@@ -698,16 +694,16 @@ export default function HandleStoreScreen({ route, navigation }) {
             </View>
           )}
 
-          <Text style={styles.label}>Ville</Text>
-          <TextInput style={styles.input} placeholder="Ville" value={city} onChangeText={setCity} />
+          <Text style={styles.label}>{t('city')}</Text>
+          <TextInput style={styles.input} placeholder={t('city')} value={city} onChangeText={setCity} />
 
-          <Text style={styles.label}>Code postal</Text>
-          <TextInput style={styles.input} placeholder="Code postal" value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" />
+          <Text style={styles.label}>{t('postal_code')}</Text>
+          <TextInput style={styles.input} placeholder={t('postal_code')} value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" />
 
-          <Text style={styles.label}>Description</Text>
-          <TextInput style={[styles.input, styles.textArea]} placeholder="Décrivez votre magasin" value={description} onChangeText={setDescription} multiline />
+          <Text style={styles.label}>{t('description')}</Text>
+          <TextInput style={[styles.input, styles.textArea]} placeholder={t('description')} value={description} onChangeText={setDescription} multiline />
 
-          <Text style={styles.label}>Horaires d'ouverture</Text>
+          <Text style={styles.label}>{t('opening_hours')}</Text>
           <View style={styles.presetsContainer}>
             {timePresets.map((preset, index) => (
               <TouchableOpacity
@@ -722,7 +718,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                   styles.presetText,
                   selectedPreset === preset.label && styles.selectedPresetText
                 ]}>
-                  {preset.label}
+                  {getPresetLabel(preset)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -737,7 +733,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                 >
                   <View style={styles.dayGroupTitle}>
                     <Text style={styles.dayGroupText}>
-                      {group.days.map(day => daysLabels[day]).join(", ")}
+                      {group.days.map(day => getDayLabel(day)).join(", ")}
                     </Text>
                     <Text style={styles.dayGroupHours}>
                       {formatHours(openingHours[group.days[0]])}
@@ -755,24 +751,24 @@ export default function HandleStoreScreen({ route, navigation }) {
                     <View style={styles.hoursHeaderRow}>
                       <Text style={[styles.dayLabel, {color: 'transparent'}]}>-</Text>
                       <View style={styles.hoursHeaderBlock}>
-                        <Text style={styles.hoursHeaderText}>Matin</Text>
+                        <Text style={styles.hoursHeaderText}>{t('morning')}</Text>
                         <View style={styles.timeInputs}>
-                          <Text style={styles.hoursHeaderSubText}>Début</Text>
-                          <Text style={styles.hoursHeaderSubText}>Fin</Text>
+                          <Text style={styles.hoursHeaderSubText}>{t('start')}</Text>
+                          <Text style={styles.hoursHeaderSubText}>{t('end')}</Text>
                         </View>
                       </View>
                       <View style={styles.hoursHeaderBlock}>
-                        <Text style={styles.hoursHeaderText}>Après-midi</Text>
+                        <Text style={styles.hoursHeaderText}>{t('afternoon')}</Text>
                         <View style={styles.timeInputs}>
-                          <Text style={styles.hoursHeaderSubText}>Début</Text>
-                          <Text style={styles.hoursHeaderSubText}>Fin</Text>
+                          <Text style={styles.hoursHeaderSubText}>{t('start')}</Text>
+                          <Text style={styles.hoursHeaderSubText}>{t('end')}</Text>
                         </View>
                       </View>
                       <View style={styles.dayActionsHeader} />
                     </View>
                     {group.days.map((day, index) => (
                       <View key={day} style={styles.dayRow}>
-                        <Text style={styles.dayLabel}>{daysLabels[day]}</Text>
+                        <Text style={styles.dayLabel}>{getDayLabel(day)}</Text>
                         <View style={styles.block}>
                           <View style={styles.timeInputs}>
                             <View style={styles.timeInputContainer}>
@@ -918,16 +914,16 @@ export default function HandleStoreScreen({ route, navigation }) {
                           )}
                         </View>
                         {(hoursErrors[`${day}_morning_start`] === 'order' || hoursErrors[`${day}_morning_end`] === 'order') && (
-                          <Text style={styles.timeInputErrorText}>L'heure de fin doit être après l'heure de début</Text>
+                          <Text style={styles.timeInputErrorText}>{t('end_after_start_error')}</Text>
                         )}
                         {(hoursErrors[`${day}_morning_start`] === 'notNumber' || hoursErrors[`${day}_morning_end`] === 'notNumber') && (
-                          <Text style={styles.timeInputErrorText}>Veuillez entrer un nombre</Text>
+                          <Text style={styles.timeInputErrorText}>{t('enter_number_error')}</Text>
                         )}
                         {(hoursErrors[`${day}_afternoon_start`] === 'order' || hoursErrors[`${day}_afternoon_end`] === 'order') && (
-                          <Text style={styles.timeInputErrorText}>L'heure de fin doit être après l'heure de début</Text>
+                          <Text style={styles.timeInputErrorText}>{t('end_after_start_error')}</Text>
                         )}
                         {(hoursErrors[`${day}_afternoon_start`] === 'notNumber' || hoursErrors[`${day}_afternoon_end`] === 'notNumber') && (
-                          <Text style={styles.timeInputErrorText}>Veuillez entrer un nombre</Text>
+                          <Text style={styles.timeInputErrorText}>{t('enter_number_error')}</Text>
                         )}
                       </View>
                     ))}
@@ -939,56 +935,56 @@ export default function HandleStoreScreen({ route, navigation }) {
 
           {user?.userType === "merchant" && (
             <>
-              <Text style={styles.label}>Email du magasin</Text>
+              <Text style={styles.label}>{t('store_email')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Email du magasin"
+                placeholder={t('store_email')}
                 value={storeEmail}
                 onChangeText={setStoreEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
 
-              <Text style={styles.label}>Site web</Text>
+              <Text style={styles.label}>{t('website')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="URL du site web"
+                placeholder={t('website')}
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
               />
 
-              <Text style={styles.label}>Téléphone</Text>
+              <Text style={styles.label}>{t('phone')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Numéro de téléphone"
+                placeholder={t('phone')}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
 
-              <Text style={styles.label}>Prénom du gérant</Text>
+              <Text style={styles.label}>{t('manager_first_name')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Prénom"
+                placeholder={t('manager_first_name')}
                 value={managerFirstName}
                 onChangeText={setManagerFirstName}
               />
 
-              <Text style={styles.label}>Nom du gérant</Text>
+              <Text style={styles.label}>{t('manager_last_name')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Nom"
+                placeholder={t('manager_last_name')}
                 value={managerLastName}
                 onChangeText={setManagerLastName}
               />
             </>
           )}
 
-          <Text style={styles.label}>Catégories</Text>
+          <Text style={styles.label}>{t('categories')}</Text>
           <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
             <Text style={styles.categoryButtonText}>
-              {selectedCategories.length > 0 ? `${selectedCategories.length} catégorie(s) sélectionnée(s)` : "Sélectionner des catégories"}
+              {selectedCategories.length > 0 ? `${selectedCategories.length} ${t('categories')}` : t('select_categories')}
             </Text>
           </TouchableOpacity>
 
@@ -1005,7 +1001,7 @@ export default function HandleStoreScreen({ route, navigation }) {
 
           {!selectedImage ? (
             <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
-              <Text style={styles.imageButtonText}>Ajouter une image</Text>
+              <Text style={styles.imageButtonText}>{t('add_image')}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.selectedImageContainer}>
@@ -1017,11 +1013,11 @@ export default function HandleStoreScreen({ route, navigation }) {
           )}
 
           <TouchableOpacity style={styles.addButton} onPress={handleDeleteStore}>
-            <Text style={styles.addButtonText}>Supprimer le magasin</Text>
+            <Text style={styles.addButtonText}>{t('delete_store')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.addButton} onPress={handleUpdateStore}>
-            <Text style={styles.addButtonText}>Modifier le magasin</Text>
+            <Text style={styles.addButtonText}>{t('update_store')}</Text>
           </TouchableOpacity>
 
           <Modal animationType="slide" transparent={true} visible={modalVisible}>
@@ -1038,7 +1034,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                   style={styles.categoryItem}
                 >
                   <Text style={[styles.categoryText, { color: selectedCategories.length === categories.length ? AppColors.primary : AppColors.black }]}>
-                    Tout sélectionner
+                    {t('select_all')}
                   </Text>
                 </TouchableOpacity>
                 <FlatList
@@ -1051,7 +1047,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                   )}
                 />
                 <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-                  <Text style={styles.cancelButtonText}>Fermer</Text>
+                  <Text style={styles.cancelButtonText}>{t('close_button')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

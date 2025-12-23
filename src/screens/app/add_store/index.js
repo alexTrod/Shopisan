@@ -35,6 +35,16 @@ import OpeningHoursPicker from "../../../components/opening-hours-picker";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
+// Helper to add timeout to any promise
+const withTimeout = (promise, ms, errorMessage) => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage || 'Operation timed out')), ms)
+    )
+  ]);
+};
+
 export default function AddStoreScreen({ navigation }) {
   const { t } = useTranslation();
   const user = useSelector((state) => state.user.userData);
@@ -241,29 +251,55 @@ export default function AddStoreScreen({ navigation }) {
 
     const fileName = `photo_${Date.now()}.jpg`;
 
+    // On Android, ensure the URI is properly formatted
+    const imageUri = Platform.OS === 'android' && !uri.startsWith('file://')
+      ? `file://${uri}`
+      : uri;
+
+    console.log('[AddStore] Uploading image from URI:', imageUri);
+
     const formData = new FormData();
     formData.append('file', {
-      uri,
+      uri: imageUri,
       name: fileName,
       type: 'image/jpeg'
     });
 
-    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiToken}`,
-      },
-      body: formData
-    });
+    // Add timeout for image upload (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('[AddStore] Image upload timeout after 30s');
+      controller.abort();
+    }, 30000);
 
-    const data = await response.json();
+    try {
+      const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+        },
+        body: formData,
+        signal: controller.signal
+      });
 
-    if (!data.success) {
-      console.error("Erreur Cloudflare:", data.errors);
-      throw new Error('Échec de l\'upload vers Cloudflare');
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+      console.log('[AddStore] Cloudflare response:', data.success ? 'success' : 'failed');
+
+      if (!data.success) {
+        console.error("Erreur Cloudflare:", data.errors);
+        throw new Error('Échec de l\'upload vers Cloudflare');
+      }
+
+      return data.result.variants[0];
+    } catch (uploadError) {
+      clearTimeout(timeoutId);
+      if (uploadError.name === 'AbortError') {
+        throw new Error('IMAGE_UPLOAD_TIMEOUT');
+      }
+      throw uploadError;
     }
-
-    return data.result.variants[0];
   };
 
   const validateField = (fieldName, value) => {
@@ -332,24 +368,59 @@ export default function AddStoreScreen({ navigation }) {
     try {
       if (selectedImage) {
         try {
+          console.log('[AddStore] Starting image upload...');
           imageUrl = await uploadImageToCloudflare(selectedImage.uri);
+          console.log('[AddStore] Image upload successful:', imageUrl);
         } catch (uploadError) {
-          console.error('Image upload failed:', uploadError);
+          console.error('[AddStore] Image upload failed:', uploadError);
           setIsAddingStore(false);
-          Alert.alert(
-            t('error') || 'Error',
-            t('image_upload_failed') || 'Image upload failed. Please try again or remove the image.'
-          );
+
+          if (uploadError.message === 'IMAGE_UPLOAD_TIMEOUT') {
+            Alert.alert(
+              t('error') || 'Error',
+              t('image_upload_timeout') || 'Image upload timed out. Please check your internet connection and try again.'
+            );
+          } else {
+            Alert.alert(
+              t('error') || 'Error',
+              t('image_upload_failed') || 'Image upload failed. Please try again or remove the image.'
+            );
+          }
           return; // Stop - don't create store without image
         }
       }
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
+      console.log('[AddStore] Full address:', fullAddress);
 
       const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
-      );
+
+      // Add timeout for geocoding API call (15 seconds)
+      console.log('[AddStore] Starting geocoding...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[AddStore] Geocoding timeout after 15s');
+        controller.abort();
+      }, 15000);
+
+      let response;
+      try {
+        response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        setIsAddingStore(false);
+        if (fetchError.name === 'AbortError') {
+          Alert.alert(t('error') || "Erreur", t('network_timeout') || "La connexion a pris trop de temps. Vérifiez votre connexion internet.");
+        } else {
+          Alert.alert(t('error') || "Erreur", t('network_error') || "Erreur de connexion. Vérifiez votre connexion internet.");
+        }
+        return;
+      }
+
       const data = await response.json();
 
       if (data.status !== "OK" || data.results.length === 0) {
@@ -361,22 +432,44 @@ export default function AddStoreScreen({ navigation }) {
       const location = data.results[0].geometry.location;
       const latitude = Number(location.lat);
       const longitude = Number(location.lng);
+      console.log('[AddStore] Geocoding successful:', latitude, longitude);
 
-      const ownerId = user ? await getOwnerId(user.id) || null : null;
+      console.log('[AddStore] Getting owner ID...');
+      let ownerId = null;
+      if (user) {
+        try {
+          ownerId = await withTimeout(
+            getOwnerId(user.id),
+            15000,
+            'OWNER_ID_TIMEOUT'
+          );
+        } catch (ownerError) {
+          console.warn('[AddStore] Could not fetch owner ID, continuing without it:', ownerError.message);
+          // Continue without owner ID - store can still be created
+        }
+      }
+      console.log('[AddStore] Owner ID:', ownerId);
 
       const storesRef = collection(firestore, "stores");
 
-      // Only fetch the store with highest ID instead of all stores
+      // Only fetch the store with highest ID instead of all stores (20s timeout)
+      console.log('[AddStore] Fetching max store ID...');
       const maxIdQuery = firestoreQuery(storesRef, orderBy('id', 'desc'), limit(1));
-      const maxIdSnapshot = await getDocs(maxIdQuery);
+      const maxIdSnapshot = await withTimeout(
+        getDocs(maxIdQuery),
+        20000,
+        'FIRESTORE_TIMEOUT'
+      );
 
       let maxId = 0;
       if (!maxIdSnapshot.empty) {
         const topStore = maxIdSnapshot.docs[0].data();
         maxId = topStore.id || 0;
       }
+      console.log('[AddStore] Max ID found:', maxId);
 
       const newStoreId = maxId + 1;
+      console.log('[AddStore] New store ID:', newStoreId);
 
       const storeData = {
         id: newStoreId,
@@ -418,7 +511,14 @@ export default function AddStoreScreen({ navigation }) {
         }),
       };
 
-      await addDoc(storesRef, storeData);
+      // Add store to Firestore (20s timeout)
+      console.log('[AddStore] Adding store to Firestore...');
+      await withTimeout(
+        addDoc(storesRef, storeData),
+        20000,
+        'FIRESTORE_TIMEOUT'
+      );
+      console.log('[AddStore] Store added successfully!');
 
       // Fire-and-forget: send store creation notification emails
       const emailToUse = storeEmail || user?.email;
@@ -458,34 +558,72 @@ export default function AddStoreScreen({ navigation }) {
         type: 'success',
         visibilityTime: 4000,
       });
-      
+
+      setIsAddingStore(false);
       navigation.goBack();
     } catch (error) {
       console.error("Erreur lors de l'ajout du magasin :", error);
       setIsAddingStore(false);
-      Alert.alert("Erreur", "Impossible d'ajouter le magasin");
+
+      // Check for timeout error
+      if (error.message === 'FIRESTORE_TIMEOUT') {
+        Alert.alert(
+          t('error') || "Erreur",
+          t('network_timeout') || "La connexion a pris trop de temps. Vérifiez votre connexion internet et réessayez."
+        );
+      } else {
+        Alert.alert(
+          t('error') || "Erreur",
+          t('store_add_error') || "Impossible d'ajouter le magasin. Vérifiez votre connexion internet et réessayez."
+        );
+      }
     }
   };  
 
   const handlePickImage = async () => {
     try {
+      // Request permissions first on Android
+      if (Platform.OS === 'android') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            t('permission_required') || 'Permission Required',
+            t('gallery_permission_message') || 'Please allow access to your photo library to add an image.'
+          );
+          return;
+        }
+      }
+
+      console.log('[AddStore] Opening image picker...');
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        // Android-specific: use external storage for better compatibility
+        ...(Platform.OS === 'android' && { exif: false }),
       });
+
+      console.log('[AddStore] Image picker result:', result?.canceled ? 'canceled' : 'selected');
 
       if (!result?.canceled) {
         if (result?.assets?.length > 0) {
-          setSelectedImage(result.assets[0]);
+          const asset = result.assets[0];
+          console.log('[AddStore] Selected image URI:', asset.uri);
+          setSelectedImage(asset);
         } else if (result?.uri) {
+          // Fallback for older expo-image-picker versions
+          console.log('[AddStore] Selected image URI (legacy):', result.uri);
           setSelectedImage({ uri: result.uri });
         }
       }
     } catch (e) {
-      console.error('Image picker error', e);
-      Alert.alert('Error', 'Unable to open image picker.');
+      console.error('[AddStore] Image picker error:', e);
+      Alert.alert(
+        t('error') || 'Error',
+        t('image_picker_error') || 'Unable to open image picker. Please try again.'
+      );
     }
   };  
 
