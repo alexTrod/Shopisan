@@ -44,19 +44,14 @@ try {
 const Stack = createNativeStackNavigator();
 
 const SplashScreen = () => {
-  const { t } = useTranslation();
-
   return (
     <View style={styles.splashContainer}>
       <Image
-        source={require('./assets/LogoIcon.png')}
+        source={require('./assets/logo_icon.png')}
         style={styles.logo}
         resizeMode="contain"
       />
       <Text style={styles.brandName}>SHOPISAN</Text>
-      <Text style={styles.tagline}>
-        {t('splash_tagline')}
-      </Text>
     </View>
   );
 };
@@ -146,10 +141,11 @@ const App = () => {
     return (
       <View style={styles.splashContainer}>
         <Image
-          source={require('./assets/LogoIcon.png')}
+          source={require('./assets/logo_icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />
+        <Text style={styles.brandName}>SHOPISAN</Text>
       </View>
     );
   }
@@ -202,7 +198,7 @@ const WrappedApp = () => {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setShowSplash(false), 3000);
+    const timeout = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -223,35 +219,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logo: {
-    width: 250,
-    height: 250,
-    marginBottom: 10,
+    width: 140,
+    height: 140,
+    marginBottom: 16,
+    marginTop: -80,
   },
   brandName: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
     color: '#333',
     textAlign: 'center',
-    letterSpacing: 2,
-    fontFamily: 'Roboto-Black',
-  },
-  splashText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    fontFamily: 'Roboto-Medium',
-  },
-  tagline: {
-    position: 'absolute',
-    bottom: 100,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    fontFamily: 'Roboto-Bold',
-    letterSpacing: 0.5,
+    letterSpacing: 3,
   },
 });

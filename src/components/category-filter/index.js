@@ -7,11 +7,11 @@ import { AppColors } from '../../utils';
 import { width, height } from '../../utils/dimension';
 import logging from '../../utils/logging';
 import { getCategoriesLocale } from '../../Redux/Reducers/CategoriesReducer';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '../../utils/useTranslation';
 
 
-const CategoryFilter = () => {
+const CategoryFilter = ({ showMyStoresToggle = false, showMyStoresOnly = false, onToggleMyStores = null }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
   const { t, locale } = useTranslation();
@@ -43,24 +43,50 @@ const CategoryFilter = () => {
   };
 
   return (
-    <View style={[styles.container, { zIndex: 9999 }]}>
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.dropdown}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Text style={styles.selectedTextStyle}>
-          {selectedCategories.length > 0 ? '+' : t('add_category')}
+    <View style={[styles.wrapper, { zIndex: 9999 }]}>
+      {/* Top row: two buttons side by side */}
+      <View style={styles.buttonsRow}>
+        {/* Filter Categories button */}
+        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.filterButton}>
+          <Ionicons name="filter" size={18} color="#6B21A8" />
+          <Text style={styles.filterButtonText}>
+            {selectedCategories.length > 0
+              ? `${t('filters') || 'Filters'} (${selectedCategories.length})`
+              : (t('filter_categories') || 'Filter')}
           </Text>
-        </View>
-      </TouchableOpacity>
-      <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}> 
-        {selectedCategories.map((categoryID) => (
-          <View key={categoryID} style={styles.selectedCategoryItem}>
-            <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
-            <TouchableOpacity onPress={() => dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)))}>
-              <MaterialIcons name="close" size={20} color={AppColors.black} />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </ScrollView>
+        </TouchableOpacity>
+
+        {/* My Stores / All Stores toggle - only for merchants */}
+        {showMyStoresToggle && (
+          <TouchableOpacity
+            onPress={onToggleMyStores}
+            style={[styles.storeToggleButton, showMyStoresOnly && styles.storeToggleButtonActive]}
+          >
+            <MaterialIcons
+              name={showMyStoresOnly ? "store" : "storefront"}
+              size={18}
+              color={showMyStoresOnly ? "#fff" : AppColors.black}
+            />
+            <Text style={[styles.storeToggleText, showMyStoresOnly && styles.storeToggleTextActive]}>
+              {showMyStoresOnly ? (t('my_stores') || 'My Stores') : (t('all_stores') || 'All Stores')}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Selected category chips below */}
+      {selectedCategories.length > 0 && (
+        <ScrollView horizontal={true} style={styles.selectedCategoriesContainer} showsHorizontalScrollIndicator={false}>
+          {selectedCategories.map((categoryID) => (
+            <View key={categoryID} style={styles.selectedCategoryItem}>
+              <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
+              <TouchableOpacity onPress={() => dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)))}>
+                <MaterialIcons name="close" size={18} color="#6B21A8" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
+      )}
       <Modal
         animationType="slide"
         transparent={true}
@@ -80,14 +106,22 @@ const CategoryFilter = () => {
             <FlatList
               data={data}
               keyExtractor={item => item.value.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => handleSelectCategory(item)} style={styles.categoryItem}>
-                  <Text style={[styles.categoryText, { 
-                color: selectedCategories.includes(item.value) ? '#8B0000' : AppColors.black,
-                fontWeight: selectedCategories.includes(item.value) ? 'bold' : 'normal'
-              }]}>{item.label}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isSelected = selectedCategories.includes(item.value);
+                return (
+                  <TouchableOpacity
+                    onPress={() => handleSelectCategory(item)}
+                    style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
+                  >
+                    <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>
+                      {item.label}
+                    </Text>
+                    {isSelected && (
+                      <MaterialIcons name="check" size={22} color="#6B21A8" style={{ marginLeft: 'auto' }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
             />
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
               <Text style={styles.cancelButtonText}>{t('finish')}</Text>
@@ -100,42 +134,68 @@ const CategoryFilter = () => {
 };
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flexDirection: 'column',
+  },
+  buttonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    borderColor: '#6B21A8',
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B21A8',
+  },
+  storeToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.white,
+    borderColor: AppColors.grey_200,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  storeToggleButtonActive: {
+    backgroundColor: AppColors.primary,
+    borderColor: AppColors.primary,
+  },
+  storeToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.black,
+  },
+  storeToggleTextActive: {
+    color: '#fff',
+  },
   selectedCategoriesContainer: {
-    flexDirection:'row',
-    marginTop:2,
+    flexDirection: 'row',
+    marginTop: 8,
   },
   selectedCategoryItem: {
-    flexDirection:'row',
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FDEAEA',
-    borderColor: '#8B0000',
+    backgroundColor: '#F3E8FF',
+    borderColor: '#6B21A8',
     borderWidth: 1.5,
     borderRadius: 25,
     paddingLeft: 12,
     paddingRight: 8,
     paddingVertical: 4,
-    margin: 3,
-  },
-  container: {
-    flexDirection:'row',
-    alignItems: 'center',
-  },
-  dropdown: {
-    backgroundColor: AppColors.white,
-    borderColor: AppColors.black,
-    borderWidth: 1,
-    borderRadius: 16,
-    height: 32,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 1,
-    color: AppColors.black,
-  },
-  selectedTextStyle: {
-    fontSize: 14,
-    color: AppColors.black,
-    lineHeight: 18,
+    marginRight: 6,
   },
   modalContainer: {
     flex: 1,
@@ -155,9 +215,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: AppColors.grey_200,
     flexDirection:'row',
+    alignItems: 'center',
+  },
+  categoryItemSelected: {
+    backgroundColor: '#F3E8FF',
+    borderRadius: 8,
+    marginHorizontal: -5,
+    paddingHorizontal: 20,
   },
   categoryText: {
     fontSize: 14,
+  },
+  categoryTextSelected: {
+    color: '#6B21A8',
+    fontWeight: 'bold',
   },
   cancelButton: {
     marginTop: 20,
@@ -171,7 +242,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   selectedCategoryText: {
-    color: '#8B0000',
+    color: '#6B21A8',
     fontSize: 14,
     fontWeight: 'bold',
   },

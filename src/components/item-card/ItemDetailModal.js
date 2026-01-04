@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert, TextInput } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert, TextInput, Image, FlatList, Dimensions } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import { AppColors } from "../../utils";
-import { height } from "../../utils/dimension";
+import { height, width } from "../../utils/dimension";
 import { collection, addDoc, updateDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../../../firebaseconfig';
 import { getAuth } from 'firebase/auth';
@@ -34,6 +34,14 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const categories = useSelector(state => state.categories.categories);
   const [postMedia, setPostMedia] = useState([]);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Get store images (support both images array and single imageUrl)
+  const storeImages = item?.images?.length > 0
+    ? item.images
+    : item?.imageUrl
+      ? [item.imageUrl]
+      : [];
 
   const days = [
     "monday",
@@ -279,6 +287,48 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                   />
               </TouchableOpacity>
             </View>
+
+            {/* Store Images Gallery */}
+            {storeImages.length > 0 ? (
+              <View style={styles.imageGalleryContainer}>
+                <FlatList
+                  data={storeImages}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(e.nativeEvent.contentOffset.x / (width(85)));
+                    setCurrentImageIndex(index);
+                  }}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item: imageUrl }) => (
+                    <Image
+                      source={{ uri: imageUrl }}
+                      style={styles.storeImage}
+                      resizeMode="cover"
+                    />
+                  )}
+                />
+                {storeImages.length > 1 && (
+                  <View style={styles.paginationDots}>
+                    {storeImages.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.dot,
+                          currentImageIndex === index && styles.activeDot
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.noImageContainer}>
+                <Ionicons name="storefront-outline" size={60} color={AppColors.grey_400} />
+              </View>
+            )}
+
             <Text style={styles.title}>{item.title}</Text>
             <AddressComponent address={address(item.address)} />
 
@@ -736,6 +786,40 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     textDecorationLine: 'underline',
     flex: 1,
+  },
+  // Image Gallery styles
+  imageGalleryContainer: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  storeImage: {
+    width: width(85),
+    height: width(60),
+    borderRadius: 12,
+  },
+  noImageContainer: {
+    width: width(85),
+    height: width(40),
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ccc',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: AppColors.primary,
   },
 });
 

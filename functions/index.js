@@ -147,7 +147,7 @@ const merchantEmailTemplate = {
     <div class="content">
       <p>Bonjour {{storeName}},</p>
       <p>Merci pour votre inscription sur Shopisan ! Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
-      <p>Votre demande a bien été reçue et sera validée sous peu par notre équipe. Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
+      <p>Votre demande a bien été enregistrée et sera validée sous peu par notre équipe. Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
       <p>On vous tient au courant très vite par e-mail.</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
     </div>
@@ -238,7 +238,7 @@ const adminNotificationTemplate = `
 // Store validation confirmation email templates
 const storeValidationEmailTemplate = {
   fr: {
-    subject: "Votre boutique est maintenant en ligne sur Shopisan !",
+    subject: "Votre boutique est en ligne sur Shopisan !",
     template: `
 <!DOCTYPE html>
 <html>
@@ -260,17 +260,17 @@ const storeValidationEmailTemplate = {
 <body>
   <div class="container">
     <div class="header">
-      <h2>Votre boutique est maintenant en ligne sur Shopisan !</h2>
+      <h2>Votre boutique est en ligne sur Shopisan !</h2>
     </div>
     <div class="content">
       <p>Bonjour {{storeName}},</p>
-      <p>C'est officiel : votre inscription sur Shopisan a été validée.</p>
-      <p>Votre boutique rejoint aujourd'hui la communauté qui met en avant les commerces de proximité. Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
+      <p>Ça y est, c'est officiel : votre inscription sur Shopisan est validée.</p>
+      <p>Votre boutique rejoint dès aujourd'hui la communauté qui met en avant les commerces de proximité. Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
       <p style="text-align: center;">
         <a href="{{appUrl}}" class="button">Accéder à mon compte</a>
       </p>
       <p>Bienvenue dans l'aventure Shopisan !</p>
-      <p>Nous sommes ravis de vous compter parmi nous !</p>
+      <p>Nous sommes ravis de vous avoir à bord !</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
       <p class="contact">Notre équipe est à votre disposition à info@shopisan.com</p>
     </div>
@@ -328,6 +328,116 @@ const storeValidationEmailTemplate = {
         <a href="{{appUrl}}">Website</a> |
         <a href="{{appUrl}}">Link to app</a> |
         <a href="{{instagramUrl}}">Instagram</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
+
+// Store rejection email templates
+const storeRejectionEmailTemplate = {
+  fr: {
+    subject: "Demande d'inscription boutique – Non validée",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Demande non validée</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .reasons { margin: 20px 0; padding-left: 20px; }
+    .reasons li { margin: 8px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Demande d'inscription boutique – Non validée</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p>Nous vous informons qu'une demande d'inscription de votre commerce a été effectuée sur l'application Shopisan.</p>
+      <p>Après vérification, cette demande n'a pas pu être validée à ce stade.</p>
+      <p>Plusieurs raisons peuvent expliquer ce refus, notamment :</p>
+      <ul class="reasons">
+        <li>informations incomplètes ou incorrectes,</li>
+        <li>activité ne correspondant pas aux critères de la plateforme,</li>
+        <li>justificatifs manquants ou non conformes.</li>
+      </ul>
+      <p>Aucune action n'est requise de votre part si vous ne souhaitez pas donner suite à cette inscription.</p>
+      <p>Si cette demande ne provient pas de vous ou si vous estimez qu'il s'agit d'une erreur, elle sera automatiquement annulée.</p>
+      <p>Si vous souhaitez obtenir plus d'informations ou déposer une nouvelle demande, vous pouvez nous contacter à l'adresse suivante : <a href="mailto:support@shopisan.com">support@shopisan.com</a></p>
+      <p>Nous vous remercions de votre compréhension.</p>
+      <p>Cordialement,<br>L'équipe Shopisan</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{instagramUrl}}">Instagram</a> |
+        <a href="{{appStoreUrl}}">App Store</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  },
+  en: {
+    subject: "Shop Registration Request – Not Approved",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Request Not Approved</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .reasons { margin: 20px 0; padding-left: 20px; }
+    .reasons li { margin: 8px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Shop Registration Request – Not Approved</h2>
+    </div>
+    <div class="content">
+      <p>Hello,</p>
+      <p>We would like to inform you that a registration request for your shop has been submitted on the Shopisan application.</p>
+      <p>After review, this request could not be approved at this stage.</p>
+      <p>Several reasons may explain this decision, including:</p>
+      <ul class="reasons">
+        <li>incomplete or incorrect information,</li>
+        <li>activity not meeting the platform's eligibility criteria,</li>
+        <li>missing or non-compliant supporting documents.</li>
+      </ul>
+      <p>No action is required on your part if you do not wish to proceed with this registration.</p>
+      <p>If this request was not made by you or if you believe it was submitted in error, it will be automatically cancelled.</p>
+      <p>If you would like more information or wish to submit a new application, please contact us at: <a href="mailto:support@shopisan.com">support@shopisan.com</a></p>
+      <p>Thank you for your understanding.</p>
+      <p>Kind regards,<br>The Shopisan Team</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Website</a> |
+        <a href="{{instagramUrl}}">Instagram</a> |
+        <a href="{{appStoreUrl}}">App Store</a>
       </div>
     </div>
   </div>
@@ -999,6 +1109,81 @@ exports.onStoreValidated = functions.firestore
 
       } catch (error) {
         console.error('Error sending store validation email:', error);
+        return null;
+      }
+    }
+
+    return null;
+  });
+
+// Cloud Function that triggers when a store is rejected
+exports.onStoreRejected = functions.firestore
+  .document('stores/{storeId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const storeId = context.params.storeId;
+
+    // Check if store was just rejected (is_rejected changed to true from false or undefined)
+    if (!before.is_rejected && after.is_rejected === true) {
+      try {
+        console.log(`Store ${storeId} has been rejected, sending rejection email`);
+
+        // Get store owner information
+        let storeEmail = after.storeEmail || after.email;
+        const storeName = after.name;
+
+        // If no email on store, try to get it from the owner
+        let ownerLanguage = null;
+        if (after.owner_id) {
+          const ownerDoc = await admin.firestore().collection('users').doc(after.owner_id).get();
+          if (ownerDoc.exists) {
+            const ownerData = ownerDoc.data();
+            if (!storeEmail) {
+              storeEmail = ownerData.email;
+              console.log(`Found owner email: ${storeEmail}`);
+            }
+            ownerLanguage = ownerData.language || ownerData.locale;
+          }
+        }
+
+        if (!storeEmail) {
+          console.error('No email found for store:', storeId);
+          return null;
+        }
+
+        // Determine language preference from owner, then store, default to French
+        const language = ownerLanguage || after.language || 'fr';
+        const lang = language.toLowerCase().startsWith('en') ? 'en' : 'fr';
+
+        // Get email template
+        const emailTemplate = storeRejectionEmailTemplate[lang];
+        const subject = emailTemplate.subject;
+
+        // Compile email template
+        const template = handlebars.compile(emailTemplate.template);
+        const htmlContent = template({
+          storeName,
+          appUrl: 'https://shopisan-bad76.web.app',
+          instagramUrl: 'https://instagram.com/shopisanapp',
+          appStoreUrl: 'https://apps.apple.com/app/shopisan'
+        });
+
+        // Send rejection email
+        const mailOptions = {
+          from: `"Shopisan" <${SENDER_EMAIL}>`,
+          to: storeEmail,
+          subject: subject,
+          html: htmlContent
+        };
+
+        const result = await transporter.sendMail(mailOptions);
+        console.log('Store rejection email sent successfully:', result.messageId);
+
+        return result;
+
+      } catch (error) {
+        console.error('Error sending store rejection email:', error);
         return null;
       }
     }

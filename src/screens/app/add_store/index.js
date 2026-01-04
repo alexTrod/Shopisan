@@ -72,7 +72,8 @@ export default function AddStoreScreen({ navigation }) {
   const { categories, selectedCategories } = useSelector(state => state.categories);
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [storeEmail, setStoreEmail] = useState('');
   const [website, setWebsite] = useState('');
   const [phone, setPhone] = useState('');
@@ -363,14 +364,18 @@ export default function AddStoreScreen({ navigation }) {
     }
 
     setIsAddingStore(true);
-    let imageUrl = null;
+    let images = [];
 
     try {
-      if (selectedImage) {
+      // Upload all selected images
+      if (selectedImages.length > 0) {
         try {
-          console.log('[AddStore] Starting image upload...');
-          imageUrl = await uploadImageToCloudflare(selectedImage.uri);
-          console.log('[AddStore] Image upload successful:', imageUrl);
+          console.log('[AddStore] Starting image uploads...');
+          for (const img of selectedImages) {
+            const uploadedUrl = await uploadImageToCloudflare(img.uri);
+            images.push(uploadedUrl);
+          }
+          console.log('[AddStore] Image uploads successful:', images);
         } catch (uploadError) {
           console.error('[AddStore] Image upload failed:', uploadError);
           setIsAddingStore(false);
@@ -386,7 +391,7 @@ export default function AddStoreScreen({ navigation }) {
               t('image_upload_failed') || 'Image upload failed. Please try again or remove the image.'
             );
           }
-          return; // Stop - don't create store without image
+          return;
         }
       }
 
@@ -501,7 +506,8 @@ export default function AddStoreScreen({ navigation }) {
         storeStatus: 0,
         website: "",
         openingHours: openingHours,
-        imageUrl: imageUrl || "",
+        images: images,
+        imageUrl: images[0] || "",
         is_validated: false,
         ...(user?.userType === "merchant" && {
           email: storeEmail || "",
@@ -554,9 +560,10 @@ export default function AddStoreScreen({ navigation }) {
       dispatch(setSelectedCategories([]));
       
       Toast.show({
-        text1: t('store_saved_success'),
+        text1: t('store_added_title'),
+        text2: t('store_added_description'),
         type: 'success',
-        visibilityTime: 4000,
+        visibilityTime: 6000,
       });
 
       setIsAddingStore(false);
@@ -582,41 +589,15 @@ export default function AddStoreScreen({ navigation }) {
 
   const handlePickImage = async () => {
     try {
-      // Request permissions first on Android
-      if (Platform.OS === 'android') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            t('permission_required') || 'Permission Required',
-            t('gallery_permission_message') || 'Please allow access to your photo library to add an image.'
-          );
-          return;
-        }
-      }
-
-      console.log('[AddStore] Opening image picker...');
-
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        // Android-specific: use external storage for better compatibility
-        ...(Platform.OS === 'android' && { exif: false }),
       });
 
-      console.log('[AddStore] Image picker result:', result?.canceled ? 'canceled' : 'selected');
-
-      if (!result?.canceled) {
-        if (result?.assets?.length > 0) {
-          const asset = result.assets[0];
-          console.log('[AddStore] Selected image URI:', asset.uri);
-          setSelectedImage(asset);
-        } else if (result?.uri) {
-          // Fallback for older expo-image-picker versions
-          console.log('[AddStore] Selected image URI (legacy):', result.uri);
-          setSelectedImage({ uri: result.uri });
-        }
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setSelectedImages(prev => [...prev, { uri: result.assets[0].uri }]);
       }
     } catch (e) {
       console.error('[AddStore] Image picker error:', e);
@@ -625,6 +606,10 @@ export default function AddStoreScreen({ navigation }) {
         t('image_picker_error') || 'Unable to open image picker. Please try again.'
       );
     }
+  };
+
+  const handleRemoveImage = (index) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };  
 
   const getOwnerId = async (userId) => {
@@ -913,19 +898,52 @@ export default function AddStoreScreen({ navigation }) {
           t={t}
         />
 
-        {!selectedImage ? (
-          <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
-            <Ionicons name="camera" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.imageButtonText}>{t('add_image')}</Text>
+        {/* Image Gallery */}
+        <View style={styles.imageGalleryContainer}>
+          {selectedImages.length > 0 && (
+            <>
+              <FlatList
+                data={selectedImages}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / (width(80) + 10));
+                  setCurrentImageIndex(index);
+                }}
+                keyExtractor={(_, index) => index.toString()}
+                renderItem={({ item, index }) => (
+                  <View style={styles.imageSlide}>
+                    <Image source={{ uri: item.uri }} style={styles.selectedImage} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => handleRemoveImage(index)}
+                    >
+                      <Ionicons name="close-circle" size={30} color="red" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+              {selectedImages.length > 1 && (
+                <View style={styles.paginationDots}>
+                  {selectedImages.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.dot,
+                        currentImageIndex === index && styles.activeDot
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+          <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
+            <Ionicons name="camera" size={24} color={AppColors.primary} />
+            <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.selectedImageContainer}>
-            <Image source={{ uri: selectedImage.uri }} style={styles.selectedImage} />
-            <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
-              <Ionicons name="close-circle" size={30} color="red" />
-            </TouchableOpacity>
-          </View>
-        )}
+        </View>
 
         <TouchableOpacity
           style={[styles.addButton, isAddingStore && styles.addButtonDisabled]}
@@ -1157,14 +1175,55 @@ const styles = StyleSheet.create({
   },
   selectedImage: {
     width: width(80),
-    height: height(20),
+    height: width(80),
     borderRadius: 10,
   },
   removeImageButton: {
     position: "absolute",
     top: 5,
     right: 5,
-  },  
+  },
+  imageGalleryContainer: {
+    marginVertical: 10,
+  },
+  imageSlide: {
+    width: width(80),
+    marginHorizontal: 5,
+    position: "relative",
+    alignItems: "center",
+  },
+  paginationDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ccc",
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: AppColors.primary,
+  },
+  addImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    borderRadius: 8,
+    borderStyle: "dashed",
+    marginTop: 10,
+  },
+  addImageButtonText: {
+    color: AppColors.primary,
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
   suggestionsContainer: {
     position: 'absolute',
     top: '100%',

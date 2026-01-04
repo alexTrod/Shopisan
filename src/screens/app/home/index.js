@@ -264,15 +264,16 @@ export default function HomeScreen({ navigation, route }) {
   const handleToggleShowMyStores = () => {
     setShowMyStoresOnly(prev => {
       const newState = !prev;
-  
+
       if (newState) {
         setShowFavoritesOnly(false);
         setStores([]);
         loadMyStores(true);
       } else {
-        setStores([]);
+        // When switching back to All Categories, restore stores from context
+        setStores(filteredStores);
       }
-  
+
       return newState;
     });
   };
@@ -466,10 +467,12 @@ export default function HomeScreen({ navigation, route }) {
       tags={getCategoriesNamesByIds(item?.category ?? [])}
       description={item?.description?.fr ?? ""}
       address={item.address}
-      image={item.imageUrl ? { uri: item.imageUrl } : undefined}
-      isFavorite={item.isFavorite}
+      image={item.imageUrl ? { uri: item.imageUrl } : (item.images?.[0] ? { uri: item.images[0] } : undefined)}
+      images={item.images || []}
+      imageUrl={item.imageUrl || null}
+      isFavorite={favoriteStores.includes(item.id)}
       onPressFavorite={() => handleToggleFavorite(item.id)}
-      owner_id={item.owner_id} 
+      owner_id={item.owner_id}
       onPress={() => {
         const geo = item?.address?.[0]?.location?.geopoint;
         const store = item;
@@ -482,16 +485,17 @@ export default function HomeScreen({ navigation, route }) {
         } else {
           console.warn("Pas de coordonnées GPS valides pour cet item :", item);
         }
-      }}  
+      }}
       openingHours={item.openingHours || null}
       is_validated={item.is_validated}
     />
-  ), [getCategoriesNamesByIds, locale, handleToggleFavorite, navigation]);   
+  ), [getCategoriesNamesByIds, locale, handleToggleFavorite, navigation, favoriteStores]);   
 
   const flatListProps = useMemo(() => ({
     data: stores,
     keyExtractor: (item, index) => `${item.id}-${index}`,
     renderItem,
+    extraData: favoriteStores,
     onEndReachedThreshold: 0.5,
     ListFooterComponent: renderFooter,
     refreshing,
@@ -499,6 +503,7 @@ export default function HomeScreen({ navigation, route }) {
   }), [
     stores,
     renderItem,
+    favoriteStores,
     renderFooter,
     refreshing,
     handleRefresh
@@ -815,26 +820,16 @@ export default function HomeScreen({ navigation, route }) {
           {/* Category filter handled by SearchBar component */}
 
           <View style={styles.categoryChipRow}>
-            <CategoryFilter />
+            <CategoryFilter
+              showMyStoresToggle={user?.userType === 'merchant'}
+              showMyStoresOnly={showMyStoresOnly}
+              onToggleMyStores={handleToggleShowMyStores}
+            />
           </View>
-
-          {/* Action Buttons - only show for merchants */}
-          {user?.userType === 'merchant' && (
-            <View style={styles.actionsRow}>
-              <TouchableOpacity onPress={handleToggleShowMyStores} style={styles.switchButton}>
-                <MaterialIcons
-                  name={showMyStoresOnly ? "store" : "storefront"}
-                  size={24}
-                  color={showMyStoresOnly ? AppColors.primary : AppColors.grey_200}
-                />
-                <Text style={styles.switchText}>{showMyStoresOnly ? t('my_stores') : t('all_categories')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           {/* Store List, Loading, or No Store Message */}
           <View style={styles.contentContainer}>
-            {loadingStores || (!userLocation && !customLocation) ? (
+            {loadingStores ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={AppColors.primary} />
                 <Text style={styles.loadingText}>{t('loading_stores')}</Text>

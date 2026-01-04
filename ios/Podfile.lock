@@ -222,8 +222,6 @@ PODS:
     - Yoga
   - ExpoAsset (11.0.5):
     - ExpoModulesCore
-  - ExpoFileSystem (18.0.12):
-    - ExpoModulesCore
   - ExpoFont (13.0.4):
     - ExpoModulesCore
   - ExpoImagePicker (16.0.6):
@@ -264,14 +262,15 @@ PODS:
   - hermes-engine (0.76.9):
     - hermes-engine/Pre-built (= 0.76.9)
   - hermes-engine/Pre-built (0.76.9)
-  - MapboxCommon (24.17.0):
-    - Turf (= 4.0.0)
-  - MapboxCoreMaps (11.17.0):
-    - MapboxCommon (= 24.17.0)
-  - MapboxMaps (11.17.0):
-    - MapboxCommon (= 24.17.0)
-    - MapboxCoreMaps (= 11.17.0)
-    - Turf (= 4.0.0)
+  - MapboxCommon (23.10.1)
+  - MapboxCoreMaps (10.18.0):
+    - MapboxCommon (~> 23.10)
+  - MapboxMaps (10.18.2):
+    - MapboxCommon (= 23.10.1)
+    - MapboxCoreMaps (= 10.18.0)
+    - MapboxMobileEvents (= 1.0.10)
+    - Turf (= 2.8.0)
+  - MapboxMobileEvents (1.0.10)
   - RCT-Folly (2024.10.14.00):
     - boost
     - DoubleConversion
@@ -1853,14 +1852,14 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - rnmapbox-maps (10.2.9):
-    - MapboxMaps (~> 11.9)
+  - rnmapbox-maps (10.1.31):
+    - MapboxMaps (~> 10.18.2)
     - React
     - React-Core
-    - rnmapbox-maps/DynamicLibrary (= 10.2.9)
+    - rnmapbox-maps/DynamicLibrary (= 10.1.31)
     - Turf
-  - rnmapbox-maps/DynamicLibrary (10.2.9):
-    - MapboxMaps (~> 11.9)
+  - rnmapbox-maps/DynamicLibrary (10.1.31):
+    - MapboxMaps (~> 10.18.2)
     - React
     - React-Core
     - Turf
@@ -1997,7 +1996,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - Yoga
   - SocketRocket (0.7.1)
-  - Turf (4.0.0)
+  - Turf (2.8.0)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2014,7 +2013,6 @@ DEPENDENCIES:
   - expo-dev-menu (from `../node_modules/expo-dev-menu`)
   - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
-  - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoLocalization (from `../node_modules/expo-localization/ios`)
@@ -2102,6 +2100,7 @@ SPEC REPOS:
     - MapboxCommon
     - MapboxCoreMaps
     - MapboxMaps
+    - MapboxMobileEvents
     - SocketRocket
     - Turf
 
@@ -2132,8 +2131,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-dev-menu-interface/ios"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
-  ExpoFileSystem:
-    :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo-font/ios"
   ExpoImagePicker:
@@ -2308,7 +2305,6 @@ SPEC CHECKSUMS:
   expo-dev-menu: 3fda3eb2b3394dc92955f6ff60cb278f843641be
   expo-dev-menu-interface: 00dc42302a72722fdecec3fa048de84a9133bcc4
   ExpoAsset: 48386d40d53a8c1738929b3ed509bcad595b5516
-  ExpoFileSystem: 42d363d3b96f9afab980dcef60d5657a4443c655
   ExpoFont: f354e926f8feae5e831ec8087f36652b44a0b188
   ExpoImagePicker: 24e5ba8da111f74519b1e6dc556e0b438b2b8464
   ExpoLocalization: 7776ea3bdb112125390745bbaf919b734b2ad1c7
@@ -2320,9 +2316,10 @@ SPEC CHECKSUMS:
   fmt: 01b82d4ca6470831d1cc0852a1af644be019e8f6
   glog: 08b301085f15bcbb6ff8632a8ebaf239aae04e6a
   hermes-engine: 9e868dc7be781364296d6ee2f56d0c1a9ef0bb11
-  MapboxCommon: 5cc0e77733478a7b2a3a28af7c38adc8485e07d8
-  MapboxCoreMaps: b7b7703cd8af3ae9088f42c6d23b591947a1eb1f
-  MapboxMaps: 10b01217e5634aa7b6fc1fb10d036598d9240ba6
+  MapboxCommon: 0ff437e44988da6856e280d00ffb266564ed0487
+  MapboxCoreMaps: f1bd9405f5b9d3e343f2fe4138775299699a22fb
+  MapboxMaps: e76b14f52c54c40b76ddecd04f40448e6f35a864
+  MapboxMobileEvents: de50b3a4de180dd129c326e09cd12c8adaaa46d6
   RCT-Folly: ea9d9256ba7f9322ef911169a9f696e5857b9e17
   RCTDeprecation: ebe712bb05077934b16c6bf25228bdec34b64f83
   RCTRequired: ca91e5dd26b64f577b528044c962baf171c6b716
@@ -2385,15 +2382,15 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: aa75595c1aefa18f868452091fa0c411a516ce11
   RNDateTimePicker: 818460dc31b0dc5ec58289003e27dd8d022fb79c
   RNGestureHandler: 32336458ef842088a459ccfcc10b583186de2633
-  rnmapbox-maps: 9a7c7c1e882772b09c319672c488ae389161a3e3
+  rnmapbox-maps: e07d03977b24cce5954888f6c914ddc747360fcc
   RNReanimated: 6d22a1aec06a9787b797bc0c40fc2779be0599a5
   RNScreens: 295d9c0aaeb7f680d03d7e9b476569a4959aae89
   RNSVG: 8542aa11770b27563714bbd8494a8436385fc85f
   RNVectorIcons: 2e5faaeb07fcb842b924f92f10b4404ee2984b49
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
-  Turf: c9eb11a65d96af58cac523460fd40fec5061b081
+  Turf: aa2ede4298009639d10db36aba1a7ebaad072a5e
   Yoga: feb4910aba9742cfedc059e2b2902e22ffe9954a
 
-PODFILE CHECKSUM: e6b35bf7d69d0a2522f3c186f737ed80f99dfb6a
+PODFILE CHECKSUM: c9e4254a6a94307beb2321c71b08054ee48c0131
 
 COCOAPODS: 1.16.2

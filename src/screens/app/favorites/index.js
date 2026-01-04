@@ -111,7 +111,9 @@ export default function FavoritesScreen({ navigation }) {
       tags={item.tags || []}
       description={item.description?.[locale] || "No description available"}
       address={item.address}
-      image={{ uri: item.image }}
+      image={item.image ? { uri: item.image } : (item.images?.[0] ? { uri: item.images[0] } : undefined)}
+      images={item.images || []}
+      imageUrl={item.imageUrl || item.image || null}
       isFavorite={favoriteStores.includes(item.id)}
       onPressFavorite={() => handleToggleFavorite(item.id)}
       onPress={() => {

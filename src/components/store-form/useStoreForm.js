@@ -35,7 +35,8 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [storeEmail, setStoreEmail] = useState('');
   const [website, setWebsite] = useState('');
   const [phone, setPhone] = useState('');
@@ -218,31 +219,15 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
   const handlePickImage = async () => {
     try {
-      if (Platform.OS === 'android') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            t('permission_required') || 'Permission Required',
-            t('gallery_permission_message') || 'Please allow access to your photo library to add an image.'
-          );
-          return;
-        }
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        ...(Platform.OS === 'android' && { exif: false }),
       });
 
-      if (!result?.canceled) {
-        if (result?.assets?.length > 0) {
-          setSelectedImage(result.assets[0]);
-        } else if (result?.uri) {
-          setSelectedImage({ uri: result.uri });
-        }
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setSelectedImages(prev => [...prev, { uri: result.assets[0].uri }]);
       }
     } catch (e) {
       console.error('Image picker error:', e);
@@ -251,6 +236,10 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
         t('image_picker_error') || 'Unable to open image picker. Please try again.'
       );
     }
+  };
+
+  const handleRemoveImage = (index) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const uploadImageToCloudflare = async (uri) => {
@@ -360,7 +349,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   };
 
   // Build store data object from current form state
-  const buildStoreData = async (ownerId, latitude, longitude, imageUrl) => {
+  const buildStoreData = async (ownerId, latitude, longitude, images) => {
     return {
       name,
       owner_id: ownerId,
@@ -388,7 +377,8 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       storeStatus: 0,
       website: website || "",
       openingHours: openingHours,
-      imageUrl: imageUrl || "",
+      images: images || [],
+      imageUrl: images?.[0] || "",
       is_validated: false,
       email: storeEmail || "",
       phone: phone || "",
@@ -408,7 +398,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       description,
       selectedCategories,
       openingHours,
-      selectedImage,
+      selectedImages,
       storeEmail,
       website,
       phone,
@@ -432,13 +422,16 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     }
 
     setIsSubmitting(true);
-    let imageUrl = null;
+    let images = [];
 
     try {
-      // Upload image if selected
-      if (selectedImage) {
+      // Upload all selected images
+      if (selectedImages.length > 0) {
         try {
-          imageUrl = await uploadImageToCloudflare(selectedImage.uri);
+          for (const img of selectedImages) {
+            const uploadedUrl = await uploadImageToCloudflare(img.uri);
+            images.push(uploadedUrl);
+          }
         } catch (uploadError) {
           setIsSubmitting(false);
           if (uploadError.message === 'IMAGE_UPLOAD_TIMEOUT') {
@@ -509,7 +502,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       }
 
       const newStoreId = maxId + 1;
-      const storeData = await buildStoreData(ownerId, latitude, longitude, imageUrl);
+      const storeData = await buildStoreData(ownerId, latitude, longitude, images);
       storeData.id = newStoreId;
 
       // Add store to Firestore
@@ -603,8 +596,10 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     setManagerLastName,
     openingHours,
     setOpeningHours,
-    selectedImage,
-    setSelectedImage,
+    selectedImages,
+    setSelectedImages,
+    currentImageIndex,
+    setCurrentImageIndex,
 
     // Categories
     categories,
@@ -635,6 +630,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
     // Actions
     handlePickImage,
+    handleRemoveImage,
     handleSubmit,
     handleWizardSubmit,
     getFormData,

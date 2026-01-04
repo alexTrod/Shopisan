@@ -74,8 +74,9 @@ export const StoreForm = ({
     setManagerLastName,
     openingHours,
     setOpeningHours,
-    selectedImage,
-    setSelectedImage,
+    selectedImages,
+    currentImageIndex,
+    setCurrentImageIndex,
     categories,
     selectedCategories,
     modalVisible,
@@ -94,6 +95,7 @@ export const StoreForm = ({
     hasAttemptedSubmit,
     isSubmitting,
     handlePickImage,
+    handleRemoveImage,
     handleSubmit,
     handleWizardSubmit,
   } = form;
@@ -376,27 +378,57 @@ export const StoreForm = ({
             t={t}
           />
 
-          {!selectedImage ? (
+          {/* Image Gallery */}
+          <View style={styles.imageGalleryContainer}>
+            {selectedImages.length > 0 && (
+              <>
+                <FlatList
+                  data={selectedImages}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(e.nativeEvent.contentOffset.x / (width(80) + 10));
+                    setCurrentImageIndex(index);
+                  }}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.imageSlide}>
+                      <Image source={{ uri: item.uri }} style={styles.selectedImage} />
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => handleRemoveImage(index)}
+                        disabled={disabled}
+                      >
+                        <Ionicons name="close-circle" size={30} color="red" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+                {selectedImages.length > 1 && (
+                  <View style={styles.paginationDots}>
+                    {selectedImages.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.dot,
+                          currentImageIndex === index && styles.activeDot
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
             <TouchableOpacity
-              style={[styles.imageButton, disabled && styles.buttonDisabled]}
+              style={[styles.addImageButton, disabled && styles.buttonDisabled]}
               onPress={handlePickImage}
               disabled={disabled}
             >
-              <Ionicons name="camera" size={20} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.imageButtonText}>{t('add_image')}</Text>
+              <Ionicons name="camera" size={24} color={AppColors.primary} />
+              <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.selectedImageContainer}>
-              <Image source={{ uri: selectedImage.uri }} style={styles.selectedImage} />
-              <TouchableOpacity
-                style={styles.removeImageButton}
-                onPress={() => setSelectedImage(null)}
-                disabled={disabled}
-              >
-                <Ionicons name="close-circle" size={30} color="red" />
-              </TouchableOpacity>
-            </View>
-          )}
+          </View>
 
           <TouchableOpacity
             style={[styles.addButton, isLoading && styles.addButtonDisabled]}
@@ -626,13 +658,54 @@ const styles = StyleSheet.create({
   },
   selectedImage: {
     width: width(80),
-    height: height(20),
+    height: width(80),
     borderRadius: 10,
   },
   removeImageButton: {
     position: "absolute",
     top: 5,
     right: 5,
+  },
+  imageGalleryContainer: {
+    marginVertical: 10,
+  },
+  imageSlide: {
+    width: width(80),
+    marginHorizontal: 5,
+    position: "relative",
+    alignItems: "center",
+  },
+  paginationDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ccc",
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: AppColors.primary,
+  },
+  addImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    borderRadius: 8,
+    borderStyle: "dashed",
+    marginTop: 10,
+  },
+  addImageButtonText: {
+    color: AppColors.primary,
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 8,
   },
   addButton: {
     backgroundColor: AppColors.primary,

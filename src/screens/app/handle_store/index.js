@@ -11,6 +11,7 @@ import {
   ScrollView,
   DeviceEventEmitter,
   Platform,
+  Image,
 } from "react-native";
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "../../../../firebaseconfig";
@@ -19,7 +20,7 @@ import { AppColors } from "../../../utils";
 import { Ionicons } from "@expo/vector-icons";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
-import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
+import { setCategories } from "../../../Redux/Actions/CategoriesActions";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as Location from 'expo-location';
 import MapboxGL from "@rnmapbox/maps";
@@ -27,6 +28,7 @@ import locationService from "../../../utils/locationService";
 import { ensureCityExists } from "../../../utils/cityManagement";
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from '../../../utils/useTranslation';
+import OpeningHoursPicker from "../../../components/opening-hours-picker";
 
 export default function HandleStoreScreen({ route, navigation }) {
   const { storeId } = route.params;
@@ -39,7 +41,8 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [description, setDescription] = useState("");
-  const { categories, selectedCategories } = useSelector(state => state.categories);
+  const categories = useSelector(state => state.categories.categories);
+  const [storeCategories, setStoreCategories] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -51,7 +54,10 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [phone, setPhone] = useState('');
   const [managerFirstName, setManagerFirstName] = useState('');
   const [managerLastName, setManagerLastName] = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [existingImageUrls, setExistingImageUrls] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [mainImageIndex, setMainImageIndex] = useState(0);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [addressQuery, setAddressQuery] = useState('');
   const [streetNumber, setStreetNumber] = useState("");
@@ -118,13 +124,22 @@ export default function HandleStoreScreen({ route, navigation }) {
             setLongitude(store.address[0]?.location?.geopoint?.longitude?.toString() || "");
             setDescription(store.description?.fr || "");
       
-            dispatch(setSelectedCategories(Array.isArray(store.category) ? store.category : []));
+            setStoreCategories(Array.isArray(store.category) ? store.category : []);
 
             setStoreEmail(store?.email ?? "");
             setWebsite(store?.website ?? "");
             setPhone(store?.phone ?? "");
             setManagerFirstName(store?.managerFirstName ?? "");
             setManagerLastName(store?.managerLastName ?? "");
+
+            // Load existing images (support both single imageUrl and images array)
+            const existingImages = [];
+            if (store?.images && Array.isArray(store.images)) {
+              existingImages.push(...store.images);
+            } else if (store?.imageUrl) {
+              existingImages.push(store.imageUrl);
+            }
+            setExistingImageUrls(existingImages);
 
             const hours =
             store?.openingHours ?? {
@@ -174,18 +189,18 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const handleSelectCategory = (item) => {
-    const newSelectedCategories = selectedCategories.includes(item.value)
-      ? selectedCategories.filter(cat => cat !== item.value)
-      : [...selectedCategories, item.value];
-    dispatch(setSelectedCategories(newSelectedCategories));
+    const newCategories = storeCategories.includes(item.value)
+      ? storeCategories.filter(cat => cat !== item.value)
+      : [...storeCategories, item.value];
+    setStoreCategories(newCategories);
   };
 
   const handleRemoveCategory = (categoryID) => {
-    dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)));
+    setStoreCategories(storeCategories.filter(cat => cat !== categoryID));
   };
 
   const handleUpdateStore = async () => {
-    if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
+    if (!name || !street || !city || !postalCode || !description || storeCategories.length === 0) {
       Alert.alert(t('error'), t('all_fields_required'));
       return;
     }
@@ -195,11 +210,20 @@ export default function HandleStoreScreen({ route, navigation }) {
       Keyboard.dismiss();
     }
 
-    let imageUrl = storeData?.imageUrl || '';
+    let images = [...existingImageUrls];
 
     try {
-      if (selectedImage) {
-        imageUrl = await uploadImageToCloudflare(selectedImage.uri);
+      // Upload new images
+      for (const img of selectedImages) {
+        const uploadedUrl = await uploadImageToCloudflare(img.uri);
+        images.push(uploadedUrl);
+      }
+
+      // Reorder images so main image is first
+      if (mainImageIndex > 0 && mainImageIndex < images.length) {
+        const mainImage = images[mainImageIndex];
+        images.splice(mainImageIndex, 1);
+        images.unshift(mainImage);
       }
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
@@ -248,11 +272,12 @@ export default function HandleStoreScreen({ route, navigation }) {
 
         cityName: city,
         description: { fr: description },
-        category: selectedCategories,
+        category: storeCategories,
         storeStatus: storeData?.storeStatus ?? 0,
         website: website || "",
         openingHours,
-        imageUrl,
+        images,
+        imageUrl: images[0] || "",
         ...(user?.userType === "merchant" && {
           email: storeEmail || "",
           phone: phone || "",
@@ -277,7 +302,6 @@ export default function HandleStoreScreen({ route, navigation }) {
       }
 
       DeviceEventEmitter.emit('stores:refresh');
-      dispatch(setSelectedCategories([]));
       Alert.alert(t('success'), t('store_updated_success'));
       navigation.goBack();
     } catch (error) {
@@ -304,7 +328,6 @@ export default function HandleStoreScreen({ route, navigation }) {
               const storeRef = doc(firestore, "stores", storeDocumentId);
               await deleteDoc(storeRef);
               DeviceEventEmitter.emit('stores:refresh');
-              dispatch(setSelectedCategories([]));
               Alert.alert(t('success'), t('store_deleted_success'));
               navigation.goBack();
             } catch (error) {
@@ -422,27 +445,103 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   const handlePickImage = async () => {
     try {
-      console.log('handling image picker');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
-      console.log('picker result', result);
 
-      if (!result?.canceled) {
-        if (result?.assets?.length > 0) {
-          setSelectedImage(result.assets[0]);
-        } else if (result?.uri) {
-          setSelectedImage({ uri: result.uri });
-        }
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setSelectedImages(prev => [...prev, { uri: result.assets[0].uri }]);
       }
     } catch (e) {
       console.error('Image picker error', e);
       Alert.alert(t('error'), t('unable_to_open_image_picker'));
     }
-  }; 
+  };
+
+  const handleRemoveImage = (index, isExisting) => {
+    const totalImages = existingImageUrls.length + selectedImages.length;
+
+    if (isExisting) {
+      setExistingImageUrls(prev => prev.filter((_, i) => i !== index));
+      // Adjust main image index
+      if (index < mainImageIndex) {
+        setMainImageIndex(prev => prev - 1);
+      } else if (index === mainImageIndex) {
+        setMainImageIndex(0);
+      }
+    } else {
+      const actualIndex = existingImageUrls.length + index;
+      setSelectedImages(prev => prev.filter((_, i) => i !== index));
+      // Adjust main image index
+      if (actualIndex < mainImageIndex) {
+        setMainImageIndex(prev => prev - 1);
+      } else if (actualIndex === mainImageIndex) {
+        setMainImageIndex(0);
+      }
+    }
+  };
+
+  const handleSetMainImage = (index) => {
+    setMainImageIndex(index);
+  };
+
+  const getAllImages = () => {
+    const existing = existingImageUrls.map((url, i) => ({ uri: url, isExisting: true, originalIndex: i }));
+    const selected = selectedImages.map((img, i) => ({ uri: img.uri, isExisting: false, originalIndex: i }));
+    return [...existing, ...selected];
+  };
+
+  const uploadImageToCloudflare = async (uri) => {
+    const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
+    const apiToken = 'mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K';
+
+    const fileName = `photo_${Date.now()}.jpg`;
+    const imageUri = Platform.OS === 'android' && !uri.startsWith('file://')
+      ? `file://${uri}`
+      : uri;
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri: imageUri,
+      name: fileName,
+      type: 'image/jpeg'
+    });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 30000);
+
+    try {
+      const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+        },
+        body: formData,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error("Cloudflare error:", data.errors);
+        throw new Error('Cloudflare upload failed');
+      }
+
+      return data.result.variants[0];
+    } catch (uploadError) {
+      clearTimeout(timeoutId);
+      if (uploadError.name === 'AbortError') {
+        throw new Error('IMAGE_UPLOAD_TIMEOUT');
+      }
+      throw uploadError;
+    }
+  };
 
   const handleAddressSelect = (item) => {
     if (!item) return;
@@ -703,235 +802,13 @@ export default function HandleStoreScreen({ route, navigation }) {
           <Text style={styles.label}>{t('description')}</Text>
           <TextInput style={[styles.input, styles.textArea]} placeholder={t('description')} value={description} onChangeText={setDescription} multiline />
 
-          <Text style={styles.label}>{t('opening_hours')}</Text>
-          <View style={styles.presetsContainer}>
-            {timePresets.map((preset, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.presetButton,
-                  selectedPreset === preset.label && styles.selectedPreset
-                ]}
-                onPress={() => applyPresetToAllDays(preset)}
-              >
-                <Text style={[
-                  styles.presetText,
-                  selectedPreset === preset.label && styles.selectedPresetText
-                ]}>
-                  {getPresetLabel(preset)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.openingHoursContainer}>
-            {groupedDays.map((group, groupIndex) => (
-              <View key={groupIndex} style={styles.dayGroup}>
-                <TouchableOpacity
-                  style={styles.dayGroupHeader}
-                  onPress={() => setExpandedDay(expandedDay === group.days[0] ? null : group.days[0])}
-                >
-                  <View style={styles.dayGroupTitle}>
-                    <Text style={styles.dayGroupText}>
-                      {group.days.map(day => getDayLabel(day)).join(", ")}
-                    </Text>
-                    <Text style={styles.dayGroupHours}>
-                      {formatHours(openingHours[group.days[0]])}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={expandedDay === group.days[0] ? "chevron-up" : "chevron-down"}
-                    size={20}
-                    color={AppColors.primary}
-                  />
-                </TouchableOpacity>
-
-                {expandedDay === group.days[0] && (
-                  <View style={styles.dayGroupContent}>
-                    <View style={styles.hoursHeaderRow}>
-                      <Text style={[styles.dayLabel, {color: 'transparent'}]}>-</Text>
-                      <View style={styles.hoursHeaderBlock}>
-                        <Text style={styles.hoursHeaderText}>{t('morning')}</Text>
-                        <View style={styles.timeInputs}>
-                          <Text style={styles.hoursHeaderSubText}>{t('start')}</Text>
-                          <Text style={styles.hoursHeaderSubText}>{t('end')}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.hoursHeaderBlock}>
-                        <Text style={styles.hoursHeaderText}>{t('afternoon')}</Text>
-                        <View style={styles.timeInputs}>
-                          <Text style={styles.hoursHeaderSubText}>{t('start')}</Text>
-                          <Text style={styles.hoursHeaderSubText}>{t('end')}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.dayActionsHeader} />
-                    </View>
-                    {group.days.map((day, index) => (
-                      <View key={day} style={styles.dayRow}>
-                        <Text style={styles.dayLabel}>{getDayLabel(day)}</Text>
-                        <View style={styles.block}>
-                          <View style={styles.timeInputs}>
-                            <View style={styles.timeInputContainer}>
-                              <TextInput
-                                style={[styles.timeInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
-                                placeholder="09"
-                                value={parseTime(openingHours[day].morning?.start).hour}
-                                onChangeText={(text) => {
-                                  const hour = clampHour(text);
-                                  const minute = parseTime(openingHours[day].morning?.start).minute;
-                                  updateOpeningHourValidated(day, 'morning', 'start', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                              <Text style={styles.timeSeparator}>h</Text>
-                              <TextInput
-                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_morning_start`] && styles.timeInputError]}
-                                placeholder="00"
-                                value={parseTime(openingHours[day].morning?.start).minute}
-                                onChangeText={(text) => {
-                                  const minute = clampMinute(text);
-                                  const hour = parseTime(openingHours[day].morning?.start).hour;
-                                  updateOpeningHourValidated(day, 'morning', 'start', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                            </View>
-                            <Text style={styles.timeSeparator}>-</Text>
-                            <View style={styles.timeInputContainer}>
-                              <TextInput
-                                style={[styles.timeInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
-                                placeholder="12"
-                                value={parseTime(openingHours[day].morning?.end).hour}
-                                onChangeText={(text) => {
-                                  const hour = clampHour(text);
-                                  const minute = parseTime(openingHours[day].morning?.end).minute;
-                                  updateOpeningHourValidated(day, 'morning', 'end', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                              <Text style={styles.timeSeparator}>h</Text>
-                              <TextInput
-                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_morning_end`] && styles.timeInputError]}
-                                placeholder="00"
-                                value={parseTime(openingHours[day].morning?.end).minute}
-                                onChangeText={(text) => {
-                                  const minute = clampMinute(text);
-                                  const hour = parseTime(openingHours[day].morning?.end).hour;
-                                  updateOpeningHourValidated(day, 'morning', 'end', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                            </View>
-                          </View>
-                        </View>
-                        <View style={styles.block}>
-                          <View style={styles.timeInputs}>
-                            <View style={styles.timeInputContainer}>
-                              <TextInput
-                                style={[styles.timeInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
-                                placeholder="14"
-                                value={parseTime(openingHours[day].afternoon?.start).hour}
-                                onChangeText={(text) => {
-                                  const hour = clampHour(text);
-                                  const minute = parseTime(openingHours[day].afternoon?.start).minute;
-                                  updateOpeningHourValidated(day, 'afternoon', 'start', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                              <Text style={styles.timeSeparator}>h</Text>
-                              <TextInput
-                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_afternoon_start`] && styles.timeInputError]}
-                                placeholder="00"
-                                value={parseTime(openingHours[day].afternoon?.start).minute}
-                                onChangeText={(text) => {
-                                  const minute = clampMinute(text);
-                                  const hour = parseTime(openingHours[day].afternoon?.start).hour;
-                                  updateOpeningHourValidated(day, 'afternoon', 'start', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                            </View>
-                            <Text style={styles.timeSeparator}>-</Text>
-                            <View style={styles.timeInputContainer}>
-                              <TextInput
-                                style={[styles.timeInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
-                                placeholder="19"
-                                value={parseTime(openingHours[day].afternoon?.end).hour}
-                                onChangeText={(text) => {
-                                  const hour = clampHour(text);
-                                  const minute = parseTime(openingHours[day].afternoon?.end).minute;
-                                  updateOpeningHourValidated(day, 'afternoon', 'end', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                              <Text style={styles.timeSeparator}>h</Text>
-                              <TextInput
-                                style={[styles.timeInput, styles.minuteInput, hoursErrors[`${day}_afternoon_end`] && styles.timeInputError]}
-                                placeholder="00"
-                                value={parseTime(openingHours[day].afternoon?.end).minute}
-                                onChangeText={(text) => {
-                                  const minute = clampMinute(text);
-                                  const hour = parseTime(openingHours[day].afternoon?.end).hour;
-                                  updateOpeningHourValidated(day, 'afternoon', 'end', formatTime(hour, minute));
-                                }}
-                                keyboardType="numeric"
-                                maxLength={2}
-                              />
-                            </View>
-                          </View>
-                        </View>
-                        {/* Actions */}
-                        <View style={[styles.block, styles.blockActions]}>
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => {
-                              setOpeningHours(prev => ({
-                                ...prev,
-                                [day]: { morning: null, afternoon: null }
-                              }));
-                            }}
-                          >
-                            <Ionicons
-                              name={!openingHours[day].morning && !openingHours[day].afternoon ? "lock-closed" : "lock-open"}
-                              size={20}
-                              color={AppColors.primary}
-                            />
-                          </TouchableOpacity>
-                          {index < group.days.length - 1 && (
-                            <TouchableOpacity
-                              style={styles.actionButton}
-                              onPress={() => copyToNextDay(day)}
-                            >
-                              <Ionicons name="copy" size={20} color={AppColors.primary} />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                        {(hoursErrors[`${day}_morning_start`] === 'order' || hoursErrors[`${day}_morning_end`] === 'order') && (
-                          <Text style={styles.timeInputErrorText}>{t('end_after_start_error')}</Text>
-                        )}
-                        {(hoursErrors[`${day}_morning_start`] === 'notNumber' || hoursErrors[`${day}_morning_end`] === 'notNumber') && (
-                          <Text style={styles.timeInputErrorText}>{t('enter_number_error')}</Text>
-                        )}
-                        {(hoursErrors[`${day}_afternoon_start`] === 'order' || hoursErrors[`${day}_afternoon_end`] === 'order') && (
-                          <Text style={styles.timeInputErrorText}>{t('end_after_start_error')}</Text>
-                        )}
-                        {(hoursErrors[`${day}_afternoon_start`] === 'notNumber' || hoursErrors[`${day}_afternoon_end`] === 'notNumber') && (
-                          <Text style={styles.timeInputErrorText}>{t('enter_number_error')}</Text>
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
+          <OpeningHoursPicker
+            value={openingHours}
+            onChange={setOpeningHours}
+            locale={t('locale') === 'en' ? 'en' : 'fr'}
+            showPresets={true}
+            t={t}
+          />
 
           {user?.userType === "merchant" && (
             <>
@@ -984,12 +861,12 @@ export default function HandleStoreScreen({ route, navigation }) {
           <Text style={styles.label}>{t('categories')}</Text>
           <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
             <Text style={styles.categoryButtonText}>
-              {selectedCategories.length > 0 ? `${selectedCategories.length} ${t('categories')}` : t('select_categories')}
+              {storeCategories.length > 0 ? `${storeCategories.length} ${t('categories')}` : t('select_categories')}
             </Text>
           </TouchableOpacity>
 
           <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}>
-            {selectedCategories.map((categoryID) => (
+            {storeCategories.map((categoryID) => (
               <View key={categoryID} style={styles.selectedCategoryItem}>
                 <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
                 <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
@@ -999,18 +876,73 @@ export default function HandleStoreScreen({ route, navigation }) {
             ))}
           </ScrollView>
 
-          {!selectedImage ? (
-            <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
-              <Text style={styles.imageButtonText}>{t('add_image')}</Text>
+          {/* Image Gallery */}
+          <View style={styles.imageGalleryContainer}>
+            {getAllImages().length > 0 ? (
+              <>
+                <FlatList
+                  data={getAllImages()}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(e.nativeEvent.contentOffset.x / (width(80) + 10));
+                    setCurrentImageIndex(index);
+                  }}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.imageSlide}>
+                      <Image source={{ uri: item.uri }} style={styles.selectedImage} />
+                      <View style={styles.imageOverlayButtons}>
+                        {/* Set as main button */}
+                        <TouchableOpacity
+                          style={styles.setMainButton}
+                          onPress={() => handleSetMainImage(index)}
+                        >
+                          <Icon
+                            name="star"
+                            size={24}
+                            color={index === mainImageIndex ? "#FFD700" : "#888"}
+                          />
+                        </TouchableOpacity>
+                        {/* Delete button */}
+                        <TouchableOpacity
+                          style={styles.removeImageButton}
+                          onPress={() => {
+                            const existingCount = existingImageUrls.length;
+                            if (index < existingCount) {
+                              handleRemoveImage(index, true);
+                            } else {
+                              handleRemoveImage(index - existingCount, false);
+                            }
+                          }}
+                        >
+                          <Icon name="close-circle" size={30} color="red" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                />
+                {getAllImages().length > 1 && (
+                  <View style={styles.paginationDots}>
+                    {getAllImages().map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.dot,
+                          currentImageIndex === index && styles.activeDot
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
+            ) : null}
+            <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
+              <Icon name="camera-plus" size={24} color={AppColors.primary} />
+              <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.selectedImageContainer}>
-              <Image source={{ uri: selectedImage.uri }} style={styles.selectedImage} />
-              <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
-                <Icon name="close-circle" size={30} color="red" />
-              </TouchableOpacity>
-            </View>
-          )}
+          </View>
 
           <TouchableOpacity style={styles.addButton} onPress={handleDeleteStore}>
             <Text style={styles.addButtonText}>{t('delete_store')}</Text>
@@ -1025,15 +957,15 @@ export default function HandleStoreScreen({ route, navigation }) {
               <View style={styles.modalContent}>
                 <TouchableOpacity
                   onPress={() => {
-                    if (selectedCategories.length === categories.length) {
-                      dispatch(setSelectedCategories([]));
+                    if (storeCategories.length === categories.length) {
+                      setStoreCategories([]);
                     } else {
-                      dispatch(setSelectedCategories(categories.map(category => category.id)));
+                      setStoreCategories(categories.map(category => category.id));
                     }
                   }}
                   style={styles.categoryItem}
                 >
-                  <Text style={[styles.categoryText, { color: selectedCategories.length === categories.length ? AppColors.primary : AppColors.black }]}>
+                  <Text style={[styles.categoryText, { color: storeCategories.length === categories.length ? AppColors.primary : AppColors.black }]}>
                     {t('select_all')}
                   </Text>
                 </TouchableOpacity>
@@ -1042,7 +974,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                   keyExtractor={item => item.value.toString()}
                   renderItem={({ item }) => (
                     <TouchableOpacity onPress={() => handleSelectCategory(item)} style={styles.categoryItem}>
-                      <Text style={[styles.categoryText, { color: selectedCategories.includes(item.value) ? AppColors.primary : AppColors.black }]}>{item.label}</Text>
+                      <Text style={[styles.categoryText, { color: storeCategories.includes(item.value) ? AppColors.primary : AppColors.black }]}>{item.label}</Text>
                     </TouchableOpacity>
                   )}
                 />
@@ -1223,14 +1155,94 @@ const styles = StyleSheet.create({
   },
   selectedImage: {
     width: width(80),
-    height: height(20),
+    height: width(80),
     borderRadius: 10,
   },
   removeImageButton: {
+    padding: 2,
+  },
+  imageActionButtons: {
     position: "absolute",
-    top: 5,
-    right: 5,
-  },  
+    top: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  setMainButton: {
+    padding: 2,
+  },
+  setMainButtonActive: {
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  mainImageBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: AppColors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  changeImageButton: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    backgroundColor: AppColors.primary,
+    borderRadius: 20,
+    padding: 8,
+  },
+  imageGalleryContainer: {
+    marginVertical: 10,
+  },
+  imageSlide: {
+    width: width(80),
+    marginHorizontal: 5,
+    position: "relative",
+    alignItems: "center",
+  },
+  imageOverlayButtons: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  paginationDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ccc",
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: AppColors.primary,
+  },
+  addImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    borderRadius: 8,
+    borderStyle: "dashed",
+    marginTop: 10,
+  },
+  addImageButtonText: {
+    color: AppColors.primary,
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
   suggestionItem: {
     padding: 15,
     borderBottomWidth: 1,

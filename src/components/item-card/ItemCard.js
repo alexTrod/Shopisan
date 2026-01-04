@@ -34,6 +34,8 @@ const ItemCard = React.memo(({
   tags,
   description,
   image,
+  images,
+  imageUrl,
   address,
   id,
   isFavorite,
@@ -174,6 +176,7 @@ const ItemCard = React.memo(({
           <TouchableOpacity activeOpacity={0.9} onPress={handleInfoPress}>
             <Image style={styles.image} source={image} />
             <View
+              pointerEvents="none"
               style={[
                 styles.image,
                 { position: "absolute", backgroundColor: "rgba(0,0,0,0.2)" },
@@ -294,6 +297,8 @@ const ItemCard = React.memo(({
           tags,
           address,
           openingHours: openingHours || null,
+          images: images || [],
+          imageUrl: imageUrl || null,
         }}
       />
     </View>

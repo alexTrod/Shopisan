@@ -11,10 +11,6 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 install! 'cocoapods',
   :deterministic_uuids => false
 
-# Mapbox v11 - use latest for Xcode 26/Swift 6.2 compatibility
-$RNMapboxMapsImpl = 'mapbox'
-$RNMapboxMapsVersion = '~> 11.9'
-
 prepare_react_native_project!
 
 target 'Shopisanv1' do
@@ -63,16 +59,6 @@ target 'Shopisanv1' do
       target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
         resource_bundle_target.build_configurations.each do |config|
           config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-        end
-      end
-    end
-
-    # Enable RNMBX_11 flag for MapboxMaps v11 compatibility
-    installer.pods_project.targets.each do |target|
-      if target.name == 'rnmapbox-maps'
-        target.build_configurations.each do |config|
-          config.build_settings['OTHER_SWIFT_FLAGS'] ||= '$(inherited)'
-          config.build_settings['OTHER_SWIFT_FLAGS'] += ' -DRNMBX_11'
         end
       end
     end
