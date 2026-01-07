@@ -71,7 +71,7 @@ const SearchBar = ({
   returnKeyType = "search",
 }) => {
   const { t } = useTranslation();
-  const { searchQuery, setSearchQuery, performSearch } = useContext(StoreContext);
+  const { searchQuery, setSearchQuery, performSearch, searchCompleted, setSearchCompleted } = useContext(StoreContext);
   const defaultPlaceholder = placeholder || t('search_placeholder') || 'Search stores or cities (press Enter to search)';
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -83,6 +83,11 @@ const SearchBar = ({
 
   // Auto-fetch suggestions when typing
   useEffect(() => {
+    // Don't fetch suggestions if a search was already completed (coming back from another tab)
+    if (searchCompleted) {
+      return;
+    }
+
     if (!searchQuery.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -298,6 +303,7 @@ const SearchBar = ({
       if (coords) {
         // Keep the city name visible in search bar (don't clear it)
         lastActionRef.current = 'select';
+        setSearchCompleted(true);
         // Clear suggestions so they don't reappear on focus/tab switch
         setSuggestions([]);
         setShowSuggestions(false);
@@ -321,6 +327,7 @@ const SearchBar = ({
     if (storeSuggestion.location) {
       // Maintain the selecting state to prevent dropdown from reopening
       lastActionRef.current = 'select';
+      setSearchCompleted(true);
       // Clear suggestions so they don't reappear on focus/tab switch
       setSuggestions([]);
       setShowSuggestions(false);
@@ -337,6 +344,7 @@ const SearchBar = ({
     if (!searchQuery.trim()) return;
 
     lastActionRef.current = 'search'; // Mark this as a search action
+    setSearchCompleted(true);
     setShowSuggestions(false);
     setSuggestions([]);
     
@@ -371,14 +379,16 @@ const SearchBar = ({
     setShowSuggestions(false);
     lastActionRef.current = null; // Reset action tracking
     setIsSelecting(false); // Reset selecting flag
+    setSearchCompleted(false); // Allow suggestions again
     onSearch?.('');
   };
 
   const handleTextChange = (text) => {
     // Reset flags when user starts typing again
-    if (lastActionRef.current === 'select' || lastActionRef.current === 'search' || isSelecting) {
+    if (lastActionRef.current === 'select' || lastActionRef.current === 'search' || isSelecting || searchCompleted) {
       lastActionRef.current = null;
       setIsSelecting(false);
+      setSearchCompleted(false); // Allow suggestions again
     }
     setSearchQuery(text);
   };

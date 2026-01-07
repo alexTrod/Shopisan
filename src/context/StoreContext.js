@@ -267,6 +267,8 @@ export const StoreProvider = ({ children }) => {
         performSearch,
         hasRequestedStores,
         setHasRequestedStores,
+        searchCompleted,
+        setSearchCompleted,
       }}
     >
       {children}
