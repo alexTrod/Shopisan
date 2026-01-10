@@ -1,23 +1,27 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { memo } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
 import { Ionicons } from "@expo/vector-icons";
 import { AppColors } from "../../utils";
 
-export default function CustomMarker({ store, selected, onPress, showLabel }) {
+function CustomMarker({ store, selected, onPress, showLabel }) {
   // Truncate long names to prevent clutter
   const displayName = store.name?.length > 15
     ? store.name.substring(0, 13) + '...'
     : store.name;
 
+  // Use MarkerView on Android for better performance (faster native rendering)
+  // PointAnnotation is slow on Android due to native-JS bridge overhead
+  const MarkerComponent = Platform.OS === 'android' ? MapboxGL.MarkerView : MapboxGL.PointAnnotation;
+
   return (
-    <MapboxGL.PointAnnotation
-      key={`${store.id}-${selected ? 'selected' : 'default'}-${showLabel ? 'label' : 'nolabel'}`}
+    <MarkerComponent
       id={store.id.toString()}
       coordinate={[store.longitude, store.latitude]}
-      onSelected={onPress}
+      onSelected={Platform.OS === 'ios' ? onPress : undefined}
+      anchor={{ x: 0.5, y: 1 }}
     >
-      <TouchableOpacity activeOpacity={0.8}>
+      <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
         <View style={styles.annotationContainer}>
           <Ionicons
             name="location-sharp"
@@ -31,9 +35,20 @@ export default function CustomMarker({ store, selected, onPress, showLabel }) {
           )}
         </View>
       </TouchableOpacity>
-    </MapboxGL.PointAnnotation>
+    </MarkerComponent>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export default memo(CustomMarker, (prevProps, nextProps) => {
+  return (
+    prevProps.store.id === nextProps.store.id &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.showLabel === nextProps.showLabel &&
+    prevProps.store.latitude === nextProps.store.latitude &&
+    prevProps.store.longitude === nextProps.store.longitude
+  );
+});
 
 const styles = StyleSheet.create({
   annotationContainer: {

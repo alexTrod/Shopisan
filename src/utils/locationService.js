@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { setCustomLocation } from '../Redux/Actions/LocationActions';
+import perfLogger from './perfLogger';
 
 // Cache keys
 const CACHE_KEYS = {
@@ -38,6 +39,7 @@ class LocationService {
    * @returns {Promise<Object>} Location object with coordinates
    */
   async getUserLocation(options = {}) {
+    perfLogger.start('LocationService.getUserLocation.TOTAL');
     const {
       useCache = true,
       showToast = true,
@@ -50,14 +52,17 @@ class LocationService {
       if (useCache && this.cachedLocation) {
         const cacheAge = Date.now() - this.cachedLocation.timestamp;
         if (cacheAge < CACHE_DURATION) {
-          console.log('Using cached location');
+          perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'Using cached location');
+          perfLogger.end('LocationService.getUserLocation.TOTAL');
           return this.cachedLocation;
         }
       }
 
       // Request permission
+      perfLogger.start('LocationService.getUserLocation.requestPermission');
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+      perfLogger.end('LocationService.getUserLocation.requestPermission');
+
       if (status !== 'granted') {
         if (showToast) {
           Toast.show({
@@ -68,19 +73,22 @@ class LocationService {
             visibilityTime: 4000,
           });
         }
-        
+
         // Return null instead of default location
-        console.log('Location permission not granted');
+        perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'Permission not granted');
+        perfLogger.end('LocationService.getUserLocation.TOTAL');
         return null;
       }
 
       // Get current location with timeout
+      perfLogger.start('LocationService.getUserLocation.getCurrentPosition');
       const location = await Promise.race([
         Location.getCurrentPositionAsync({ accuracy }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Location timeout')), timeout)
         )
       ]);
+      perfLogger.end('LocationService.getUserLocation.getCurrentPosition');
 
       const userLocation = {
         latitude: location.coords.latitude,
@@ -90,13 +98,18 @@ class LocationService {
       };
 
       // Cache the location
+      perfLogger.start('LocationService.getUserLocation.cacheLocation');
       await this.cacheLocation(userLocation);
-      
+      perfLogger.end('LocationService.getUserLocation.cacheLocation');
+
+      perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', `Got GPS location: ${userLocation.latitude}, ${userLocation.longitude}`);
+      perfLogger.end('LocationService.getUserLocation.TOTAL');
       return userLocation;
 
     } catch (error) {
+      perfLogger.end('LocationService.getUserLocation.getCurrentPosition');
       console.error('Error getting user location:', error);
-      
+
       if (showToast) {
         Toast.show({
           type: 'error',
@@ -109,12 +122,14 @@ class LocationService {
 
       // Return cached location if available, otherwise null
       if (this.cachedLocation) {
-        console.log('Using cached location as fallback');
+        perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'Using cached location as fallback');
+        perfLogger.end('LocationService.getUserLocation.TOTAL');
         return this.cachedLocation;
       }
 
       // Return null instead of default location
-      console.log('No location available');
+      perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'No location available');
+      perfLogger.end('LocationService.getUserLocation.TOTAL');
       return null;
     }
   }

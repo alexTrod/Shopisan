@@ -25,6 +25,7 @@ import { setSelectedCategories } from '../../../Redux/Actions/CategoriesActions'
 import locationService from "../../../utils/locationService";
 import CustomMarker from "../../../components/customMarker";
 import Toast from 'react-native-toast-message';
+import perfLogger from "../../../utils/perfLogger";
 
 MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
 
@@ -32,6 +33,15 @@ const SEARCH_RADIUS_KM = 10; // Initial radius for finding nearby stores
 const REFRESH_DISTANCE_KM = 0.5; // Reduced to 500m to be more responsive to map movements
 
 export default function Map({ navigation, route  }) {
+  // Track component mount time
+  const mountTimeRef = useRef(Date.now());
+  useEffect(() => {
+    perfLogger.start('Map.componentMount');
+    return () => {
+      perfLogger.end('Map.componentMount');
+    };
+  }, []);
+
   const { t } = useTranslation();
   const rawInitialStore = route?.params?.initialStore || null;
   
@@ -114,13 +124,17 @@ export default function Map({ navigation, route  }) {
   // Load stores and initialize map on mount
   useEffect(() => {
     const initializeMap = async () => {
+      perfLogger.start('Map.initializeMap.TOTAL');
+      perfLogger.start('Map.initializeMap.setup');
       console.log('[Map] initializeMap started');
       try {
         setLoading(true);
+        perfLogger.end('Map.initializeMap.setup');
 
         // Priority 1: If we have an initial store, use its location
         console.log('[Map] Checking initialStore:', !!initialStore);
         if (initialStore) {
+          perfLogger.start('Map.initialStore.setCameraCoordinates');
           setCameraCoordinates({
             latitude: initialStore.latitude,
             longitude: initialStore.longitude,
@@ -128,14 +142,22 @@ export default function Map({ navigation, route  }) {
             longitudeDelta: 0.01,
             zoom: 14
           });
+          perfLogger.end('Map.initialStore.setCameraCoordinates');
+
+          perfLogger.start('Map.initialStore.fetchNearbyStores');
           await fetchNearbyStores(initialStore.latitude, initialStore.longitude, true);
+          perfLogger.end('Map.initialStore.fetchNearbyStores');
+
           setLoading(false);
+          perfLogger.end('Map.initializeMap.TOTAL');
+          perfLogger.summary();
           return;
         }
-        
+
         // Priority 2: Use customLocation from home screen if available (for synchronization)
         console.log('[Map] Checking customLocation:', customLocation);
         if (customLocation?.latitude && customLocation?.longitude) {
+          perfLogger.start('Map.customLocation.setCameraCoordinates');
           setCameraCoordinates({
             latitude: customLocation.latitude,
             longitude: customLocation.longitude,
@@ -143,18 +165,25 @@ export default function Map({ navigation, route  }) {
             longitudeDelta: 0.01,
             zoom: 12
           });
-          
+          perfLogger.end('Map.customLocation.setCameraCoordinates');
+
           // Fetch nearby stores within 10km
+          perfLogger.start('Map.customLocation.fetchNearbyStores');
           await fetchNearbyStores(customLocation.latitude, customLocation.longitude, true);
+          perfLogger.end('Map.customLocation.fetchNearbyStores');
+
           setLoading(false);
+          perfLogger.end('Map.initializeMap.TOTAL');
+          perfLogger.summary();
           return;
         }
-        
+
         // Priority 3: Get user's current location with timeout ("Around me" mode)
         console.log('[Map] Getting user location, userLocation from context:', userLocation);
         let location = userLocation;
         if (!location) {
           try {
+            perfLogger.start('Map.getUserLocation');
             // Wrap in timeout to prevent hanging forever
             location = await Promise.race([
               locationService.getUserLocation({
@@ -166,7 +195,9 @@ export default function Map({ navigation, route  }) {
                 resolve(null);
               }, 5000))
             ]);
+            perfLogger.end('Map.getUserLocation');
           } catch (e) {
+            perfLogger.end('Map.getUserLocation');
             console.log('[Map] Location service error:', e);
             location = null;
           }
@@ -175,11 +206,13 @@ export default function Map({ navigation, route  }) {
 
         if (location) {
           // "Around me" auto-zoom: find stores with expanding radius and zoom to show them
+          perfLogger.start('Map.getStoresWithExpandingRadius');
           const nearbyStores = locationService.getStoresWithExpandingRadius(
             allStores,
             { latitude: location.latitude, longitude: location.longitude },
             30 // Max city-level radius
           );
+          perfLogger.end('Map.getStoresWithExpandingRadius');
 
           if (nearbyStores.length > 0) {
             // Find the furthest store to determine appropriate zoom
@@ -194,6 +227,7 @@ export default function Map({ navigation, route  }) {
 
             console.log(`[Map] Auto-zoom: found ${nearbyStores.length} stores, max distance ${maxDistance}km, zoom ${autoZoom}`);
 
+            perfLogger.start('Map.userLocation.setCameraAndStores');
             setCameraCoordinates({
               latitude: location.latitude,
               longitude: location.longitude,
@@ -202,6 +236,7 @@ export default function Map({ navigation, route  }) {
               zoom: autoZoom
             });
             setStores(nearbyStores);
+            perfLogger.end('Map.userLocation.setCameraAndStores');
             setLoading(false);
           } else {
             // No stores in city - show toast and use default zoom
@@ -223,6 +258,8 @@ export default function Map({ navigation, route  }) {
             setStores([]);
             setLoading(false);
           }
+          perfLogger.end('Map.initializeMap.TOTAL');
+          perfLogger.summary();
           return;
         } else {
           // Fallback: use Brussels as default location
@@ -237,9 +274,11 @@ export default function Map({ navigation, route  }) {
             zoom: 12
           });
           // Fetch stores immediately - no delay needed
+          perfLogger.start('Map.fallback.fetchNearbyStores');
           fetchNearbyStores(fallbackLat, fallbackLng, true).catch(e => {
             console.log('[Map] fetchNearbyStores error:', e);
           });
+          perfLogger.end('Map.fallback.fetchNearbyStores');
           setLoading(false);
         }
       } catch (error) {
@@ -257,8 +296,10 @@ export default function Map({ navigation, route  }) {
         });
         setLoading(false);
       }
+      perfLogger.end('Map.initializeMap.TOTAL');
+      perfLogger.summary();
     };
-    
+
     initializeMap();
   }, [initialStore?.id, initialStore?.latitude, initialStore?.longitude, customLocation?.latitude, customLocation?.longitude]); // use stable deps to avoid re-running each render
 
@@ -295,11 +336,15 @@ export default function Map({ navigation, route  }) {
   }, [userLocation, initialStore]);
 
   const fetchNearbyStores = async (latitude, longitude, useAllStores = false, maxRadius = SEARCH_RADIUS_KM) => {
+    perfLogger.start('fetchNearbyStores.TOTAL');
     try {
       setLoading(true);
 
       const userLocation = { latitude, longitude };
+
+      perfLogger.start('fetchNearbyStores.prepareStores');
       let storesToUse = useAllStores || isExploring.current ? allStores : filteredStores;
+      perfLogger.checkpoint('fetchNearbyStores.prepareStores', `Starting with ${storesToUse.length} stores`);
 
       // Apply category filter (OR logic) even when using allStores
       // This ensures map respects category selections from StoreContext
@@ -309,22 +354,30 @@ export default function Map({ navigation, route  }) {
           Array.isArray(store.category) &&
           store.category.some(catId => selectedCatStrings.includes(String(catId)))
         );
+        perfLogger.checkpoint('fetchNearbyStores.prepareStores', `After category filter: ${storesToUse.length} stores`);
       }
+      perfLogger.end('fetchNearbyStores.prepareStores');
 
       // For map: Use strict radius filter (don't expand, don't return all stores if none found)
       // This ensures we show the modal when there are truly no stores nearby
+      perfLogger.start('fetchNearbyStores.filterByRadius');
       const nearbyStores = locationService.filterStoresByRadius(
         storesToUse,
         userLocation,
         maxRadius
       );
+      perfLogger.end('fetchNearbyStores.filterByRadius');
+      perfLogger.checkpoint('fetchNearbyStores.TOTAL', `Found ${nearbyStores.length} nearby stores`);
 
+      perfLogger.start('fetchNearbyStores.setStores');
       setStores(nearbyStores);
       setSuggestions([]);
+      perfLogger.end('fetchNearbyStores.setStores');
     } catch (error) {
       logging("Erreur lors du filtrage local des magasins :", error);
     } finally {
       setLoading(false);
+      perfLogger.end('fetchNearbyStores.TOTAL');
     }
   };
 
@@ -940,6 +993,15 @@ export default function Map({ navigation, route  }) {
               compassPosition={{ top: 8, right: 16 }}
               onMapIdle={onMapIdle}
               onCameraChanged={onCameraChanged}
+              onDidFinishLoadingMap={() => {
+                perfLogger.end('MapboxGL.loadingMap');
+                perfLogger.checkpoint('Map.render', 'Mapbox finished loading map');
+                perfLogger.summary();
+              }}
+              onWillStartLoadingMap={() => {
+                perfLogger.start('MapboxGL.loadingMap');
+                perfLogger.checkpoint('Map.render', 'Mapbox started loading map');
+              }}
             >
               <MapboxGL.Camera
                 ref={cameraRef}
@@ -957,6 +1019,7 @@ export default function Map({ navigation, route  }) {
 
               {(() => {
                 const seenCoords = new Set();
+                perfLogger.checkpoint('Map.render', `Rendering ${stores.length} markers`);
 
                 return stores.map((store, index) => {
                   if (

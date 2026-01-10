@@ -18,33 +18,49 @@ import { height, width } from '../../utils/dimension';
 import { useTranslation } from '../../utils/useTranslation';
 import { StoreContext } from '../../context/StoreContext';
 import { getCitiesForSearch } from '../../utils/citiesService';
+import perfLogger from '../../utils/perfLogger';
 
 // In-memory geocoding cache for fast repeat lookups
 const geocodingCache = {};
 
 // Cached geocoding function - avoids repeated network calls for same city
 const getCachedGeocode = async (cityName) => {
+  perfLogger.start('SearchBar.getCachedGeocode.TOTAL');
   const cacheKey = `geocode_${cityName.toLowerCase().trim()}`;
 
   // 1. Check in-memory cache (fastest)
+  perfLogger.start('SearchBar.getCachedGeocode.memoryCache');
   if (geocodingCache[cacheKey]) {
+    perfLogger.end('SearchBar.getCachedGeocode.memoryCache');
+    perfLogger.checkpoint('SearchBar.getCachedGeocode.TOTAL', 'Found in memory cache');
+    perfLogger.end('SearchBar.getCachedGeocode.TOTAL');
     return geocodingCache[cacheKey];
   }
+  perfLogger.end('SearchBar.getCachedGeocode.memoryCache');
 
   // 2. Check AsyncStorage cache
+  perfLogger.start('SearchBar.getCachedGeocode.asyncStorage');
   try {
     const cached = await AsyncStorage.getItem(cacheKey);
     if (cached) {
       const coords = JSON.parse(cached);
       geocodingCache[cacheKey] = coords; // Also store in memory
+      perfLogger.end('SearchBar.getCachedGeocode.asyncStorage');
+      perfLogger.checkpoint('SearchBar.getCachedGeocode.TOTAL', 'Found in AsyncStorage cache');
+      perfLogger.end('SearchBar.getCachedGeocode.TOTAL');
       return coords;
     }
   } catch (e) {
     // Cache read failed, continue to geocode
   }
+  perfLogger.end('SearchBar.getCachedGeocode.asyncStorage');
 
   // 3. Geocode and cache the result
+  perfLogger.start('SearchBar.getCachedGeocode.geocodeAsync');
+  perfLogger.checkpoint('SearchBar.getCachedGeocode.TOTAL', `Calling Location.geocodeAsync for "${cityName}"`);
   const locations = await Location.geocodeAsync(cityName);
+  perfLogger.end('SearchBar.getCachedGeocode.geocodeAsync');
+
   if (locations.length > 0) {
     const coords = { latitude: locations[0].latitude, longitude: locations[0].longitude };
     geocodingCache[cacheKey] = coords;
@@ -52,9 +68,13 @@ const getCachedGeocode = async (cityName) => {
     // Save to AsyncStorage (don't await, fire and forget)
     AsyncStorage.setItem(cacheKey, JSON.stringify(coords)).catch(() => {});
 
+    perfLogger.checkpoint('SearchBar.getCachedGeocode.TOTAL', `Geocoded successfully: ${coords.latitude}, ${coords.longitude}`);
+    perfLogger.end('SearchBar.getCachedGeocode.TOTAL');
     return coords;
   }
 
+  perfLogger.checkpoint('SearchBar.getCachedGeocode.TOTAL', 'Geocoding returned no results');
+  perfLogger.end('SearchBar.getCachedGeocode.TOTAL');
   return null;
 };
 
