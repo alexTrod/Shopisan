@@ -11,7 +11,14 @@ import {
 
 import { collection, query, getDocs, where} from 'firebase/firestore';
 import { firestore } from '../../../firebaseconfig';
-import { Ionicons } from "@expo/vector-icons";
+import EditIcon from "../../../assets/icons/edit-icon";
+import PinFilled from "../../../assets/icons/pin-filled";
+import InfoIcon from "../../../assets/icons/info-icon";
+import HeartFilled from "../../../assets/icons/heart-filled";
+import HeartUnfilled from "../../../assets/icons/heart-unfilled";
+import CheckmarkCircleIcon from "../../../assets/icons/checkmark-circle-icon";
+import ClockIcon from "../../../assets/icons/clock-icon";
+import StarIcon from "../../../assets/icons/star-icon";
 import { height, width } from "../../utils/dimension";
 import { AppColors } from "../../utils";
 import { useDispatch, useSelector } from 'react-redux';
@@ -130,7 +137,7 @@ const ItemCard = React.memo(({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="create-outline" size={24} color={iconColor} />
+              <EditIcon width={24} height={24} color={iconColor} />
             </TouchableOpacity>
           )}
           {is_validated && (
@@ -140,7 +147,7 @@ const ItemCard = React.memo(({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="location-sharp" size={24} color={iconColor} />
+              <PinFilled width={24} height={24} fill={iconColor} />
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -149,7 +156,7 @@ const ItemCard = React.memo(({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="information-circle-outline" size={24} color={iconColor} />
+            <InfoIcon width={24} height={24} color={iconColor} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
@@ -157,11 +164,11 @@ const ItemCard = React.memo(({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons
-              name={isFavorite ? "heart" : "heart-outline"}
-              size={24}
-              color={iconColor}
-            />
+            {isFavorite ? (
+              <HeartFilled width={24} height={24} fill={iconColor} />
+            ) : (
+              <HeartUnfilled width={24} height={24} fill={iconColor} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -203,14 +210,13 @@ const ItemCard = React.memo(({
               >
                 {title}
                 {isOwner && (
-                  <Text>
-                    {"  "}
-                    <Ionicons
-                      name={is_validated ? "checkmark-circle" : "time-outline"}
-                      size={16}
-                      color={is_validated ? AppColors.primary : "#f59e0b"}
-                    />
-                  </Text>
+                  <View style={{ marginLeft: 4, flexDirection: 'row', alignItems: 'center' }}>
+                    {is_validated ? (
+                      <CheckmarkCircleIcon width={16} height={16} color={AppColors.primary} />
+                    ) : (
+                      <ClockIcon width={16} height={16} color="#f59e0b" />
+                    )}
+                  </View>
                 )}
               </Text>
             </View>
@@ -218,11 +224,12 @@ const ItemCard = React.memo(({
             <View style={styles.rating}>
               <View style={styles.starsContainer}>
                 {[...Array(5)].map((_, index) => (
-                  <Ionicons
+                  <StarIcon
                     key={index}
-                    name="star"
-                    size={height(2.2)}
+                    width={height(2.2)}
+                    height={height(2.2)}
                     color={index < (Math.round(rating.averageRating) || 0) ? "#FFD700" : "#E0E0E0"}
+                    filled={index < (Math.round(rating.averageRating) || 0)}
                     style={styles.starIcon}
                   />
                 ))}

@@ -1508,3 +1508,228 @@ exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', error.message || 'Failed to change email');
   }
 });
+
+// Password reset email templates
+const passwordResetEmailTemplate = {
+  fr: {
+    subject: "Réinitialisation de votre mot de passe - Shopisan",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Réinitialisation de mot de passe</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
+    .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; color: #666; }
+    .code { font-size: 32px; font-weight: bold; color: #6B2D5C; letter-spacing: 4px; text-align: center; padding: 20px; background-color: #f8f4f9; border-radius: 8px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Réinitialisation de mot de passe</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p>Vous avez demandé à réinitialiser votre mot de passe pour votre compte Shopisan associé à <strong>{{email}}</strong>.</p>
+      <p>Voici votre code de réinitialisation :</p>
+      <div class="code">{{resetCode}}</div>
+      <p>Entrez ce code dans l'application pour créer un nouveau mot de passe.</p>
+      <div class="warning">
+        <strong>⚠️ Important :</strong> Ce code expire dans 1 heure. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
+      </div>
+    </div>
+    <div class="footer">
+      <p>L'équipe Shopisan</p>
+      <p><a href="https://shopisan.com">shopisan.com</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  },
+  en: {
+    subject: "Reset your password - Shopisan",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Password Reset</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
+    .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; color: #666; }
+    .code { font-size: 32px; font-weight: bold; color: #6B2D5C; letter-spacing: 4px; text-align: center; padding: 20px; background-color: #f8f4f9; border-radius: 8px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Password Reset</h2>
+    </div>
+    <div class="content">
+      <p>Hello,</p>
+      <p>You requested to reset your password for your Shopisan account associated with <strong>{{email}}</strong>.</p>
+      <p>Here is your reset code:</p>
+      <div class="code">{{resetCode}}</div>
+      <p>Enter this code in the app to create a new password.</p>
+      <div class="warning">
+        <strong>⚠️ Important:</strong> This code expires in 1 hour. If you didn't request this reset, please ignore this email.
+      </div>
+    </div>
+    <div class="footer">
+      <p>The Shopisan Team</p>
+      <p><a href="https://shopisan.com">shopisan.com</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
+};
+
+// Custom password reset - sends email from info@shopisan.com
+exports.sendCustomPasswordReset = functions.https.onCall(async (data, context) => {
+  try {
+    const { email, language = 'fr' } = data;
+
+    if (!email) {
+      throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if user exists in Firebase Auth
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        // Don't reveal if email exists or not for security
+        return { success: true, message: 'If an account exists, a reset email has been sent' };
+      }
+      throw error;
+    }
+
+    // Generate a 6-digit reset code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store reset code in Firestore
+    const db = admin.firestore();
+    await db.collection('passwordResets').doc(normalizedEmail).set({
+      code: resetCode,
+      expiresAt: expiresAt,
+      userId: userRecord.uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      attempts: 0
+    });
+
+    // Select language template
+    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
+    const emailTemplate = passwordResetEmailTemplate[lang];
+
+    // Compile email template
+    const template = handlebars.compile(emailTemplate.template);
+    const htmlContent = template({
+      email: normalizedEmail,
+      resetCode: resetCode
+    });
+
+    // Send email
+    const mailOptions = {
+      from: `"Shopisan" <${SENDER_EMAIL}>`,
+      to: normalizedEmail,
+      subject: emailTemplate.subject,
+      html: htmlContent
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent to:', normalizedEmail);
+
+    return { success: true, message: 'Reset email sent successfully' };
+
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send reset email');
+  }
+});
+
+// Verify reset code and reset password
+exports.resetPasswordWithCode = functions.https.onCall(async (data, context) => {
+  try {
+    const { email, code, newPassword } = data;
+
+    if (!email || !code || !newPassword) {
+      throw new functions.https.HttpsError('invalid-argument', 'Email, code, and new password are required');
+    }
+
+    if (newPassword.length < 6) {
+      throw new functions.https.HttpsError('invalid-argument', 'Password must be at least 6 characters');
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const db = admin.firestore();
+
+    // Get reset document
+    const resetDoc = await db.collection('passwordResets').doc(normalizedEmail).get();
+
+    if (!resetDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'No reset request found for this email');
+    }
+
+    const resetData = resetDoc.data();
+
+    // Check attempts (max 5)
+    if (resetData.attempts >= 5) {
+      await db.collection('passwordResets').doc(normalizedEmail).delete();
+      throw new functions.https.HttpsError('permission-denied', 'Too many attempts. Please request a new code.');
+    }
+
+    // Increment attempts
+    await db.collection('passwordResets').doc(normalizedEmail).update({
+      attempts: admin.firestore.FieldValue.increment(1)
+    });
+
+    // Check if code has expired
+    if (new Date() > resetData.expiresAt.toDate()) {
+      await db.collection('passwordResets').doc(normalizedEmail).delete();
+      throw new functions.https.HttpsError('failed-precondition', 'Reset code has expired');
+    }
+
+    // Verify code
+    if (resetData.code !== code) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid reset code');
+    }
+
+    // Reset password using Admin SDK
+    await admin.auth().updateUser(resetData.userId, {
+      password: newPassword
+    });
+
+    // Delete reset document
+    await db.collection('passwordResets').doc(normalizedEmail).delete();
+
+    console.log('Password reset successful for:', normalizedEmail);
+
+    return { success: true, message: 'Password reset successfully' };
+
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError('internal', 'Failed to reset password');
+  }
+});

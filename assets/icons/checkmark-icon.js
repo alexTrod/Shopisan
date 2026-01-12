@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
 
-function MenuIcon({ height, width, ...props }) {
+function CheckmarkIcon({ height, width, color = "#FFFFFF", ...props }) {
   return (
     <Svg
       width={width}
@@ -12,14 +12,11 @@ function MenuIcon({ height, width, ...props }) {
       {...props}
     >
       <Path
-        d="M2 9h19M2 16h10"
-        stroke="#000"
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+        fill={color}
       />
     </Svg>
   );
 }
 
-export default MenuIcon;
+export default CheckmarkIcon;

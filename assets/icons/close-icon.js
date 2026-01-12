@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
 
-function MenuIcon({ height, width, ...props }) {
+function CloseIcon({ height, width, color = "#000000", ...props }) {
   return (
     <Svg
       width={width}
@@ -12,14 +12,11 @@ function MenuIcon({ height, width, ...props }) {
       {...props}
     >
       <Path
-        d="M2 9h19M2 16h10"
-        stroke="#000"
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+        fill={color}
       />
     </Svg>
   );
 }
 
-export default MenuIcon;
+export default CloseIcon;

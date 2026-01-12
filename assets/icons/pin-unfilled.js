@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
 
-function PinUnfilled({ height, width }, props) {
+function PinUnfilled({ height, width, ...props }) {
   return (
     <Svg
       width={width}

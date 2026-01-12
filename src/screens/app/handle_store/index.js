@@ -12,16 +12,21 @@ import {
   DeviceEventEmitter,
   Platform,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
-import { Ionicons } from "@expo/vector-icons";
+import ChevronLeft from "../../../../assets/icons/chevron-left";
+import LocationIcon from "../../../../assets/icons/location-icon";
+import CloseIcon from "../../../../assets/icons/close-icon";
+import CloseCircleIcon from "../../../../assets/icons/close-circle-icon";
+import CameraIcon from "../../../../assets/icons/camera-icon";
+import StarIcon from "../../../../assets/icons/star-icon";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setCategories } from "../../../Redux/Actions/CategoriesActions";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import * as Location from 'expo-location';
 import MapboxGL from "@rnmapbox/maps";
 import locationService from "../../../utils/locationService";
@@ -709,7 +714,8 @@ export default function HandleStoreScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>{t('loading')}</Text>
+        <ActivityIndicator size="large" color={AppColors.primary} />
+        <Text style={styles.loadingText}>{t('loading')}</Text>
       </View>
     );
   }
@@ -718,7 +724,7 @@ export default function HandleStoreScreen({ route, navigation }) {
     <View style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
         <TouchableOpacity onPress={handleBackPress}>
-          <Icon name="arrow-left" size={30} color={AppColors.primary} />
+          <ChevronLeft width={30} height={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
           {t('update_store_title')}
@@ -774,7 +780,7 @@ export default function HandleStoreScreen({ route, navigation }) {
               style={styles.locationButton}
               onPress={handleUseCurrentLocation}
             >
-              <Ionicons name="location" size={24} color={AppColors.primary} />
+              <LocationIcon width={24} height={24} color={AppColors.primary} />
             </TouchableOpacity>
           </View>
 
@@ -870,7 +876,7 @@ export default function HandleStoreScreen({ route, navigation }) {
               <View key={categoryID} style={styles.selectedCategoryItem}>
                 <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
                 <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
-                  <Icon name="close" size={20} color={AppColors.black} />
+                  <CloseIcon width={20} height={20} color={AppColors.black} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -899,10 +905,11 @@ export default function HandleStoreScreen({ route, navigation }) {
                           style={styles.setMainButton}
                           onPress={() => handleSetMainImage(index)}
                         >
-                          <Icon
-                            name="star"
-                            size={24}
+                          <StarIcon
+                            width={24}
+                            height={24}
                             color={index === mainImageIndex ? "#FFD700" : "#888"}
+                            filled={index === mainImageIndex}
                           />
                         </TouchableOpacity>
                         {/* Delete button */}
@@ -917,7 +924,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                             }
                           }}
                         >
-                          <Icon name="close-circle" size={30} color="red" />
+                          <CloseCircleIcon width={30} height={30} color="red" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -939,7 +946,7 @@ export default function HandleStoreScreen({ route, navigation }) {
               </>
             ) : null}
             <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
-              <Icon name="camera-plus" size={24} color={AppColors.primary} />
+              <CameraIcon width={24} height={24} color={AppColors.primary} />
               <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
             </TouchableOpacity>
           </View>
@@ -1487,6 +1494,17 @@ const styles = StyleSheet.create({
   },
   minuteInput: {
     width: 36,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: AppColors.grey_300,
   },
 });
 

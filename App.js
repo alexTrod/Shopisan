@@ -3,7 +3,6 @@ import { View, Image, StyleSheet, BackHandler, Text } from 'react-native';
 import { useDispatch, useSelector, Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-// Removed expo-font - Roboto is a system font on iOS
 import { store } from './src/Redux/index';
 import { checkAuthStatus } from './src/Redux/Actions/UserActions';
 import BottomTabs from './src/Routes/bottom-tab';
@@ -20,7 +19,6 @@ import ChangeNameScreen from './src/screens/app/Profile/change-name/';
 import ChangeEmailScreen from './src/screens/app/Profile/change-email/';
 import SupportScreen from './src/screens/app/Profile/support/';
 import RecoverPasswordScreen from './src/screens/app/Profile/recover-password/';
-import RecoverAccountScreen from './src/screens/app/Profile/recover-account/';
 import ReportIssueScreen from './src/screens/app/Profile/report-issue';
 import SuggestIdeaScreen from './src/screens/app/Profile/suggest-idea';
 import ContactSupportScreen from './src/screens/app/Profile/contact-support';
@@ -62,8 +60,6 @@ const App = () => {
   const [currentRoute, setCurrentRoute] = useState(null);
   const [i18nReady, setI18nReady] = useState(false);
   const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
-
-  // Note: Roboto fonts are used as system fonts on iOS (no custom loading needed)
 
   useEffect(() => {
     // Check if i18n is ready
@@ -171,8 +167,7 @@ const App = () => {
             <Stack.Screen name="ChangeEmailScreen" component={ChangeEmailScreen} />
             <Stack.Screen name="SupportScreen" component={SupportScreen} />
             <Stack.Screen name="RecoverPasswordScreen" component={RecoverPasswordScreen} />
-            <Stack.Screen name="RecoverAccountScreen" component={RecoverAccountScreen} />
-            <Stack.Screen name="AddStoreScreen" component={AddStore} />
+                        <Stack.Screen name="AddStoreScreen" component={AddStore} />
             <Stack.Screen name="ReportIssueScreen" component={ReportIssueScreen} />
             <Stack.Screen name="SuggestIdeaScreen" component={SuggestIdeaScreen} />
             <Stack.Screen name="ContactSupportScreen" component={ContactSupportScreen} />

@@ -10,7 +10,11 @@ import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
-import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import LocationIcon from "../../../../assets/icons/location-icon";
+import AddIcon from "../../../../assets/icons/add-icon";
+import HeartFilled from "../../../../assets/icons/heart-filled";
+import HeartUnfilled from "../../../../assets/icons/heart-unfilled";
+import SearchIcon from "../../../../assets/icons/search-icon";
 import Button from '../../../components/button';
 import { ScreenNames } from "../../../Routes/routes";
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
@@ -869,7 +873,7 @@ export default function HomeScreen({ navigation, route }) {
                           onPress={handleNavigateAddStore}
                           style={styles.addStoreButton}
                         >
-                          <Ionicons name="add" size={20} color="#fff" />
+                          <AddIcon width={20} height={20} fill="#fff" />
                           <Text style={styles.addStoreButtonText}>
                             {t('add_store_or_explore') || 'Add your favorite shops'}
                           </Text>
@@ -883,7 +887,7 @@ export default function HomeScreen({ navigation, route }) {
                           {loading ? (
                             <ActivityIndicator size="small" color={AppColors.black} />
                           ) : (
-                            <Ionicons name="search-outline" size={20} color={AppColors.black} />
+                            <SearchIcon width={20} height={20} fill={AppColors.black} />
                           )}
                           <Text style={styles.expandSearchButtonText}>
                             {loading ? t('finding_location') : (t('or_search_another_city') || 'Or search for another city.')}
@@ -909,7 +913,7 @@ export default function HomeScreen({ navigation, route }) {
             {loading ? (
               <ActivityIndicator size="small" color={AppColors.primary} />
             ) : (
-              <Ionicons name="location-outline" size={28} color={AppColors.primary} />
+              <LocationIcon width={28} height={28} fill={AppColors.primary} />
             )}
           </TouchableOpacity>
 
@@ -918,11 +922,7 @@ export default function HomeScreen({ navigation, route }) {
             onPress={handleNavigateAddStore}
             style={styles.fabAdd}
           >
-            <MaterialIcons
-              name="add"
-              size={32}
-              color="#fff"
-            />
+            <AddIcon width={32} height={32} fill="#fff" />
           </TouchableOpacity>
 
           {/* Floating Favorite Button */}
@@ -930,11 +930,11 @@ export default function HomeScreen({ navigation, route }) {
             onPress={handleToggleShowFavorites}
             style={styles.fabFavorite}
           >
-            <MaterialIcons
-              name={showFavoritesOnly ? "favorite" : "favorite-border"}
-              size={28}
-              color={showFavoritesOnly ? AppColors.primary : AppColors.grey_200}
-            />
+            {showFavoritesOnly ? (
+              <HeartFilled width={28} height={28} fill={AppColors.primary} />
+            ) : (
+              <HeartUnfilled width={28} height={28} fill={AppColors.grey_200} />
+            )}
           </TouchableOpacity>
         </View>
         <CityFilter onSelect={() => setShowCityModal(false)} isVisible={showCityModal} />

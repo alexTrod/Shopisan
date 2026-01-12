@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
 
-function HeartUnfilled({ height, width }, props) {
+function HeartUnfilled({ height, width, ...props }) {
   return (
     <Svg
       width={width}

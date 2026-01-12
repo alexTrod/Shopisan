@@ -8,7 +8,10 @@ import { height, width } from "../../../utils/dimension";
 import { View, TouchableOpacity, StyleSheet, ScrollView, Linking } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../Redux/Actions/UserActions";
-import { Ionicons } from "@expo/vector-icons";
+import ChevronRight from "../../../../assets/icons/chevron-right";
+import InstagramIcon from "../../../../assets/icons/instagram-icon";
+import GlobeIcon from "../../../../assets/icons/globe-icon";
+import LogoutIcon from "../../../../assets/icons/logout-icon";
 import { useTranslation } from "../../../utils/useTranslation";
 import { ScreenNames } from "../../../Routes/routes";
 import EmailVerificationBanner from "../../../components/email-verification";
@@ -75,7 +78,6 @@ export default function Profile({ navigation }) {
           {[
             { titleKey: "change_email_name", screen: "ChangeEmailScreen" },
             { titleKey: "forgot_password", screen: "RecoverPasswordScreen" },
-            { titleKey: "recover_old_account", screen: "RecoverAccountScreen" },
           ].map((option) => (
             <TouchableOpacity
               key={option.titleKey}
@@ -86,7 +88,7 @@ export default function Profile({ navigation }) {
                 <CustomText size={1.8} color={AppColors.black}>
                   {t(option.titleKey)}
                 </CustomText>
-                <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
+                <ChevronRight width={20} height={20} color={AppColors.grey_300} />
               </View>
             </TouchableOpacity>
           ))}
@@ -115,7 +117,7 @@ export default function Profile({ navigation }) {
               <CustomText size={1.8} color={AppColors.black}>
                 {t('contact_support')}
               </CustomText>
-                <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
+                <ChevronRight width={20} height={20} color={AppColors.grey_300} />
               </View>
             </TouchableOpacity>
           </View>
@@ -136,7 +138,7 @@ export default function Profile({ navigation }) {
               <CustomText size={1.8} color={AppColors.black}>
                 {t('add_a_store')}
               </CustomText>
-              <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
+              <ChevronRight width={20} height={20} color={AppColors.grey_300} />
             </View>
           </TouchableOpacity>
         </View>
@@ -157,7 +159,7 @@ export default function Profile({ navigation }) {
               <CustomText size={1.8} color={AppColors.black}>
                 {t('contact_support')}
               </CustomText>
-              <Ionicons name="chevron-forward" size={20} color={AppColors.grey_300} />
+              <ChevronRight width={20} height={20} color={AppColors.grey_300} />
             </View>
           </TouchableOpacity>
 
@@ -167,13 +169,13 @@ export default function Profile({ navigation }) {
               style={styles.socialButton}
               onPress={() => Linking.openURL('https://instagram.com/shopisan')}
             >
-              <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+              <InstagramIcon width={24} height={24} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.socialButton}
               onPress={() => Linking.openURL('https://shopisan.com')}
             >
-              <Ionicons name="globe-outline" size={24} color={AppColors.primary} />
+              <GlobeIcon width={24} height={24} color={AppColors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -183,7 +185,7 @@ export default function Profile({ navigation }) {
           onPress={handleLogout}
           activeOpacity={0.8}
         >
-          <Ionicons name="log-out-outline" size={20} color={AppColors.white} />
+          <LogoutIcon width={20} height={20} color={AppColors.white} />
           <CustomText size={2} color={AppColors.white} style={{ marginLeft: 10, fontWeight: '600' }}>
             {user ? t('log_out') : t('go_to_signup')}
           </CustomText>

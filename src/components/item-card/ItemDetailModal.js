@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Alert, TextInput, Image, FlatList, Dimensions } from 'react-native';
-import { Ionicons } from "@expo/vector-icons";
+import CloseIcon from "../../../assets/icons/close-icon";
+import StorefrontIcon from "../../../assets/icons/storefront-icon";
+import HeartFilled from "../../../assets/icons/heart-filled";
+import HeartUnfilled from "../../../assets/icons/heart-unfilled";
+import StarIcon from "../../../assets/icons/star-icon";
+import LinkIcon from "../../../assets/icons/link-icon";
 import { AppColors } from "../../utils";
 import { height, width } from "../../utils/dimension";
 import { collection, addDoc, updateDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
@@ -269,22 +274,22 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
           >
             <View style={styles.headerContainer}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={AppColors.primary} />
+                <CloseIcon width={24} height={24} color={AppColors.primary} />
               </TouchableOpacity>
-            
+
               <TouchableOpacity onPress={() => handleGoToHome(item)} style={styles.goHomeButton}>
-                <Ionicons name="storefront-outline" size={15} color="white" />
+                <StorefrontIcon width={15} height={15} color="white" />
               </TouchableOpacity>
-              
+
                 <TouchableOpacity
                   onPress={handleToggleFavoriteFromModal}
                   style={styles.favoriteButton}
                 >
-                  <Ionicons
-                    name={isFavorite ? "heart" : "heart-outline"}
-                    size={height(3)}
-                    color={isFavorite ? "red" : "gray"}
-                  />
+                  {isFavorite ? (
+                    <HeartFilled width={height(3)} height={height(3)} fill="red" />
+                  ) : (
+                    <HeartUnfilled width={height(3)} height={height(3)} fill="gray" />
+                  )}
               </TouchableOpacity>
             </View>
 
@@ -325,7 +330,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </View>
             ) : (
               <View style={styles.noImageContainer}>
-                <Ionicons name="storefront-outline" size={60} color={AppColors.grey_400} />
+                <StorefrontIcon width={60} height={60} color={AppColors.grey_400} />
               </View>
             )}
 
@@ -422,10 +427,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                           disabled={loading}
                           style={styles.starButton}
                         >
-                          <Ionicons
-                            name={index < userRating ? "star" : "star-outline"}
-                            size={height(2.5)}
+                          <StarIcon
+                            width={height(2.5)}
+                            height={height(2.5)}
                             color={index < userRating ? "#FFD700" : "#E0E0E0"}
+                            filled={index < userRating}
                           />
                         </TouchableOpacity>
                       ))}
@@ -437,11 +443,12 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                     <Text style={styles.ratingLabel}>{t('community_rating')}</Text>
                     <View style={styles.ratingStars}>
                       {[...Array(5)].map((_, index) => (
-                        <Ionicons
+                        <StarIcon
                           key={index}
-                          name={index < averageRating ? "star" : "star-outline"}
-                          size={height(2.5)}
+                          width={height(2.5)}
+                          height={height(2.5)}
                           color={index < averageRating ? "#FFD700" : "#E0E0E0"}
+                          filled={index < averageRating}
                         />
                       ))}
                       <Text style={styles.ratingText}>
@@ -471,7 +478,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
                           )}
                           {media?.description?.en?.match(/(https?:\/\/[^\s]+)/gi) && (
                             <TouchableOpacity style={styles.linkContainer}>
-                              <Ionicons name="link-outline" size={16} color={AppColors.primary} />
+                              <LinkIcon width={16} height={16} color={AppColors.primary} />
                               <Text style={styles.linkText}>
                                 {media.description.en.match(/(https?:\/\/[^\s]+)/gi)?.[0]}
                               </Text>

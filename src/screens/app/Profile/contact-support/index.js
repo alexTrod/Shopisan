@@ -6,14 +6,19 @@ import Button from '../../../../components/button';
 import CustomText from '../../../../components/text';
 import { AppColors } from '../../../../utils';
 import { width, height } from '../../../../utils/dimension';
-import { Ionicons } from '@expo/vector-icons';
+import ChevronLeft from '../../../../../assets/icons/chevron-left';
+import BugIcon from '../../../../../assets/icons/bug-icon';
+import BulbIcon from '../../../../../assets/icons/bulb-icon';
+import ChatIcon from '../../../../../assets/icons/chat-icon';
+import CheckmarkIcon from '../../../../../assets/icons/checkmark-icon';
+import MailIcon from '../../../../../assets/icons/mail-icon';
 import { useTranslation } from '../../../../utils/useTranslation';
 import { Linking } from 'react-native';
 
 const CATEGORIES = [
-  { key: 'report_problem', type: 'Report a Problem / Bug', icon: 'bug', color: '#E74C3C' },
-  { key: 'suggest_idea', type: 'Suggest an Idea', icon: 'bulb', color: '#F39C12' },
-  { key: 'general_question', type: 'General Question', icon: 'chatbubble-ellipses', color: '#3498DB' },
+  { key: 'report_problem', type: 'Report a Problem / Bug', IconComponent: BugIcon, color: '#E74C3C' },
+  { key: 'suggest_idea', type: 'Suggest an Idea', IconComponent: BulbIcon, color: '#F39C12' },
+  { key: 'general_question', type: 'General Question', IconComponent: ChatIcon, color: '#3498DB' },
 ];
 
 export default function ContactSupportScreen({ navigation }) {
@@ -78,7 +83,7 @@ export default function ContactSupportScreen({ navigation }) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="chevron-back" size={24} color={AppColors.black} />
+          <ChevronLeft width={24} height={24} color={AppColors.black} />
         </TouchableOpacity>
         <CustomText size={2.5} color={AppColors.primary} style={{ fontWeight: '500' }}>
           {t('contact_support') || 'Contact support'}
@@ -111,7 +116,7 @@ export default function ContactSupportScreen({ navigation }) {
                 activeOpacity={0.8}
               >
                 <View style={[styles.iconCircle, { backgroundColor: category.color + '15' }]}>
-                  <Ionicons name={category.icon} size={24} color={category.color} />
+                  <category.IconComponent width={24} height={24} color={category.color} />
                 </View>
                 <CustomText
                   size={1.5}
@@ -123,7 +128,7 @@ export default function ContactSupportScreen({ navigation }) {
                 </CustomText>
                 {isSelected && (
                   <View style={[styles.checkBadge, { backgroundColor: category.color }]}>
-                    <Ionicons name="checkmark" size={12} color="white" />
+                    <CheckmarkIcon width={12} height={12} color="white" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -172,7 +177,7 @@ export default function ContactSupportScreen({ navigation }) {
             style={styles.emailButton}
             onPress={() => Linking.openURL('mailto:support@shopisan.com')}
           >
-            <Ionicons name="mail" size={20} color={AppColors.primary} />
+            <MailIcon width={20} height={20} color={AppColors.primary} />
             <CustomText size={1.6} color={AppColors.primary} style={{ marginLeft: 10, fontWeight: '500' }}>
               support@shopisan.com
             </CustomText>

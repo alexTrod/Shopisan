@@ -25,7 +25,12 @@ import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from "@expo/vector-icons";
+import ChevronLeft from "../../../../assets/icons/chevron-left";
+import LocationIcon from "../../../../assets/icons/location-icon";
+import CloseIcon from "../../../../assets/icons/close-icon";
+import CloseCircleIcon from "../../../../assets/icons/close-circle-icon";
+import CameraIcon from "../../../../assets/icons/camera-icon";
+import AddCircleIcon from "../../../../assets/icons/add-circle-icon";
 import MapboxGL from "@rnmapbox/maps";
 import { useTranslation } from "../../../utils/useTranslation";
 import * as Location from 'expo-location';
@@ -710,7 +715,7 @@ export default function AddStoreScreen({ navigation }) {
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
         <TouchableOpacity onPress={handleBackPress}>
-          <Ionicons name="arrow-back" size={30} color={AppColors.primary} />
+          <ChevronLeft width={30} height={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
           Add a store
@@ -789,7 +794,7 @@ export default function AddStoreScreen({ navigation }) {
             style={styles.locationButton} 
             onPress={handleUseCurrentLocation}
           >
-            <Ionicons name="location" size={20} color={AppColors.primary} />
+            <LocationIcon width={20} height={20} color={AppColors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -869,7 +874,7 @@ export default function AddStoreScreen({ navigation }) {
             <View key={categoryID} style={styles.selectedCategoryItem}>
               <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
               <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
-                <Ionicons name="close" size={20} color={AppColors.black} />
+                <CloseIcon width={18} height={18} color="#6B21A8" />
               </TouchableOpacity>
             </View>
           ))}
@@ -919,7 +924,7 @@ export default function AddStoreScreen({ navigation }) {
                       style={styles.removeImageButton}
                       onPress={() => handleRemoveImage(index)}
                     >
-                      <Ionicons name="close-circle" size={30} color="red" />
+                      <CloseCircleIcon width={30} height={30} color="red" />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -940,7 +945,7 @@ export default function AddStoreScreen({ navigation }) {
             </>
           )}
           <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
-            <Ionicons name="camera" size={24} color={AppColors.primary} />
+            <CameraIcon width={24} height={24} color={AppColors.primary} />
             <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
           </TouchableOpacity>
         </View>
@@ -953,7 +958,7 @@ export default function AddStoreScreen({ navigation }) {
           {isAddingStore ? (
             <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
           ) : (
-            <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <AddCircleIcon width={20} height={20} color="#fff" style={{ marginRight: 8 }} />
           )}
           <Text style={styles.addButtonText}>
             {isAddingStore ? (t('adding_store') || 'Adding...') : t('add_store')}
@@ -980,11 +985,20 @@ export default function AddStoreScreen({ navigation }) {
               <FlatList
                 data={data}
                 keyExtractor={item => item.value.toString()}
-                renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => handleSelectCategory(item)} style={styles.categoryItem}>
-                    <Text style={[styles.categoryText, { color: selectedCategories.includes(item.value) ? AppColors.primary : AppColors.black }]}>{item.label}</Text>
-                  </TouchableOpacity>
-                )}
+                renderItem={({ item }) => {
+                  const isSelected = selectedCategories.includes(item.value);
+                  return (
+                    <TouchableOpacity
+                      onPress={() => handleSelectCategory(item)}
+                      style={[
+                        styles.categoryItem,
+                        isSelected && styles.categoryItemSelected
+                      ]}
+                    >
+                      <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  );
+                }}
               />
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
                 <Text style={styles.cancelButtonText}>Fermer</Text>
@@ -1049,17 +1063,20 @@ const styles = StyleSheet.create({
   selectedCategoryItem: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: AppColors.black,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1.5,
+    borderColor: '#6B21A8',
     borderRadius: 25,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginRight: 5,
-    height: 40
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 6,
+    marginRight: 6,
   },
-  selectedCategoryText: { 
+  selectedCategoryText: {
     marginRight: 5,
-    fontSize: 14
+    fontSize: 14,
+    color: '#6B21A8',
+    fontWeight: 'bold',
   },
   addButton: {
     backgroundColor: AppColors.primary,
@@ -1097,8 +1114,18 @@ const styles = StyleSheet.create({
     borderBottomColor: AppColors.grey_200,
     flexDirection:'row',
   },
+  categoryItemSelected: {
+    backgroundColor: '#F3E8FF',
+    borderRadius: 8,
+    marginHorizontal: -5,
+    paddingHorizontal: 20,
+  },
   categoryText: {
     fontSize: 14,
+  },
+  categoryTextSelected: {
+    color: '#6B21A8',
+    fontWeight: 'bold',
   },
   cancelButton: {
     marginTop: 20,

@@ -8,7 +8,6 @@ import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
 import MapCategoryFilter from "../../../components/map-category-filter";
 import SearchBar from "../../../components/search-bar";
 import * as Location from "expo-location";
-import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { firestore } from "../../../../firebaseconfig";
 import { query, where, orderBy, limit, getDocs } from 'firebase/firestore';

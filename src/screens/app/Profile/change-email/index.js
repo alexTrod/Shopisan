@@ -12,6 +12,7 @@ import CustomText from '../../../../components/text';
 import { useSelector } from 'react-redux';
 import { useTranslation } from '../../../../utils/useTranslation';
 import { Ionicons } from '@expo/vector-icons';
+import ChevronLeft from '../../../../../assets/icons/chevron-left';
 
 export default function ChangeEmailScreen() {
   const navigation = useNavigation();
@@ -137,7 +138,7 @@ export default function ChangeEmailScreen() {
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="chevron-back" size={28} color={AppColors.black} />
+            <ChevronLeft width={28} height={28} color={AppColors.black} />
           </TouchableOpacity>
           <CustomText size={2.2} textStyles={styles.headerTitle}>
             {t('change_email_title') || 'Change Email & Name'}
