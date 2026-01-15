@@ -115,6 +115,7 @@ export default function Map({ navigation, route  }) {
   const previousLocationRef = useRef(null);
   const shouldIgnoreRegionChange = useRef(false);
   const isExploring = useRef(false);
+  const lastCitySearchTime = useRef(0); // Track when city search animation happened
 
   const dispatch = useDispatch();
 
@@ -156,20 +157,71 @@ export default function Map({ navigation, route  }) {
         // Priority 2: Use customLocation from home screen if available (for synchronization)
         console.log('[Map] Checking customLocation:', customLocation);
         if (customLocation?.latitude && customLocation?.longitude) {
+          // First get nearby stores to calculate auto-zoom
+          perfLogger.start('Map.customLocation.getNearbyStores');
+          const searchRadius = 20; // 20km for city searches
+          const userLoc = { latitude: customLocation.latitude, longitude: customLocation.longitude };
+          let storesToUse = allStores;
+
+          if (selectedCategories?.length > 0) {
+            const selectedCatStrings = selectedCategories.map(c => String(c));
+            storesToUse = storesToUse.filter(store =>
+              Array.isArray(store.category) &&
+              store.category.some(catId => selectedCatStrings.includes(String(catId)))
+            );
+          }
+
+          const nearbyStores = locationService.filterStoresByRadius(
+            storesToUse,
+            userLoc,
+            searchRadius
+          );
+          perfLogger.end('Map.customLocation.getNearbyStores');
+
+          // Calculate auto-zoom based on store distances
+          // Note: Phone screens are taller than wide, so use conservative thresholds
+          // For cities with many stores, use 80th percentile to avoid outliers
+          let autoZoom = 12;
+          if (nearbyStores.length > 0) {
+            const distances = nearbyStores.map(s => s.distance || 0).sort((a, b) => a - b);
+            let representativeDistance;
+            if (nearbyStores.length <= 5) {
+              representativeDistance = Math.max(...distances);
+            } else {
+              const percentileIndex = Math.floor(distances.length * 0.8);
+              representativeDistance = distances[percentileIndex];
+            }
+
+            if (representativeDistance <= 0.5) autoZoom = 15;
+            else if (representativeDistance <= 1) autoZoom = 14;
+            else if (representativeDistance <= 2) autoZoom = 13;
+            else if (representativeDistance <= 3) autoZoom = 12;
+            else if (representativeDistance <= 5) autoZoom = 11;
+            else if (representativeDistance <= 10) autoZoom = 10;
+            else if (representativeDistance <= 20) autoZoom = 9;
+            else autoZoom = 8;
+
+            // Cap minimum zoom for cities with many stores
+            if (nearbyStores.length > 20 && autoZoom < 11) {
+              autoZoom = 11;
+            }
+            console.log(`[Map] customLocation auto-zoom: ${nearbyStores.length} stores, representative distance ${representativeDistance?.toFixed(1)}km, zoom ${autoZoom}`);
+          }
+
+          setStores(nearbyStores);
+
           perfLogger.start('Map.customLocation.setCameraCoordinates');
           setCameraCoordinates({
             latitude: customLocation.latitude,
             longitude: customLocation.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
-            zoom: 12
+            zoom: autoZoom
           });
           perfLogger.end('Map.customLocation.setCameraCoordinates');
 
-          // Fetch nearby stores within 10km
-          perfLogger.start('Map.customLocation.fetchNearbyStores');
-          await fetchNearbyStores(customLocation.latitude, customLocation.longitude, true);
-          perfLogger.end('Map.customLocation.fetchNearbyStores');
+          // Note: Camera animation is handled by the dedicated city search effect
+          // Don't animate here to avoid multiple competing animations
 
           setLoading(false);
           perfLogger.end('Map.initializeMap.TOTAL');
@@ -215,14 +267,17 @@ export default function Map({ navigation, route  }) {
 
           if (nearbyStores.length > 0) {
             // Find the furthest store to determine appropriate zoom
+            // Note: Phone screens are taller than wide, so use conservative thresholds
             const maxDistance = Math.max(...nearbyStores.map(s => s.distance || 0));
             let autoZoom = 12; // Default
-            if (maxDistance <= 1) autoZoom = 14;
+            if (maxDistance <= 0.5) autoZoom = 15;
+            else if (maxDistance <= 1) autoZoom = 14;
             else if (maxDistance <= 2) autoZoom = 13;
-            else if (maxDistance <= 5) autoZoom = 12;
-            else if (maxDistance <= 10) autoZoom = 11;
-            else if (maxDistance <= 20) autoZoom = 10;
-            else autoZoom = 9;
+            else if (maxDistance <= 3) autoZoom = 12;
+            else if (maxDistance <= 5) autoZoom = 11;
+            else if (maxDistance <= 10) autoZoom = 10;
+            else if (maxDistance <= 20) autoZoom = 9;
+            else autoZoom = 8;
 
             console.log(`[Map] Auto-zoom: found ${nearbyStores.length} stores, max distance ${maxDistance}km, zoom ${autoZoom}`);
 
@@ -301,6 +356,99 @@ export default function Map({ navigation, route  }) {
 
     initializeMap();
   }, [initialStore?.id, initialStore?.latitude, initialStore?.longitude, customLocation?.latitude, customLocation?.longitude]); // use stable deps to avoid re-running each render
+
+  // Dedicated effect for city search auto-zoom
+  // This runs whenever customLocation changes and ensures the map zooms to show all stores
+  useEffect(() => {
+    if (!customLocation?.latitude || !customLocation?.longitude) return;
+    if (initialStore) return; // Don't interfere when viewing a specific store
+    if (allStores.length === 0) return; // Wait for stores to load
+
+    console.log('[Map] City search auto-zoom effect triggered');
+
+    const searchRadius = 20;
+    const userLoc = { latitude: customLocation.latitude, longitude: customLocation.longitude };
+    let storesToUse = allStores;
+
+    if (selectedCategories?.length > 0) {
+      const selectedCatStrings = selectedCategories.map(c => String(c));
+      storesToUse = storesToUse.filter(store =>
+        Array.isArray(store.category) &&
+        store.category.some(catId => selectedCatStrings.includes(String(catId)))
+      );
+    }
+
+    const nearbyStores = locationService.filterStoresByRadius(
+      storesToUse,
+      userLoc,
+      searchRadius
+    );
+
+    console.log(`[Map] Found ${nearbyStores.length} stores within ${searchRadius}km`);
+
+    if (nearbyStores.length === 0) {
+      setStores([]);
+      return;
+    }
+
+    // Calculate auto-zoom based on store distances
+    // Note: Phone screens are taller than wide, so horizontal visibility is limited
+    // For cities with many stores, use a representative distance (not the furthest outlier)
+    const distances = nearbyStores.map(s => s.distance || 0).sort((a, b) => a - b);
+
+    // Use different strategies based on number of stores:
+    // - Few stores (<=5): show all of them (use max distance)
+    // - Many stores (>5): use 80th percentile to avoid outliers zooming out too much
+    let representativeDistance;
+    if (nearbyStores.length <= 5) {
+      representativeDistance = Math.max(...distances);
+    } else {
+      const percentileIndex = Math.floor(distances.length * 0.8);
+      representativeDistance = distances[percentileIndex];
+    }
+
+    let autoZoom = 12;
+    if (representativeDistance <= 0.5) autoZoom = 15;
+    else if (representativeDistance <= 1) autoZoom = 14;
+    else if (representativeDistance <= 2) autoZoom = 13;
+    else if (representativeDistance <= 3) autoZoom = 12;
+    else if (representativeDistance <= 5) autoZoom = 11;
+    else if (representativeDistance <= 10) autoZoom = 10;
+    else if (representativeDistance <= 20) autoZoom = 9;
+    else autoZoom = 8;
+
+    // Cap minimum zoom for cities with many stores (don't zoom out too much)
+    if (nearbyStores.length > 20 && autoZoom < 11) {
+      autoZoom = 11;
+    }
+
+    console.log(`[Map] Auto-zoom: ${nearbyStores.length} stores, representative distance ${representativeDistance?.toFixed(2)}km, setting zoom to ${autoZoom}`);
+
+    // Mark that we're handling a city search - prevents other effects from animating
+    lastCitySearchTime.current = Date.now();
+
+    setStores(nearbyStores);
+    setCameraCoordinates(prev => ({
+      ...prev,
+      latitude: customLocation.latitude,
+      longitude: customLocation.longitude,
+      zoom: autoZoom
+    }));
+
+    // Animate camera with a small delay to ensure map is ready
+    const animateTimeout = setTimeout(() => {
+      if (cameraRef.current) {
+        console.log(`[Map] Animating camera to zoom ${autoZoom}`);
+        cameraRef.current.setCamera({
+          centerCoordinate: [customLocation.longitude, customLocation.latitude],
+          zoomLevel: autoZoom,
+          animationDuration: 500,
+        });
+      }
+    }, 50);
+
+    return () => clearTimeout(animateTimeout);
+  }, [customLocation?.latitude, customLocation?.longitude, allStores.length, selectedCategories?.length, initialStore]);
 
   useEffect(() => {
     const now = Date.now();
@@ -382,17 +530,61 @@ export default function Map({ navigation, route  }) {
 
   // Don't automatically fetch all stores - only fetch when we have a specific location
   // This prevents showing all stores by default
+  // IMPORTANT: Use customLocation (searched city) if available, fallback to userLocation (GPS)
   useEffect(() => {
+    // Skip if city search effect just handled this (within 2 seconds)
+    const timeSinceLastCitySearch = Date.now() - lastCitySearchTime.current;
+    if (timeSinceLastCitySearch < 2000) {
+      console.log('[Map] allStores updated, but city search effect just handled animation, skipping');
+      return;
+    }
+
     // Only refetch if we already have a location set (don't run on initial mount)
-    if (userLocation && allStores.length > 0 && cameraCoordinates) {
-      fetchNearbyStores(userLocation.latitude, userLocation.longitude);
+    if (allStores.length > 0 && cameraCoordinates) {
+      // Prioritize customLocation (searched city) over userLocation (GPS)
+      // This prevents pins from disappearing when allStores updates
+      const locationToUse = customLocation?.latitude && customLocation?.longitude
+        ? customLocation
+        : userLocation;
+
+      if (locationToUse) {
+        // Calculate nearby stores
+        const searchRadius = 20;
+        const userLoc = { latitude: locationToUse.latitude, longitude: locationToUse.longitude };
+        let storesToUse = allStores;
+
+        if (selectedCategories?.length > 0) {
+          const selectedCatStrings = selectedCategories.map(c => String(c));
+          storesToUse = storesToUse.filter(store =>
+            Array.isArray(store.category) &&
+            store.category.some(catId => selectedCatStrings.includes(String(catId)))
+          );
+        }
+
+        const nearbyStores = locationService.filterStoresByRadius(
+          storesToUse,
+          userLoc,
+          searchRadius
+        );
+
+        setStores(nearbyStores);
+        // Note: Don't animate camera here - let the dedicated city search effect handle it
+      }
     }
   }, [allStores]);
 
   // Refetch stores when category filters change or filteredStores updates
+  // IMPORTANT: Use customLocation (searched city) if available, fallback to currentRegion
   useEffect(() => {
-    if (currentRegion && !isExploring.current && allStores.length > 0) {
-      fetchNearbyStores(currentRegion.latitude, currentRegion.longitude);
+    if (!isExploring.current && allStores.length > 0) {
+      // Prioritize customLocation (searched city) over currentRegion (map center)
+      const locationToUse = customLocation?.latitude && customLocation?.longitude
+        ? customLocation
+        : currentRegion;
+
+      if (locationToUse) {
+        fetchNearbyStores(locationToUse.latitude, locationToUse.longitude, true);
+      }
     }
   }, [selectedCategories, filteredStores]);
 
@@ -401,6 +593,13 @@ export default function Map({ navigation, route  }) {
   useFocusEffect(
     useCallback(() => {
       if (!customLocation?.latitude || !customLocation?.longitude) return;
+
+      // Skip if the dedicated city search effect just handled this (within 1 second)
+      const timeSinceLastCitySearch = Date.now() - lastCitySearchTime.current;
+      if (timeSinceLastCitySearch < 1000) {
+        console.log('[Map] Tab focused, but city search effect just handled animation, skipping');
+        return;
+      }
 
       console.log('[Map] Tab focused, syncing to customLocation:', customLocation);
 
@@ -411,13 +610,63 @@ export default function Map({ navigation, route  }) {
       const numLat = Number(customLocation.latitude);
       const numLng = Number(customLocation.longitude);
 
+      // Calculate auto-zoom based on nearby stores
+      const searchRadius = 20;
+      const userLoc = { latitude: numLat, longitude: numLng };
+      let storesToUse = allStores;
+
+      if (selectedCategories?.length > 0) {
+        const selectedCatStrings = selectedCategories.map(c => String(c));
+        storesToUse = storesToUse.filter(store =>
+          Array.isArray(store.category) &&
+          store.category.some(catId => selectedCatStrings.includes(String(catId)))
+        );
+      }
+
+      const nearbyStores = locationService.filterStoresByRadius(
+        storesToUse,
+        userLoc,
+        searchRadius
+      );
+
+      // Note: Phone screens are taller than wide, so use conservative thresholds
+      // For cities with many stores, use 80th percentile to avoid outliers
+      let autoZoom = 12;
+      if (nearbyStores.length > 0) {
+        const distances = nearbyStores.map(s => s.distance || 0).sort((a, b) => a - b);
+        let representativeDistance;
+        if (nearbyStores.length <= 5) {
+          representativeDistance = Math.max(...distances);
+        } else {
+          const percentileIndex = Math.floor(distances.length * 0.8);
+          representativeDistance = distances[percentileIndex];
+        }
+
+        if (representativeDistance <= 0.5) autoZoom = 15;
+        else if (representativeDistance <= 1) autoZoom = 14;
+        else if (representativeDistance <= 2) autoZoom = 13;
+        else if (representativeDistance <= 3) autoZoom = 12;
+        else if (representativeDistance <= 5) autoZoom = 11;
+        else if (representativeDistance <= 10) autoZoom = 10;
+        else if (representativeDistance <= 20) autoZoom = 9;
+        else autoZoom = 8;
+
+        // Cap minimum zoom for cities with many stores
+        if (nearbyStores.length > 20 && autoZoom < 11) {
+          autoZoom = 11;
+        }
+        console.log(`[Map] Tab focus auto-zoom: ${nearbyStores.length} stores, representative distance ${representativeDistance?.toFixed(1)}km, zoom ${autoZoom}`);
+      }
+
+      setStores(nearbyStores);
+
       // Update state
       setCameraCoordinates({
         latitude: numLat,
         longitude: numLng,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
-        zoom: 12
+        zoom: autoZoom
       });
       setCurrentRegion({
         latitude: numLat,
@@ -431,10 +680,10 @@ export default function Map({ navigation, route  }) {
       // Animate camera with delay to ensure it's mounted
       const animateToLocation = () => {
         if (cameraRef.current) {
-          console.log('[Map] Animating camera to:', numLat, numLng);
+          console.log('[Map] Animating camera to:', numLat, numLng, 'zoom:', autoZoom);
           cameraRef.current.setCamera({
             centerCoordinate: [numLng, numLat],
-            zoomLevel: 12,
+            zoomLevel: autoZoom,
             animationDuration: 500,
           });
         } else {
@@ -444,10 +693,7 @@ export default function Map({ navigation, route  }) {
 
       // Small delay to ensure the map is ready
       setTimeout(animateToLocation, 100);
-
-      // Fetch stores for this location
-      fetchNearbyStores(numLat, numLng, true);
-    }, [customLocation?.latitude, customLocation?.longitude])
+    }, [customLocation?.latitude, customLocation?.longitude, allStores, selectedCategories])
   );
 
   // Debounce the "no stores" message to prevent it from flashing during searches/movements
@@ -730,6 +976,7 @@ export default function Map({ navigation, route  }) {
   const handleMapCitySelect = async (cityName, coordinates) => {
     try {
       const { latitude, longitude } = coordinates;
+      console.log(`[Map] handleMapCitySelect: ${cityName} at ${latitude}, ${longitude}`);
 
       // Reset exploring mode - we're now at an explicit search location
       isExploring.current = false;
@@ -737,26 +984,65 @@ export default function Map({ navigation, route  }) {
       // Prevent region change from refetching during animation
       shouldIgnoreRegionChange.current = true;
 
+      setHasRequestedStores?.(true);
+      dispatch(setCustomLocation({ latitude, longitude }));
+      setLastPosition({ latitude, longitude });
+
+      // Get nearby stores first to calculate appropriate zoom
+      const searchRadius = 20; // 20km for city searches
+      const userLocation = { latitude, longitude };
+      let storesToUse = allStores;
+
+      // Apply category filter if needed
+      if (selectedCategories?.length > 0) {
+        const selectedCatStrings = selectedCategories.map(c => String(c));
+        storesToUse = storesToUse.filter(store =>
+          Array.isArray(store.category) &&
+          store.category.some(catId => selectedCatStrings.includes(String(catId)))
+        );
+      }
+
+      // Get stores within radius
+      const nearbyStores = locationService.filterStoresByRadius(
+        storesToUse,
+        userLocation,
+        searchRadius
+      );
+
+      // Calculate auto-zoom based on furthest store distance
+      // Note: Phone screens are taller than wide, so use conservative thresholds
+      let autoZoom = 12; // Default
+      if (nearbyStores.length > 0) {
+        const maxDistance = Math.max(...nearbyStores.map(s => s.distance || 0));
+        if (maxDistance <= 0.5) autoZoom = 15;
+        else if (maxDistance <= 1) autoZoom = 14;
+        else if (maxDistance <= 2) autoZoom = 13;
+        else if (maxDistance <= 3) autoZoom = 12;
+        else if (maxDistance <= 5) autoZoom = 11;
+        else if (maxDistance <= 10) autoZoom = 10;
+        else if (maxDistance <= 20) autoZoom = 9;
+        else autoZoom = 8;
+        console.log(`[Map] City search auto-zoom: found ${nearbyStores.length} stores, max distance ${maxDistance}km, zoom ${autoZoom}`);
+      }
+
+      setStores(nearbyStores);
+
       setCameraCoordinates({
         latitude,
         longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
+        zoom: autoZoom,
       });
 
       if (cameraRef.current) {
         cameraRef.current.setCamera({
           centerCoordinate: [longitude, latitude],
-          zoomLevel: 12,
+          zoomLevel: autoZoom,
           animationDuration: 1000,
         });
       }
 
-      setHasRequestedStores?.(true);
-      dispatch(setCustomLocation({ latitude, longitude }));
-      setLastPosition({ latitude, longitude });
-      await fetchNearbyStores(latitude, longitude, true);
-      
       // Re-enable region changes after animation completes
       setTimeout(() => {
         shouldIgnoreRegionChange.current = false;
