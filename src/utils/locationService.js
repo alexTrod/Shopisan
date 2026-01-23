@@ -17,6 +17,7 @@ class LocationService {
   constructor() {
     this.cachedLocation = null;
     this.isInitialized = false;
+    this.pendingRequest = null; // Track in-flight request to prevent duplicates
   }
 
   /**
@@ -39,7 +40,6 @@ class LocationService {
    * @returns {Promise<Object>} Location object with coordinates
    */
   async getUserLocation(options = {}) {
-    perfLogger.start('LocationService.getUserLocation.TOTAL');
     const {
       useCache = true,
       showToast = true,
@@ -47,17 +47,39 @@ class LocationService {
       timeout = 8000
     } = options;
 
-    try {
-      // Check cache first if enabled
-      if (useCache && this.cachedLocation) {
-        const cacheAge = Date.now() - this.cachedLocation.timestamp;
-        if (cacheAge < CACHE_DURATION) {
-          perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'Using cached location');
-          perfLogger.end('LocationService.getUserLocation.TOTAL');
-          return this.cachedLocation;
-        }
+    // Check cache first if enabled (before any async work)
+    if (useCache && this.cachedLocation) {
+      const cacheAge = Date.now() - this.cachedLocation.timestamp;
+      if (cacheAge < CACHE_DURATION) {
+        return this.cachedLocation;
       }
+    }
 
+    // If there's already a request in flight, wait for it instead of making a duplicate
+    if (this.pendingRequest) {
+      return this.pendingRequest;
+    }
+
+    // Start new request and track it
+    this.pendingRequest = this._fetchLocation({ useCache, showToast, accuracy, timeout });
+
+    try {
+      const result = await this.pendingRequest;
+      return result;
+    } finally {
+      this.pendingRequest = null;
+    }
+  }
+
+  /**
+   * Internal method to fetch location (called by getUserLocation)
+   */
+  async _fetchLocation(options) {
+    const { showToast, accuracy, timeout } = options;
+
+    perfLogger.start('LocationService.getUserLocation.TOTAL');
+
+    try {
       // Request permission
       perfLogger.start('LocationService.getUserLocation.requestPermission');
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -157,7 +179,6 @@ class LocationService {
     }
 
     // If no stores found within maxRadius, return all stores
-    console.log('No stores found within radius, returning all stores');
     return stores;
   }
 
@@ -251,9 +272,7 @@ class LocationService {
         const cacheAge = Date.now() - timestamp;
         if (cacheAge < CACHE_DURATION) {
           this.cachedLocation = { ...location, timestamp };
-          console.log('Loaded cached location:', location);
         } else {
-          console.log('Cached location expired, clearing cache');
           await this.clearCache();
         }
       }
@@ -287,6 +306,14 @@ class LocationService {
       latitude: location.latitude,
       longitude: location.longitude
     }));
+  }
+
+  /**
+   * Get cached location synchronously (for immediate UI rendering)
+   * @returns {Object|null} Cached location or null
+   */
+  getCachedLocation() {
+    return this.cachedLocation;
   }
 
   /**

@@ -76,26 +76,73 @@ export default function Map({ navigation, route  }) {
     setHasRequestedStores
   } = useContext(StoreContext);
 
-  // Debug: Log searchQuery and customLocation changes on Map
-  useEffect(() => {
-    console.log('[Map] searchQuery from context:', searchQuery);
-  }, [searchQuery]);
+    
+  // Initialize camera coordinates from whatever location data is immediately available
+  const getInitialCameraCoordinates = () => {
+    if (initialStore?.latitude && initialStore?.longitude) {
+      return {
+        latitude: initialStore.latitude,
+        longitude: initialStore.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+        zoom: 14
+      };
+    }
+    if (customLocation?.latitude && customLocation?.longitude) {
+      return {
+        latitude: customLocation.latitude,
+        longitude: customLocation.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+        zoom: 12
+      };
+    }
+    if (userLocation?.latitude && userLocation?.longitude) {
+      return {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+        zoom: 12
+      };
+    }
+    // Try to get cached location from locationService (synchronous, in-memory)
+    const cached = locationService.getCachedLocation();
+    if (cached?.latitude && cached?.longitude) {
+      return {
+        latitude: cached.latitude,
+        longitude: cached.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+        zoom: 12
+      };
+    }
+    // Default to Brussels - this ensures stores can be shown immediately from cache
+    // The map will animate to the user's real location once it's available
+    return {
+      latitude: 50.8503,
+      longitude: 4.3517,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+      zoom: 12
+    };
+  };
 
+  const [cameraCoordinates, setCameraCoordinates] = useState(getInitialCameraCoordinates);
+
+  // Show stores immediately from cache/context while waiting for location
   useEffect(() => {
-    console.log('[Map] customLocation from context:', customLocation);
-  }, [customLocation]);
-  
-  const [cameraCoordinates, setCameraCoordinates] = useState(
-    initialStore
-      ? {
-          latitude: initialStore.latitude,
-          longitude: initialStore.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-          zoom: 14
-        }
-      : null // No default location, will use user's location
-  );
+    if (stores.length === 0 && allStores.length > 0 && cameraCoordinates) {
+      const nearbyStores = locationService.filterStoresByRadius(
+        allStores,
+        { latitude: cameraCoordinates.latitude, longitude: cameraCoordinates.longitude },
+        20 // 20km radius
+      );
+      if (nearbyStores.length > 0) {
+        setStores(nearbyStores);
+      }
+    }
+  }, [allStores.length, cameraCoordinates?.latitude, cameraCoordinates?.longitude]);
 
   const [lastPosition, setLastPosition] = useState(null);
   const flatListRef = useRef(null);
@@ -126,13 +173,9 @@ export default function Map({ navigation, route  }) {
     const initializeMap = async () => {
       perfLogger.start('Map.initializeMap.TOTAL');
       perfLogger.start('Map.initializeMap.setup');
-      console.log('[Map] initializeMap started');
       try {
         setLoading(true);
         perfLogger.end('Map.initializeMap.setup');
-
-        // Priority 1: If we have an initial store, use its location
-        console.log('[Map] Checking initialStore:', !!initialStore);
         if (initialStore) {
           perfLogger.start('Map.initialStore.setCameraCoordinates');
           setCameraCoordinates({
@@ -155,7 +198,6 @@ export default function Map({ navigation, route  }) {
         }
 
         // Priority 2: Use customLocation from home screen if available (for synchronization)
-        console.log('[Map] Checking customLocation:', customLocation);
         if (customLocation?.latitude && customLocation?.longitude) {
           // First get nearby stores to calculate auto-zoom
           perfLogger.start('Map.customLocation.getNearbyStores');
@@ -205,8 +247,7 @@ export default function Map({ navigation, route  }) {
             if (nearbyStores.length > 20 && autoZoom < 11) {
               autoZoom = 11;
             }
-            console.log(`[Map] customLocation auto-zoom: ${nearbyStores.length} stores, representative distance ${representativeDistance?.toFixed(1)}km, zoom ${autoZoom}`);
-          }
+                      }
 
           setStores(nearbyStores);
 
@@ -230,7 +271,6 @@ export default function Map({ navigation, route  }) {
         }
 
         // Priority 3: Get user's current location with timeout ("Around me" mode)
-        console.log('[Map] Getting user location, userLocation from context:', userLocation);
         let location = userLocation;
         if (!location) {
           try {
@@ -241,19 +281,14 @@ export default function Map({ navigation, route  }) {
                 useCache: true,
                 showToast: false
               }),
-              new Promise((resolve) => setTimeout(() => {
-                console.log('[Map] Location service timeout after 5s');
-                resolve(null);
-              }, 5000))
+              new Promise((resolve) => setTimeout(() => resolve(null), 5000))
             ]);
             perfLogger.end('Map.getUserLocation');
           } catch (e) {
             perfLogger.end('Map.getUserLocation');
-            console.log('[Map] Location service error:', e);
             location = null;
           }
         }
-        console.log('[Map] Got location result:', location);
 
         if (location) {
           // "Around me" auto-zoom: find stores with expanding radius and zoom to show them
@@ -279,8 +314,7 @@ export default function Map({ navigation, route  }) {
             else if (maxDistance <= 20) autoZoom = 9;
             else autoZoom = 8;
 
-            console.log(`[Map] Auto-zoom: found ${nearbyStores.length} stores, max distance ${maxDistance}km, zoom ${autoZoom}`);
-
+            
             perfLogger.start('Map.userLocation.setCameraAndStores');
             setCameraCoordinates({
               latitude: location.latitude,
@@ -294,7 +328,6 @@ export default function Map({ navigation, route  }) {
             setLoading(false);
           } else {
             // No stores in city - show toast and use default zoom
-            console.log('[Map] No stores found in city area');
             Toast.show({
               type: 'info',
               text1: t('no_stores_in_city') || 'No stores in your city yet',
@@ -317,7 +350,6 @@ export default function Map({ navigation, route  }) {
           return;
         } else {
           // Fallback: use Brussels as default location
-          console.log('[Map] Using Brussels fallback location');
           const fallbackLat = 50.8503;
           const fallbackLng = 4.3517;
           setCameraCoordinates({
@@ -329,16 +361,12 @@ export default function Map({ navigation, route  }) {
           });
           // Fetch stores immediately - no delay needed
           perfLogger.start('Map.fallback.fetchNearbyStores');
-          fetchNearbyStores(fallbackLat, fallbackLng, true).catch(e => {
-            console.log('[Map] fetchNearbyStores error:', e);
-          });
+          fetchNearbyStores(fallbackLat, fallbackLng, true).catch(() => {});
           perfLogger.end('Map.fallback.fetchNearbyStores');
           setLoading(false);
         }
       } catch (error) {
-        console.error('[Map] Error initializing map:', error);
         // Even on error, use fallback location
-        console.log('[Map] Using Brussels fallback due to error');
         const fallbackLat = 50.8503;
         const fallbackLng = 4.3517;
         setCameraCoordinates({
@@ -364,8 +392,6 @@ export default function Map({ navigation, route  }) {
     if (initialStore) return; // Don't interfere when viewing a specific store
     if (allStores.length === 0) return; // Wait for stores to load
 
-    console.log('[Map] City search auto-zoom effect triggered');
-
     const searchRadius = 20;
     const userLoc = { latitude: customLocation.latitude, longitude: customLocation.longitude };
     let storesToUse = allStores;
@@ -383,8 +409,6 @@ export default function Map({ navigation, route  }) {
       userLoc,
       searchRadius
     );
-
-    console.log(`[Map] Found ${nearbyStores.length} stores within ${searchRadius}km`);
 
     if (nearbyStores.length === 0) {
       setStores([]);
@@ -422,8 +446,7 @@ export default function Map({ navigation, route  }) {
       autoZoom = 11;
     }
 
-    console.log(`[Map] Auto-zoom: ${nearbyStores.length} stores, representative distance ${representativeDistance?.toFixed(2)}km, setting zoom to ${autoZoom}`);
-
+    
     // Mark that we're handling a city search - prevents other effects from animating
     lastCitySearchTime.current = Date.now();
 
@@ -438,7 +461,6 @@ export default function Map({ navigation, route  }) {
     // Animate camera with a small delay to ensure map is ready
     const animateTimeout = setTimeout(() => {
       if (cameraRef.current) {
-        console.log(`[Map] Animating camera to zoom ${autoZoom}`);
         cameraRef.current.setCamera({
           centerCoordinate: [customLocation.longitude, customLocation.latitude],
           zoomLevel: autoZoom,
@@ -535,7 +557,6 @@ export default function Map({ navigation, route  }) {
     // Skip if city search effect just handled this (within 2 seconds)
     const timeSinceLastCitySearch = Date.now() - lastCitySearchTime.current;
     if (timeSinceLastCitySearch < 2000) {
-      console.log('[Map] allStores updated, but city search effect just handled animation, skipping');
       return;
     }
 
@@ -576,6 +597,13 @@ export default function Map({ navigation, route  }) {
   // Refetch stores when category filters change or filteredStores updates
   // IMPORTANT: Use customLocation (searched city) if available, fallback to currentRegion
   useEffect(() => {
+    // Skip if city search effect just handled this (within 2 seconds)
+    // This prevents the 10km fetchNearbyStores from overwriting the 20km city search results
+    const timeSinceLastCitySearch = Date.now() - lastCitySearchTime.current;
+    if (timeSinceLastCitySearch < 2000) {
+      return;
+    }
+
     if (!isExploring.current && allStores.length > 0) {
       // Prioritize customLocation (searched city) over currentRegion (map center)
       const locationToUse = customLocation?.latitude && customLocation?.longitude
@@ -597,11 +625,8 @@ export default function Map({ navigation, route  }) {
       // Skip if the dedicated city search effect just handled this (within 1 second)
       const timeSinceLastCitySearch = Date.now() - lastCitySearchTime.current;
       if (timeSinceLastCitySearch < 1000) {
-        console.log('[Map] Tab focused, but city search effect just handled animation, skipping');
         return;
       }
-
-      console.log('[Map] Tab focused, syncing to customLocation:', customLocation);
 
       // Reset exploring mode
       isExploring.current = false;
@@ -655,8 +680,7 @@ export default function Map({ navigation, route  }) {
         if (nearbyStores.length > 20 && autoZoom < 11) {
           autoZoom = 11;
         }
-        console.log(`[Map] Tab focus auto-zoom: ${nearbyStores.length} stores, representative distance ${representativeDistance?.toFixed(1)}km, zoom ${autoZoom}`);
-      }
+              }
 
       setStores(nearbyStores);
 
@@ -680,7 +704,6 @@ export default function Map({ navigation, route  }) {
       // Animate camera with delay to ensure it's mounted
       const animateToLocation = () => {
         if (cameraRef.current) {
-          console.log('[Map] Animating camera to:', numLat, numLng, 'zoom:', autoZoom);
           cameraRef.current.setCamera({
             centerCoordinate: [numLng, numLat],
             zoomLevel: autoZoom,
@@ -976,13 +999,15 @@ export default function Map({ navigation, route  }) {
   const handleMapCitySelect = async (cityName, coordinates) => {
     try {
       const { latitude, longitude } = coordinates;
-      console.log(`[Map] handleMapCitySelect: ${cityName} at ${latitude}, ${longitude}`);
 
       // Reset exploring mode - we're now at an explicit search location
       isExploring.current = false;
 
       // Prevent region change from refetching during animation
       shouldIgnoreRegionChange.current = true;
+
+      // Mark city search time immediately to prevent filteredStores effect from overwriting
+      lastCitySearchTime.current = Date.now();
 
       setHasRequestedStores?.(true);
       dispatch(setCustomLocation({ latitude, longitude }));
@@ -1022,8 +1047,7 @@ export default function Map({ navigation, route  }) {
         else if (maxDistance <= 10) autoZoom = 10;
         else if (maxDistance <= 20) autoZoom = 9;
         else autoZoom = 8;
-        console.log(`[Map] City search auto-zoom: found ${nearbyStores.length} stores, max distance ${maxDistance}km, zoom ${autoZoom}`);
-      }
+              }
 
       setStores(nearbyStores);
 
@@ -1096,7 +1120,6 @@ export default function Map({ navigation, route  }) {
   const handleMapSearch = (query) => {
     // For map, we don't need to do anything special on search
     // The SearchBar component will handle suggestions and selection
-    console.log('Map search query:', query);
   };  
 
   const getUserLocation = async () => {
@@ -1108,7 +1131,6 @@ export default function Map({ navigation, route  }) {
       });
 
       if (!location) {
-        console.log('[Map] getUserLocation: No location available');
         return;
       }
 
@@ -1255,8 +1277,7 @@ export default function Map({ navigation, route  }) {
       {/* Sign Up and Search bar moved to unified location in bottom-tab.js */}
 
       <View style={styles.container}>
-        {cameraCoordinates ? (
-          <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
             <View style={styles.filterContainer}>
               <MapCategoryFilter
                 stores={stores}
@@ -1351,7 +1372,7 @@ export default function Map({ navigation, route  }) {
                   );
                 });
               })()}
-            </MapboxGL.MapView>          
+            </MapboxGL.MapView>
 
             {showNoStoresMessage && (
               <View style={styles.noStoreContainer}>
@@ -1400,9 +1421,6 @@ export default function Map({ navigation, route  }) {
               </View>
             )}
           </View>
-        ) : (
-          <View style={styles.loading}><Text>Loading the map...</Text></View>
-        )}
       </View>
         <FloatingCards 
           data={storesWithNamedTags} 

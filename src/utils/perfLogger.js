@@ -1,7 +1,10 @@
 /**
  * Performance Logger Utility
  * Tracks timing of various operations to identify bottlenecks
+ * Set ENABLED to false to disable all logging
  */
+
+const ENABLED = false; // Set to true to enable performance logging
 
 const timers = {};
 const completedTimings = [];
@@ -9,6 +12,7 @@ const completedTimings = [];
 const perfLogger = {
   // Start timing an operation
   start: (label) => {
+    if (!ENABLED) return;
     timers[label] = {
       startTime: Date.now(),
       label
@@ -18,9 +22,9 @@ const perfLogger = {
 
   // End timing and log the duration
   end: (label) => {
+    if (!ENABLED) return 0;
     const timer = timers[label];
     if (!timer) {
-      console.warn(`[PERF] ⚠️ No timer found for: ${label}`);
       return 0;
     }
 
@@ -49,6 +53,7 @@ const perfLogger = {
 
   // Log a checkpoint within an operation
   checkpoint: (label, message) => {
+    if (!ENABLED) return;
     const timer = timers[label];
     if (!timer) {
       console.log(`[PERF] 📍 ${label}: ${message}`);
@@ -73,6 +78,7 @@ const perfLogger = {
 
   // Print summary of all completed timings
   summary: () => {
+    if (!ENABLED) return;
     console.log('\n[PERF] ═══════════════════════════════════════');
     console.log('[PERF] 📊 PERFORMANCE SUMMARY');
     console.log('[PERF] ═══════════════════════════════════════');
@@ -100,6 +106,7 @@ const perfLogger = {
 
   // Clear all timings
   clear: () => {
+    if (!ENABLED) return;
     Object.keys(timers).forEach(key => delete timers[key]);
     completedTimings.length = 0;
     console.log('[PERF] 🗑️ Cleared all performance data');
@@ -107,6 +114,7 @@ const perfLogger = {
 
   // Log render count for components
   logRender: (componentName, props = {}) => {
+    if (!ENABLED) return;
     const propsStr = Object.keys(props).length > 0
       ? ` with props: ${JSON.stringify(props)}`
       : '';
