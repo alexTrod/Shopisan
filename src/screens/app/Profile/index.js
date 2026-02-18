@@ -167,13 +167,13 @@ export default function Profile({ navigation }) {
           <View style={styles.socialLinksContainer}>
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => Linking.openURL('https://instagram.com/shopisan')}
+              onPress={() => Linking.openURL('https://www.instagram.com/shopisanapp/')}
             >
               <InstagramIcon width={24} height={24} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => Linking.openURL('https://shopisan.com')}
+              onPress={() => Linking.openURL(locale === 'fr' ? 'https://shopisan.com/fr' : 'https://shopisan.com')}
             >
               <GlobeIcon width={24} height={24} color={AppColors.primary} />
             </TouchableOpacity>

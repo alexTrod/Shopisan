@@ -13,6 +13,8 @@ import { useSelector } from 'react-redux';
 import { useTranslation } from '../../../../utils/useTranslation';
 import { Ionicons } from '@expo/vector-icons';
 import ChevronLeft from '../../../../../assets/icons/chevron-left';
+import EyeIcon from '../../../../../assets/icons/eye-icon';
+import EyeOffIcon from '../../../../../assets/icons/eye-off-icon';
 
 export default function ChangeEmailScreen() {
   const navigation = useNavigation();
@@ -23,6 +25,7 @@ export default function ChangeEmailScreen() {
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordHide, setPasswordHide] = useState(true);
 
   const handleChangeNameAndEmail = async () => {
     if (!currentPassword || (!newEmail && !newName)) {
@@ -178,8 +181,18 @@ export default function ChangeEmailScreen() {
                 placeholderTextColor="#999"
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
-                secureTextEntry
+                secureTextEntry={passwordHide}
               />
+              <TouchableOpacity
+                onPress={() => setPasswordHide(!passwordHide)}
+                style={styles.eyeIcon}
+              >
+                {passwordHide ? (
+                  <EyeOffIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+                ) : (
+                  <EyeIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -307,6 +320,10 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     paddingLeft: width(4),
+  },
+  eyeIcon: {
+    paddingRight: width(4),
+    paddingVertical: height(1.5),
   },
   input: {
     flex: 1,

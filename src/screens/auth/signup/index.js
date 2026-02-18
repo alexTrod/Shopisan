@@ -15,6 +15,10 @@ import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
 import { useDispatch, useSelector } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
+import PersonIcon from "../../../../assets/icons/person-icon";
+import MailIcon from "../../../../assets/icons/mail-icon";
+import EyeIcon from "../../../../assets/icons/eye-icon";
+import EyeOffIcon from "../../../../assets/icons/eye-off-icon";
 import { functions } from "../../../../firebaseconfig";
 import { httpsCallable } from "firebase/functions";
 import Toast from "react-native-toast-message";
@@ -187,10 +191,9 @@ export default function SignUp({ navigation }) {
       <InputField
         control={control}
         prefix={
-          <FontAwesome6
-            name="user"
-            size={height(3)}
-            style={{ marginRight: height(1) }}
+          <PersonIcon
+            height={height(3)}
+            width={height(3)}
             color={AppColors.black}
           />
         }
@@ -199,7 +202,6 @@ export default function SignUp({ navigation }) {
         containerStyles={{
           width: "90%",
           alignSelf: "center",
-          backgroundColor: AppColors.white,
         }}
         textFieldContainer={{
           width: "100%",
@@ -217,10 +219,9 @@ export default function SignUp({ navigation }) {
         control={control}
         ref={emailRef}
         prefix={
-          <MaterialCommunityIcons
-            name="email-outline"
-            size={height(3)}
-            style={{ marginRight: height(1) }}
+          <MailIcon
+            height={height(3)}
+            width={height(3)}
             color={AppColors.black}
           />
         }
@@ -229,7 +230,6 @@ export default function SignUp({ navigation }) {
         containerStyles={{
           width: "90%",
           alignSelf: "center",
-          backgroundColor: AppColors.white,
         }}
         textFieldContainer={{
           width: "100%",
@@ -250,7 +250,6 @@ export default function SignUp({ navigation }) {
           <Unlock_outline
             height={height(3)}
             width={height(3)}
-            style={{ marginRight: height(1) }}
           />
         }
         name="password"
@@ -268,11 +267,11 @@ export default function SignUp({ navigation }) {
         secureTextEntry={passwordHide}
         suffix={
           <TouchableOpacity onPress={() => setPasswordHide(!passwordHide)}>
-            <Feather
-              name={passwordHide ? "eye-off" : "eye"}
-              color={AppColors.secondary}
-              size={height(2)}
-            />
+            {passwordHide ? (
+              <EyeOffIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            ) : (
+              <EyeIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            )}
           </TouchableOpacity>
         }
       />
@@ -283,7 +282,6 @@ export default function SignUp({ navigation }) {
           <Unlock_outline
             height={height(3)}
             width={height(3)}
-            style={{ marginRight: height(1) }}
           />
         }
         name="confirmPassword"
@@ -300,11 +298,11 @@ export default function SignUp({ navigation }) {
         secureTextEntry={confirmPasswordHide}
         suffix={
           <TouchableOpacity onPress={() => setConfirmPasswordHide(!confirmPasswordHide)}>
-            <Feather
-              name={confirmPasswordHide ? "eye-off" : "eye"}
-              color={AppColors.secondary}
-              size={height(2)}
-            />
+            {confirmPasswordHide ? (
+              <EyeOffIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            ) : (
+              <EyeIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            )}
           </TouchableOpacity>
         }
       />

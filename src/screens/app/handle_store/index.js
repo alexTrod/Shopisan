@@ -29,7 +29,7 @@ import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setCategories } from "../../../Redux/Actions/CategoriesActions";
 import * as Location from 'expo-location';
 import MapboxGL from "@rnmapbox/maps";
-import locationService from "../../../utils/locationService";
+import locationManager from "../../../services/LocationManager";
 import { ensureCityExists } from "../../../utils/cityManagement";
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from '../../../utils/useTranslation';
@@ -353,15 +353,24 @@ export default function HandleStoreScreen({ route, navigation }) {
       return;
     }
     setLoadingSuggestions(true);
-  
+
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
-  
+
     try {
-      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${mapboxToken}&autocomplete=true&limit=10&country=fr,gr,gb,es,be,it`);
+      // Use Mapbox with French language preference for better French results
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
+        `access_token=${mapboxToken}` +
+        `&autocomplete=true` +
+        `&limit=10` +
+        `&language=fr` +
+        `&types=address,poi,place,locality,neighborhood`
+      );
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
-      console.error('Erreur de recherche Mapbox:', error);
+      console.error('Mapbox search error:', error);
+      setSuggestions([]);
     }
     setLoadingSuggestions(false);
   };  
@@ -380,12 +389,12 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   const handleUseCurrentLocation = async () => {
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
-    
+
     try {
-      // Use location service with toast notifications
-      const location = await locationService.getUserLocation({
-        useCache: false, // Force fresh location
-        showToast: true
+      // Use LocationManager for GPS location
+      const location = await locationManager.getUserLocation({
+        useCache: false,
+        forceRefresh: true
       });
 
       setSelectedLocation({
@@ -394,11 +403,12 @@ export default function HandleStoreScreen({ route, navigation }) {
       });
       setShowMap(true);
 
+      // Use Mapbox for reverse geocoding
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.longitude},${location.latitude}.json?access_token=${mapboxToken}`
       );
       const data = await response.json();
-      
+
       if (data.features && data.features.length > 0) {
         const address = data.features[0];
         handleAddressSelect(address);
@@ -550,25 +560,26 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   const handleAddressSelect = (item) => {
     if (!item) return;
-  
+
     setSuggestions([]);
-    
+
+    // Parse Mapbox response
     const context = item.context || [];
     const cityInfo = context.find(c => c.id.includes('place'));
     const postalCodeInfo = context.find(c => c.id.includes('postcode'));
-  
+
     const streetNumber = item.address || '';
     const streetName = item.text || '';
-  
+
     const city = cityInfo ? cityInfo.text : '';
     const postalCode = postalCodeInfo ? postalCodeInfo.text : '';
-  
+
     setStreet(streetName);
     setStreetNumber(streetNumber);
     setCity(city);
     setPostalCode(postalCode);
-    setAddressQuery(`${streetNumber} ${streetName}`);
-    
+    setAddressQuery(`${streetNumber} ${streetName}`.trim());
+
     if (item.center) {
       setSelectedLocation({
         latitude: item.center[1],
@@ -759,7 +770,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                 }}>
                   <FlatList
                     data={suggestions}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item, index) => `${item.id}-${index}`}
                     renderItem={({ item }) => (
                       <TouchableOpacity
                         onPress={() => handleAddressSelect(item)}

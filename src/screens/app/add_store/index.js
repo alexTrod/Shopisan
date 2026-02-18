@@ -127,50 +127,47 @@ export default function AddStoreScreen({ navigation }) {
 
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
 
-    // Use user's location if available, otherwise default to Paris center
-    const proximity = userProximity
-      ? `${userProximity.longitude},${userProximity.latitude}`
-      : '2.3522,48.8566'; // Paris coordinates
-
     try {
+      // Use Mapbox with French language preference for better French results
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
         `access_token=${mapboxToken}` +
         `&autocomplete=true` +
         `&limit=10` +
-        `&country=fr,gr,gb,es,be,it` +
-        `&proximity=${proximity}` +
+        `&language=fr` +
         `&types=address,poi,place,locality,neighborhood`
       );
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
-      console.error('Erreur de recherche Mapbox:', error);
+      console.error('Mapbox search error:', error);
+      setSuggestions([]);
     }
     setLoadingSuggestions(false);
   };
 
   const handleAddressSelect = (item) => {
     if (!item) return;
-  
+
     setSuggestions([]);
-    
+
+    // Parse Mapbox response
     const context = item.context || [];
     const cityInfo = context.find(c => c.id.includes('place'));
     const postalCodeInfo = context.find(c => c.id.includes('postcode'));
-  
+
     const streetNumber = item.address || '';
     const streetName = item.text || '';
-  
+
     const city = cityInfo ? cityInfo.text : '';
     const postalCode = postalCodeInfo ? postalCodeInfo.text : '';
-  
+
     setStreet(streetName);
     setStreetNumber(streetNumber);
     setCity(city);
     setPostalCode(postalCode);
-    setQuery(`${streetNumber} ${streetName}`);
-    
+    setQuery(`${streetNumber} ${streetName}`.trim());
+
     if (item.center) {
       setSelectedLocation({
         latitude: item.center[1],
@@ -182,7 +179,7 @@ export default function AddStoreScreen({ navigation }) {
 
   const handleUseCurrentLocation = async () => {
     const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
-    
+
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -197,11 +194,12 @@ export default function AddStoreScreen({ navigation }) {
       });
       setShowMap(true);
 
+      // Use Mapbox for reverse geocoding
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${mapboxToken}`
       );
       const data = await response.json();
-      
+
       if (data.features && data.features.length > 0) {
         const address = data.features[0];
         handleAddressSelect(address);
@@ -761,7 +759,7 @@ export default function AddStoreScreen({ navigation }) {
               >
                 {suggestions.map((item, index) => (
                   <TouchableOpacity
-                    key={item.id || index}
+                    key={`${item.id}-${index}`}
                     style={styles.suggestionItem}
                     onPress={() => handleAddressSelect(item)}
                   >

@@ -113,24 +113,21 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     }
     setLoadingSuggestions(true);
 
-    const proximity = userProximity
-      ? `${userProximity.longitude},${userProximity.latitude}`
-      : '2.3522,48.8566'; // Paris coordinates
-
     try {
+      // Use Mapbox with French language preference for better French results
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
         `access_token=${MAPBOX_TOKEN}` +
         `&autocomplete=true` +
         `&limit=10` +
-        `&country=fr,gr,gb,es,be,it` +
-        `&proximity=${proximity}` +
+        `&language=fr` +
         `&types=address,poi,place,locality,neighborhood`
       );
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
       console.error('Mapbox search error:', error);
+      setSuggestions([]);
     }
     setLoadingSuggestions(false);
   };
@@ -140,6 +137,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
     setSuggestions([]);
 
+    // Parse Mapbox response
     const context = item.context || [];
     const cityInfo = context.find(c => c.id.includes('place'));
     const postalCodeInfo = context.find(c => c.id.includes('postcode'));
@@ -154,7 +152,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     setStreetNumber(streetNumberFromItem);
     setCity(cityName);
     setPostalCode(postalCodeValue);
-    setQuery(`${streetNumberFromItem} ${streetName}`);
+    setQuery(`${streetNumberFromItem} ${streetName}`.trim());
 
     if (item.center) {
       setSelectedLocation({
@@ -183,6 +181,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       });
       setShowMap(true);
 
+      // Use Mapbox for reverse geocoding
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${MAPBOX_TOKEN}`
       );

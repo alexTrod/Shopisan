@@ -212,7 +212,7 @@ export const StoreForm = ({
                 >
                   {suggestions.map((item, index) => (
                     <TouchableOpacity
-                      key={item.id || index}
+                      key={`${item.id}-${index}`}
                       style={styles.suggestionItem}
                       onPress={() => handleAddressSelect(item)}
                     >

@@ -9,6 +9,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingVertical: height(5),
   },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: width(5),
+    paddingVertical: height(1),
+    marginBottom: height(2),
+  },
   title: {
     color: AppColors.black,
     fontWeight: "bold",

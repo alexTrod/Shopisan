@@ -1201,36 +1201,49 @@ const emailChangeTemplate = {
 <head>
   <meta charset="utf-8">
   <title>Changement d'email</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; }
-    .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 6px; margin: 20px 0; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2>Confirmez votre nouvelle adresse email</h2>
-    </div>
-    <div class="content">
-      <p>Bonjour {{username}},</p>
-      <p>Vous avez demandé à changer votre adresse email de <strong>{{oldEmail}}</strong> vers <strong>{{newEmail}}</strong>.</p>
-      <p>Cliquez sur le bouton ci-dessous pour confirmer ce changement :</p>
-      <p style="text-align: center; margin: 30px 0;">
-        <a href="{{verificationUrl}}" class="button">Confirmer le changement</a>
-      </p>
-      <div class="warning">
-        <strong>⚠️ Important :</strong> Ce lien expire dans 24 heures. Si vous n'avez pas demandé ce changement, ignorez cet email.
-      </div>
-    </div>
-    <div class="footer">
-      <p>L'équipe Shopisan</p>
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #6B2D5C; padding: 30px 40px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Shopisan</h1>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #333; margin: 0 0 20px 0; font-size: 22px; font-weight: bold;">Confirmez votre nouvelle adresse email</h2>
+              <p style="margin: 0 0 15px 0;">Bonjour {{username}},</p>
+              <p style="margin: 0 0 15px 0;">Vous avez demandé à changer votre adresse email de <strong>{{oldEmail}}</strong> vers <strong>{{newEmail}}</strong>.</p>
+              <p style="margin: 0 0 25px 0;">Cliquez sur le bouton ci-dessous pour confirmer ce changement :</p>
+              <!-- Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{verificationUrl}}" style="display: inline-block; padding: 14px 32px; background-color: #6B2D5C; color: #ffffff !important; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Confirmer le changement</a>
+                  </td>
+                </tr>
+              </table>
+              <!-- Warning -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+                <tr>
+                  <td style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px;">
+                    <p style="margin: 0; font-size: 14px;"><strong>⚠️ Important :</strong> Ce lien expire dans 24 heures. Si vous n'avez pas demandé ce changement, ignorez cet email.</p>
+                  </td>
+                </tr>
+              </table>
+              <!-- Footer text -->
+              <p style="margin: 30px 0 0 0;">À bientôt,<br><strong>L'équipe Shopisan</strong></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
     `
@@ -1243,36 +1256,49 @@ const emailChangeTemplate = {
 <head>
   <meta charset="utf-8">
   <title>Email Change</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; }
-    .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 6px; margin: 20px 0; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2>Confirm your new email address</h2>
-    </div>
-    <div class="content">
-      <p>Hello {{username}},</p>
-      <p>You requested to change your email address from <strong>{{oldEmail}}</strong> to <strong>{{newEmail}}</strong>.</p>
-      <p>Click the button below to confirm this change:</p>
-      <p style="text-align: center; margin: 30px 0;">
-        <a href="{{verificationUrl}}" class="button">Confirm Change</a>
-      </p>
-      <div class="warning">
-        <strong>⚠️ Important:</strong> This link expires in 24 hours. If you didn't request this change, ignore this email.
-      </div>
-    </div>
-    <div class="footer">
-      <p>The Shopisan Team</p>
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #6B2D5C; padding: 30px 40px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Shopisan</h1>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #333; margin: 0 0 20px 0; font-size: 22px; font-weight: bold;">Confirm your new email address</h2>
+              <p style="margin: 0 0 15px 0;">Hello {{username}},</p>
+              <p style="margin: 0 0 15px 0;">You requested to change your email address from <strong>{{oldEmail}}</strong> to <strong>{{newEmail}}</strong>.</p>
+              <p style="margin: 0 0 25px 0;">Click the button below to confirm this change:</p>
+              <!-- Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{verificationUrl}}" style="display: inline-block; padding: 14px 32px; background-color: #6B2D5C; color: #ffffff !important; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Confirm Change</a>
+                  </td>
+                </tr>
+              </table>
+              <!-- Warning -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+                <tr>
+                  <td style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px;">
+                    <p style="margin: 0; font-size: 14px;"><strong>⚠️ Important:</strong> This link expires in 24 hours. If you didn't request this change, ignore this email.</p>
+                  </td>
+                </tr>
+              </table>
+              <!-- Footer text -->
+              <p style="margin: 30px 0 0 0;">See you soon,<br><strong>The Shopisan Team</strong></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
     `
@@ -1323,16 +1349,29 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('invalid-argument', 'userId or email is required');
     }
 
-    let authUid = userId;
+    let authUid = null;
+    const normalizedEmail = email ? email.trim().toLowerCase() : null;
 
-    // If we only have email, find the user in Auth
-    if (!authUid && email) {
+    // ALWAYS try to find the Auth UID by email first (most reliable)
+    // This ensures we delete from Auth even if Firestore doc ID doesn't match Auth UID
+    if (normalizedEmail) {
       try {
-        const userRecord = await admin.auth().getUserByEmail(email);
+        const userRecord = await admin.auth().getUserByEmail(normalizedEmail);
         authUid = userRecord.uid;
+        console.log(`Found Auth UID by email: ${authUid}`);
       } catch (error) {
-        console.log('User not found in Auth by email, continuing with Firestore deletion only');
+        if (error.code === 'auth/user-not-found') {
+          console.log('User not found in Auth by email:', normalizedEmail);
+        } else {
+          console.error('Error looking up user by email:', error);
+        }
       }
+    }
+
+    // Fallback to userId if email lookup didn't work
+    if (!authUid && userId) {
+      authUid = userId;
+      console.log(`Using provided userId as authUid: ${authUid}`);
     }
 
     // Delete from Firebase Auth
@@ -1341,8 +1380,11 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
         await admin.auth().deleteUser(authUid);
         console.log(`Deleted user ${authUid} from Firebase Auth`);
       } catch (error) {
-        if (error.code !== 'auth/user-not-found') {
+        if (error.code === 'auth/user-not-found') {
+          console.log(`User ${authUid} not found in Auth (already deleted?)`);
+        } else {
           console.error('Error deleting from Auth:', error);
+          // Don't throw - continue to delete from Firestore
         }
       }
     }
@@ -1405,6 +1447,23 @@ exports.sendEmailChangeVerification = functions.https.onCall(async (data, contex
 
     if (!userId || !oldEmail || !newEmail || !username) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+    }
+
+    // Check if new email already exists in Firebase Auth BEFORE sending verification
+    const normalizedNewEmail = newEmail.trim().toLowerCase();
+    try {
+      await admin.auth().getUserByEmail(normalizedNewEmail);
+      // If we get here, email exists - throw error
+      throw new functions.https.HttpsError('already-exists', 'This email address is already in use by another account.');
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        // Good - email is available, continue
+        console.log('Email is available:', normalizedNewEmail);
+      } else if (error instanceof functions.https.HttpsError) {
+        throw error; // Re-throw our custom error
+      } else {
+        throw error; // Re-throw unexpected errors
+      }
     }
 
     // Generate a secure token

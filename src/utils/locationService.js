@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { setCustomLocation } from '../Redux/Actions/LocationActions';
 import perfLogger from './perfLogger';
+import { LOCATION_CONFIG } from '../config/location';
 
 // Cache keys
 const CACHE_KEYS = {
@@ -13,8 +14,13 @@ const CACHE_KEYS = {
 // Cache duration (24 hours)
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
+/**
+ * @deprecated Use LocationManager from src/services/LocationManager.js instead.
+ * This service is kept for backwards compatibility only.
+ */
 class LocationService {
   constructor() {
+    console.warn('[DEPRECATED] locationService is deprecated. Use LocationManager from src/services/LocationManager.js');
     this.cachedLocation = null;
     this.isInitialized = false;
     this.pendingRequest = null; // Track in-flight request to prevent duplicates
@@ -166,8 +172,8 @@ class LocationService {
   getStoresWithExpandingRadius(stores, userLocation, maxRadius = 500) {
     if (!userLocation || !stores.length) return stores;
 
-    // Progressive radius steps up to 500km
-    const radiusSteps = [6, 15, 30, 50, 75, 100, 150, 200, 300, 400, 500];
+    // Use standardized radius steps from config
+    const radiusSteps = LOCATION_CONFIG.RADIUS_STEPS;
     const validSteps = radiusSteps.filter(step => step <= maxRadius);
 
     for (const radius of validSteps) {

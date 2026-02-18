@@ -1,6 +1,6 @@
 import { I18n } from 'i18n-js';
 import translations from '../index';
-//import * as Localization from 'expo-localization';
+import { getLocales } from 'expo-localization';
 
 
 let i18n;
@@ -13,13 +13,14 @@ try {
   i18n.defaultLocale = 'en';
   i18n.translations = translations;
 
-  // set initial locale based on device locale
-  //const deviceLocale = Localization.locale;
-  const deviceLocale = 'en';
+  // set initial locale based on device locale using the new API
+  const locales = getLocales();
+  console.log('🌍 Device locales from getLocales():', JSON.stringify(locales, null, 2));
+  const deviceLanguage = locales?.[0]?.languageCode || 'en';
+  console.log('🌍 Detected device language:', deviceLanguage);
   const supportedLocales = ['en', 'fr'];
-  const initialLocale = supportedLocales.includes(deviceLocale.split('-')[0]) 
-    ? deviceLocale.split('-')[0] 
-    : 'en';
+  const initialLocale = supportedLocales.includes(deviceLanguage) ? deviceLanguage : 'en';
+  console.log('🌍 Setting i18n locale to:', initialLocale);
 
   i18n.locale = initialLocale;
   

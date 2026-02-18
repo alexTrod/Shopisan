@@ -3,6 +3,7 @@ import { View, Image, StyleSheet, BackHandler, Text } from 'react-native';
 import { useDispatch, useSelector, Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { store } from './src/Redux/index';
 import { checkAuthStatus } from './src/Redux/Actions/UserActions';
 import BottomTabs from './src/Routes/bottom-tab';
@@ -39,9 +40,32 @@ try {
 //console.error('App.js: Failed to require i18n module:', error);
 }
 
+// Load persisted locale from AsyncStorage and update i18n
+const loadPersistedLocale = async () => {
+  try {
+    const persistedState = await AsyncStorage.getItem('persist:root');
+    if (persistedState) {
+      const parsed = JSON.parse(persistedState);
+      if (parsed.locale) {
+        const localeState = JSON.parse(parsed.locale);
+        const persistedLocale = localeState.currentLocale;
+        if (persistedLocale && global.i18n && global.i18n.locale !== persistedLocale) {
+          console.log('🌍 Loading persisted locale:', persistedLocale);
+          global.i18n.locale = persistedLocale;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load persisted locale:', error);
+  }
+};
+
 const Stack = createNativeStackNavigator();
 
 const SplashScreen = () => {
+  // Use global i18n directly since it's initialized synchronously before render
+  const tagline = global.i18n?.t?.('splash_tagline') || 'Shop local, shop different, discover original';
+
   return (
     <View style={styles.splashContainer}>
       <Image
@@ -50,6 +74,7 @@ const SplashScreen = () => {
         resizeMode="contain"
       />
       <Text style={styles.brandName}>SHOPISAN</Text>
+      <Text style={styles.tagline}>{tagline}</Text>
     </View>
   );
 };
@@ -62,8 +87,14 @@ const App = () => {
   const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(state => state.user);
 
   useEffect(() => {
+    let timeoutId = null;
+    let retryTimeoutId = null;
+    let isCleanedUp = false;
+
     // Check if i18n is ready
     const checkI18n = () => {
+      if (isCleanedUp) return;
+
       try {
         console.log('App.js: Checking i18n readiness...');
         console.log('App.js: global.i18n exists:', !!global.i18n);
@@ -71,30 +102,35 @@ const App = () => {
           console.log('App.js: global.i18n properties:', Object.keys(global.i18n));
           console.log('App.js: global.i18n.isInitialized exists:', !!global.i18n.isInitialized);
         }
-        
+
         if (global.i18n && global.i18n.isInitialized && global.i18n.isInitialized()) {
           console.log('App.js: i18n is ready!');
+          // Clear the fallback timeout since i18n is ready
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
           setI18nReady(true);
         } else {
           console.log('App.js: i18n not ready yet, retrying...');
           // Retry after a short delay
-          setTimeout(checkI18n, 100);
+          retryTimeoutId = setTimeout(checkI18n, 100);
         }
       } catch (error) {
         console.warn('App.js: Error checking i18n readiness:', error);
-        setTimeout(checkI18n, 100);
+        retryTimeoutId = setTimeout(checkI18n, 100);
       }
     };
-    
+
     // Set a timeout to prevent infinite waiting
-    const timeout = setTimeout(() => {
+    timeoutId = setTimeout(() => {
       console.warn('i18n initialization timeout, proceeding anyway');
       setI18nReady(true);
     }, 5000); // 5 second timeout
-    
+
     checkI18n();
     dispatch(checkAuthStatus());
-    
+
     // Run cities migration (one-time setup)
     runCitiesMigration().then(result => {
       if (result.success) {
@@ -105,8 +141,12 @@ const App = () => {
     }).catch(error => {
       console.error('❌ Cities migration error:', error);
     });
-    
-    return () => clearTimeout(timeout);
+
+    return () => {
+      isCleanedUp = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (retryTimeoutId) clearTimeout(retryTimeoutId);
+    };
   }, [dispatch]);
 
   useEffect(() => {
@@ -130,10 +170,20 @@ const App = () => {
   }, [currentRoute]);
 
   // Debug: log which condition is blocking
-  console.log('App render check:', { loading, i18nReady });
+  console.log('App render check:', {
+    loading,
+    i18nReady,
+    isAuthenticated,
+    noAuthenticationWanted,
+    showSplash: loading || !i18nReady,
+    willShowMainTabs: isAuthenticated || noAuthenticationWanted
+  });
 
   // Show logo while loading for seamless experience
   if (loading || !i18nReady) {
+    console.log('🔴 Showing SPLASH because:', { loading, i18nReady: !i18nReady });
+    // Use global i18n directly since it may be initialized before React state updates
+    const tagline = global.i18n?.t?.('splash_tagline') || 'Shop local, shop different, discover original';
     return (
       <View style={styles.splashContainer}>
         <Image
@@ -142,9 +192,12 @@ const App = () => {
           resizeMode="contain"
         />
         <Text style={styles.brandName}>SHOPISAN</Text>
+        <Text style={styles.tagline}>{tagline}</Text>
       </View>
     );
   }
+
+  console.log('🟢 Showing NAVIGATION - auth screens:', !(isAuthenticated || noAuthenticationWanted));
 
   return (
     <NavigationContainer
@@ -191,11 +244,38 @@ const App = () => {
 
 const WrappedApp = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const [localeLoaded, setLocaleLoaded] = useState(false);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setShowSplash(false), 2000);
-    return () => clearTimeout(timeout);
+    // Load persisted locale first, then start splash timer
+    const init = async () => {
+      await loadPersistedLocale();
+      setLocaleLoaded(true);
+
+      console.log('⏳ WrappedApp: Starting 2-second splash timer');
+      setTimeout(() => {
+        console.log('⏳ WrappedApp: 2-second splash timer DONE, showing App');
+        setShowSplash(false);
+      }, 2000);
+    };
+    init();
   }, []);
+
+  console.log('⏳ WrappedApp render:', { showSplash, localeLoaded });
+
+  // Show nothing until locale is loaded, then show splash
+  if (!localeLoaded) {
+    return (
+      <View style={styles.splashContainer}>
+        <Image
+          source={require('./assets/logo_icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.brandName}>SHOPISAN</Text>
+      </View>
+    );
+  }
 
   return (
     <Provider store={store}>
@@ -224,6 +304,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#333',
     textAlign: 'center',
-    letterSpacing: 3,
+    letterSpacing: 1,
+  },
+  tagline: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
 });

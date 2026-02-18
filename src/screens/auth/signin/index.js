@@ -9,13 +9,16 @@ import { height, width } from "../../../utils/dimension";
 import { AppColors } from "../../../utils";
 import { InputField } from "../../../components/input";
 import CustomText from "../../../components/text";
-import { Feather, FontAwesome6 } from "@expo/vector-icons";
 import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
 import { useDispatch, useSelector } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
+import MailIcon from "../../../../assets/icons/mail-icon";
+import EyeIcon from "../../../../assets/icons/eye-icon";
+import EyeOffIcon from "../../../../assets/icons/eye-off-icon";
+import ChevronLeft from "../../../../assets/icons/chevron-left";
 import i18n from "../../../translations/i18n";
 
 export default function SignIn({ navigation }) {
@@ -41,9 +44,9 @@ export default function SignIn({ navigation }) {
       // Navigation is handled by the auth state change in App.js
     } catch (error) {
       Alert.alert(
-        "Login Failed",
-        "Incorrect email or password. Please try again.",
-        [{ text: "OK" }]
+        i18n.t('error') || "Login Failed",
+        i18n.t('login_failed_message') || "Incorrect email or password. Please try again.",
+        [{ text: i18n.t('ok') }]
       );
     } finally {
       setLoading(false);
@@ -63,6 +66,21 @@ export default function SignIn({ navigation }) {
       backgroundColor={AppColors.white}
     >
       <View style={styles.mainViewContainer}>
+        {/* Back button to return to sign up */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <ChevronLeft height={height(3)} width={height(3)} color={AppColors.black} />
+          <CustomText
+            color={AppColors.black}
+            size={1.8}
+            textStyles={{ marginLeft: 4 }}
+          >
+            {i18n.t('back')}
+          </CustomText>
+        </TouchableOpacity>
+
         <Image
           source={require("../../../../assets/LogoIcon.png")}
           style={{ height: height(5), width: height(5) }}
@@ -77,7 +95,7 @@ export default function SignIn({ navigation }) {
                 textProps={{ fontFamily: "Roboto-Medium" }}
                 size={2.2}
               >
-                Log In
+                {i18n.t('login_title')}
               </CustomText>
             </View>
           </View>
@@ -88,10 +106,9 @@ export default function SignIn({ navigation }) {
           <InputField
             control={control}
             prefix={
-              <FontAwesome6
-                name="envelope"
-                size={height(3)}
-                style={{ marginRight: height(1) }}
+              <MailIcon
+                height={height(3)}
+                width={height(3)}
                 color={AppColors.black}
               />
             }
@@ -100,7 +117,6 @@ export default function SignIn({ navigation }) {
             containerStyles={{
               width: "90%",
               alignSelf: "center",
-              backgroundColor: AppColors.white,
             }}
             textFieldContainer={{
               width: "100%",
@@ -123,7 +139,6 @@ export default function SignIn({ navigation }) {
               <Unlock_outline
                 height={height(3)}
                 width={height(3)}
-                style={{ marginRight: height(1) }}
               />
             }
             containerStyles={{ width: "90%", alignSelf: "center" }}
@@ -141,11 +156,11 @@ export default function SignIn({ navigation }) {
             secureTextEntry={passwordHide}
             suffix={
               <TouchableOpacity onPress={() => setPasswordHide(!passwordHide)}>
-                <Feather
-                  name={passwordHide ? "eye-off" : "eye"}
-                  color={AppColors.secondary}
-                  size={height(2)}
-                />
+                {passwordHide ? (
+                  <EyeOffIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+                ) : (
+                  <EyeIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+                )}
               </TouchableOpacity>
             }
           />
@@ -165,7 +180,7 @@ export default function SignIn({ navigation }) {
                 textProps={{ fontFamily: "Roboto-Medium" }}
                 size={1.7}
               >
-                Remember
+                {i18n.t('remember_me')}
               </CustomText>
             </View>
             <CustomText
@@ -176,7 +191,7 @@ export default function SignIn({ navigation }) {
               textProps={{ fontFamily: "Roboto-Medium" }}
               textStyles={{ fontFamily: "Roboto-Medium", color: AppColors.grey_200 }}
             >
-              Forgot Password ?
+              {i18n.t('forgot_password')} ?
             </CustomText>
           </View>
 
@@ -189,7 +204,7 @@ export default function SignIn({ navigation }) {
             containerStyle={styles.button}
             onPress={handleSubmit(signinHandler)}
           >
-            Log in
+            {i18n.t('log_in')}
           </Button>
         </View>
 
@@ -200,7 +215,7 @@ export default function SignIn({ navigation }) {
             size={1.5}
             textAlign="center"
           >
-            Create an account ?
+            {i18n.t('no_account_yet')}
           </CustomText>
           <CustomText
             onPress={() => {
@@ -212,7 +227,7 @@ export default function SignIn({ navigation }) {
             size={2}
             textAlign="center"
           >
-            Sign up
+            {i18n.t('sign_up')}
           </CustomText>
         </View>
 
@@ -227,7 +242,7 @@ export default function SignIn({ navigation }) {
                 await dispatch(setNoAuthenticationWanted(true));
               }}
             >
-              Create an account later
+              {i18n.t('create_account_later')}
             </Button>
           </View>
       </View>

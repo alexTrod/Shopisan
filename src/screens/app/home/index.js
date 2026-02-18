@@ -20,19 +20,18 @@ import { ScreenNames } from "../../../Routes/routes";
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { firestore } from '../../../../firebaseconfig';
 import { signOut } from "../../../Redux/Actions/UserActions";
-// Removed citiesService import
-import * as Location from 'expo-location';
 import { height, width } from "../../../utils/dimension";
 import { StoreContext } from '../../../context/StoreContext';
 import { setCustomLocation } from '../../../Redux/Actions/LocationActions';
 import { setSelectedCategories } from '../../../Redux/Actions/CategoriesActions';
 import SearchBar from '../../../components/search-bar';
 import { useTranslation } from '../../../utils/useTranslation';
-// EmailVerificationBanner moved to Profile page only
-import locationService from '../../../utils/locationService';
 import Toast from 'react-native-toast-message';
 
-const SEARCH_RADIUS_KM = 10; // Synchronized with map screen
+// New services
+import locationManager from '../../../services/LocationManager';
+import storeService from '../../../services/StoreService';
+import { LOCATION_CONFIG } from '../../../config/location';
 
 export default function HomeScreen({ navigation, route }) {
   const { t } = useTranslation();
@@ -68,7 +67,7 @@ export default function HomeScreen({ navigation, route }) {
       try {
         // filteredStores from StoreContext is already filtered by:
         // 1. Category filters
-        // 2. 10km radius from userLocation
+        // 2. 20km radius from userLocation
         // Just use it directly - no need to re-filter!
         setStores(filteredStores);
 
@@ -368,11 +367,10 @@ export default function HomeScreen({ navigation, route }) {
             // Mark that we have requested stores (to hide "votre ville attend" message)
             setHasRequestedStores(true);
             
-            // Fetch nearby stores for this location (strict 10km radius - synced with map)
-            const nearbyStores = locationService.filterStoresByRadius(
-              allStores,
+            // Fetch nearby stores for this location (20km radius - synced with map)
+            const nearbyStores = storeService.filterStoresByRadius(
               { latitude, longitude },
-              SEARCH_RADIUS_KM
+              LOCATION_CONFIG.SEARCH_RADIUS_KM
             );
             
             // Set the complete store first, then add nearby stores
@@ -541,7 +539,7 @@ export default function HomeScreen({ navigation, route }) {
 
     if (item.type === "city") {
       try {
-        const location = await locationService.geocodeCity(item.label);
+        const location = await locationManager.geocodeCity(item.label);
         if (location) {
           dispatch(setCustomLocation({ latitude: location.latitude, longitude: location.longitude }));
         } else {
@@ -561,14 +559,14 @@ export default function HomeScreen({ navigation, route }) {
 
   const updateLocationToCurrent = async () => {
     console.log("updateLocationToCurrent - Getting current location");
-    
+
     try {
       setSearchQuery('');
       setLoading(true);
 
-      const location = await locationService.getUserLocation({
+      const location = await locationManager.getUserLocation({
         useCache: false,
-        showToast: false  // Disable location service toast, we'll show our own
+        forceRefresh: true,
       });
 
       if (location) {
@@ -578,43 +576,45 @@ export default function HomeScreen({ navigation, route }) {
           source: location.source,
           timestamp: new Date(location.timestamp).toLocaleString()
         });
-        
-        locationService.updateReduxLocation(dispatch, location);
+
+        dispatch(setCustomLocation({
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }));
         setHasRequestedStores(true);
-        
+
         Toast.show({
           type: 'success',
           text1: t('location_updated') || 'Location Updated',
           position: 'bottom',
           visibilityTime: 2000,
         });
-        
+
         console.log("Location updated successfully");
       }
-      
+
     } catch (error) {
       console.error("Error getting location:", error);
-      // No toast on error - locationService already handles permission messages
     } finally {
       setLoading(false);
     }
   };
 
-  const findClosestStore = async () => { 
+  const findClosestStore = async () => {
     // Skip if we're currently navigating to a random city
     if (isNavigatingToRandomCity.current) {
       return;
     }
-    
+
     // Mark that user has requested stores
     setHasRequestedStores(true);
-    
+
     // Clear search query and filters to show all stores
     setSearchQuery("");
     dispatch(setSelectedCategories([]));
 
     setLoading(true);
-    
+
     try {
       // Ensure we have stores loaded; if not, fetch them and retry after load
       if (!allStores || allStores.length === 0) {
@@ -625,38 +625,39 @@ export default function HomeScreen({ navigation, route }) {
       // Prefer already-selected customLocation; fallback to user's current GPS location
       let location = customLocation;
       if (!location?.latitude || !location?.longitude) {
-        location = await locationService.getUserLocation({
+        location = await locationManager.getUserLocation({
           useCache: true,  // prefer cached to avoid permission delay on first tap
-          showToast: false 
         });
       }
-      
+
       if (!location) {
         Alert.alert(
-          t('location_required') || "Location Required", 
+          t('location_required') || "Location Required",
           t('enable_location_message') || "Please enable location services to find nearby stores."
         );
         setLoading(false);
         return;
       }
 
-      // Update the context with the user's location
-      locationService.updateReduxLocation(dispatch, location);
+      // Update Redux with the user's location
+      dispatch(setCustomLocation({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      }));
 
-      // Use STRICT 10km radius (synchronized with map screen)
-      const nearbyStores = locationService.filterStoresByRadius(
-        allStores,
+      // Use StoreService with expanding radius to find stores
+      const { stores: nearbyStores } = storeService.findStoresWithExpandingRadius(
         { latitude: location.latitude, longitude: location.longitude },
-        SEARCH_RADIUS_KM // Strict 10km - same as map
+        1 // Find at least 1 store
       );
 
       setStores(nearbyStores);
       // Note: No toast needed - inline "No stores found" message is shown on screen
-      
+
     } catch (error) {
       console.error("Error finding closest store:", error);
       Alert.alert(
-        t('error') || "Error", 
+        t('error') || "Error",
         t('location_error_message') || "Unable to find nearby stores. Please try again."
       );
     } finally {
@@ -676,10 +677,7 @@ export default function HomeScreen({ navigation, route }) {
   }, [allStores?.length]);
 
   const findClosestStoreWithLocation = async (baseLocation, storesToSearch = null) => {
-    try {    
-      let closestStore = null;
-      let minDistance = Infinity;
-
+    try {
       // Use provided stores or fall back to allStores from context
       const storesList = storesToSearch || allStores;
 
@@ -692,41 +690,21 @@ export default function HomeScreen({ navigation, route }) {
         return;
       }
 
-      storesList.forEach((store) => {
-        const geopoint = store?.address?.[0]?.location?.geopoint;
-        if (!geopoint) return;
+      // Use StoreService to find stores with expanding radius
+      const { stores: nearbyStores, radius } = storeService.findStoresWithExpandingRadius(
+        baseLocation,
+        1 // Find at least 1 store
+      );
 
-        let { latitude: storeLat, longitude: storeLng } = geopoint;
-        storeLat = Number(storeLat);
-        storeLng = Number(storeLng);
+      if (nearbyStores.length > 0) {
+        const closestStore = nearbyStores[0]; // Already sorted by distance
 
-        if (isNaN(storeLat) || isNaN(storeLng)) return;
-
-        const distance = getDistanceInKm(
-          baseLocation.latitude,
-          baseLocation.longitude,
-          storeLat,
-          storeLng
-        );
-
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestStore = {
-            ...store,
-            latitude: storeLat,
-            longitude: storeLng,
-            distance: distance.toFixed(2),
-          };
-        }
-      });
-
-      if (closestStore) {
         // Set custom location to the closest store's location
-        dispatch(setCustomLocation({ 
-          latitude: closestStore.latitude, 
-          longitude: closestStore.longitude 
+        dispatch(setCustomLocation({
+          latitude: closestStore.latitude,
+          longitude: closestStore.longitude
         }));
-        
+
         // Show success message
         Toast.show({
           text1: t('success') || 'Success',
@@ -735,7 +713,7 @@ export default function HomeScreen({ navigation, route }) {
           position: 'bottom',
           visibilityTime: 3000,
         });
-        
+
         console.log(`Found closest store: ${closestStore.name} at ${closestStore.distance} km`);
       } else {
         Alert.alert(

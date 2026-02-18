@@ -2,13 +2,14 @@
   "expo": {
     "name": "Shopisan_v1",
     "slug": "Shopisan_v1",
+    "owner": "shopisan",
     "version": "1.0.0",
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "d9297f62-d439-4940-91a8-caca65d96a32"
+        "projectId": "1be29bfa-371f-488c-a6df-38edc942ace8"
       }
     },
     "ios": {

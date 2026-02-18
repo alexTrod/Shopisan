@@ -21,7 +21,9 @@ export default {
         sign_up_as_merchant: 'Sign up as a merchant',
         register: 'Register',
         already_have_account: 'Already have an account?',
+        no_account_yet: 'Create an account?',
         log_in: 'Log in',
+        remember_me: 'Remember',
         create_account_later: 'Create an account later',
 
         // Merchant Signup Wizard
@@ -69,8 +71,8 @@ export default {
         all_stores: 'All Stores',
         all_categories: 'All Categories',
         add_category: '+ Category',
-        filter_categories: 'Filter',
-        filters: 'Filters',
+        filter_categories: 'Category',
+        filters: 'Categories',
         no_stores_found: 'No stores found',
         no_stores_description: 'Try adjusting your search or location to find stores nearby.',
         nearby: 'Nearby',
@@ -101,6 +103,7 @@ export default {
         price: 'Price:',
         
         // Auth & Errors
+        login_failed_message: 'Incorrect email or password. Please try again.',
         login_required: 'Login Required',
         logging_out: 'Logging out...',
         login_required_favorite_message: 'You need to be logged in to view your favorite stores. Do you want to go to the login page?',
@@ -167,6 +170,7 @@ export default {
         // Messages & Status
         loading: 'Loading...',
         error: 'Error',
+        image_picker_error: 'Unable to open image picker. Please try again or restart the app.',
         success: 'Success',
         warning: 'Warning',
         account_created_successfully: 'Account created successfully',
@@ -277,6 +281,7 @@ export default {
         store_added_title: 'Thank you for adding your favorite shop!',
         store_added_description: 'You are helping grow the Shopisan community. The shop will be added to the app once the validation process is complete. Feel free to spread the word and add other shops you love!',
         no_stores_in_area: 'Your city is still waiting for its shops on Shopisan.',
+        loading_stores: 'Loading stores...',
         no_stores_modal_description: 'Help us grow: add your favorite shops.',
         add_store_or_explore: 'Add your favorite shops',
         no_stores_available: 'No stores available at the moment.',
@@ -324,7 +329,9 @@ export default {
         sign_up_as_merchant: 'S\'inscrire en tant que commerçant',
         register: 'S\'inscrire',
         already_have_account: 'Vous avez déjà un compte ?',
+        no_account_yet: 'Créer un compte ?',
         log_in: 'Se connecter',
+        remember_me: 'Se souvenir',
         create_account_later: 'Créer un compte plus tard',
 
         // Merchant Signup Wizard
@@ -372,8 +379,8 @@ export default {
         all_stores: 'Tous les Magasins',
         all_categories: 'Toutes les Catégories',
         add_category: '+ Catégorie',
-        filter_categories: 'Filtrer',
-        filters: 'Filtres',
+        filter_categories: 'Catégorie',
+        filters: 'Catégories',
         no_stores_found: 'Aucun magasin trouvé',
         no_stores_description: 'Essayez d\'ajuster votre recherche ou votre localisation pour trouver des magasins à proximité.',
         nearby: 'À proximité',
@@ -404,6 +411,7 @@ export default {
         price: 'Prix:',
         
         // Auth & Errors
+        login_failed_message: 'Email ou mot de passe incorrect. Veuillez réessayer.',
         login_required: 'Connexion requise',
         logging_out: 'Déconnexion en cours...',
         login_required_favorite_message: 'Vous devez être connecté pour voir vos magasins favoris. Voulez-vous aller à la page de connexion?',
@@ -470,6 +478,7 @@ export default {
         // Messages & Status
         loading: 'Chargement...',
         error: 'Erreur',
+        image_picker_error: 'Impossible d\'ouvrir le sélecteur d\'images. Veuillez réessayer ou redémarrer l\'application.',
         success: 'Succès',
         warning: 'Avertissement',
         account_created_successfully: 'Compte créé avec succès',
@@ -544,10 +553,10 @@ export default {
         password_min_6: 'Le mot de passe doit contenir au moins 6 caractères',
         passwords_not_match: 'Les mots de passe ne correspondent pas',
         send_reset_code: 'Envoyer le code',
-        enter_email_reset: 'Entrez votre email pour recevoir un code de réinitialisation.',
+        enter_email_reset: 'Entrez votre email pour recevoir un code.',
         enter_code_new_password: 'Entrez le code et votre nouveau mot de passe.',
         sending_to: 'Envoi à :',
-        enter_email: 'Veuillez entrer votre adresse email',
+        enter_email: 'Entrez votre email',
         invalid_email: 'Veuillez entrer une adresse email valide',
         failed_send_email: 'Échec de l\'envoi de l\'email',
         failed_reset_password: 'Échec de la réinitialisation du mot de passe',
@@ -580,6 +589,7 @@ export default {
         store_added_title: 'Merci d\'avoir ajouté votre boutique favorite !',
         store_added_description: 'Vous contribuez à faire grandir la communauté Shopisan. La boutique sera ajoutée sur l\'application une fois la validation effectuée. N\'hésitez pas à en parler autour de vous et à ajouter d\'autres boutiques que vous aimez !',
         no_stores_in_area: 'Votre ville attend encore ses commerces préférés.',
+        loading_stores: 'Chargement des magasins...',
         no_stores_modal_description: 'Aidez-nous à grandir : ajoutez vos commerces préférés.',
         add_store_or_explore: 'Ajoutez vos commerces préférés',
         no_stores_available: 'Aucun magasin disponible pour le moment.',
