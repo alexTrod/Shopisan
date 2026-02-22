@@ -312,5 +312,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     fontStyle: 'italic',
+    fontWeight: 'bold',
   },
 });
