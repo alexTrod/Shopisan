@@ -10,7 +10,7 @@ export const LOCATION_CONFIG = {
   PERMISSION_TIMEOUT: 10000,   // 10 seconds for permission request
 
   // Cache Configuration
-  CACHE_TTL: 24 * 60 * 60 * 1000,        // 24 hours for location cache
+  CACHE_TTL: 2 * 60 * 60 * 1000,         // 2 hours for location cache (shorter to avoid stale location from different city)
   STORE_CACHE_TTL: 30 * 60 * 1000,       // 30 minutes for store cache
   GEOCODE_CACHE_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days for geocoding cache
 

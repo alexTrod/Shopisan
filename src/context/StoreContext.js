@@ -85,10 +85,11 @@ export const StoreProvider = ({ children }) => {
 
       console.log('[StoreContext] LocationManager returned:', location?.latitude, location?.longitude, location?.source);
 
-      // Only use the location if it's from GPS (fresh) or custom (user selected)
-      // Don't trust cached GPS locations as they could be from a different place
-      if (location && (location.source === 'gps' || location.source === 'custom' || location.source === 'geocoding')) {
-        console.log('[StoreContext] Using fresh/custom location');
+      // Accept any valid location from LocationManager (GPS, custom, geocoding, or cache)
+      // LocationManager already validates cache TTL, so cached locations are trustworthy
+      // Using cache is better than falling back to Brussels which could be in a different country
+      if (location && location.latitude && location.longitude) {
+        console.log('[StoreContext] Using location from source:', location.source);
         setUserLocation(location);
 
         // Update Redux store
@@ -100,8 +101,8 @@ export const StoreProvider = ({ children }) => {
         return location;
       }
 
-      // Location is from cache or not available - use default
-      console.log('[StoreContext] Cached/stale location, using default Brussels');
+      // No location available at all - use default as last resort
+      console.log('[StoreContext] No location available, using default Brussels');
       const defaultLocation = {
         ...LOCATION_CONFIG.DEFAULT_LOCATION,
         source: 'default',
@@ -113,9 +114,9 @@ export const StoreProvider = ({ children }) => {
         longitude: defaultLocation.longitude,
       }));
 
-      // Also update LocationManager's cache so Map uses same location
+      // Set as current location but don't cache it - we don't want to pollute the cache
+      // with a default location that could override a real GPS location later
       locationManager.setCustomLocation(defaultLocation);
-      locationManager.saveToCache(defaultLocation).catch(() => {});
 
       // Inform user they can search for their city
       Toast.show({
