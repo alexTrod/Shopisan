@@ -19,8 +19,8 @@ jest.mock('expo-location', () => ({
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
+  setItem: jest.fn().mockResolvedValue(undefined),
+  removeItem: jest.fn().mockResolvedValue(undefined),
 }));
 
 import * as Location from 'expo-location';
@@ -199,12 +199,12 @@ describe('LocationManager', () => {
       );
       AsyncStorage.getItem.mockResolvedValue(null);
 
-      // The geocodeCity uses withTimeout internally
+      // The geocodeCity uses withTimeout internally (GEOCODE_TIMEOUT = 5000ms)
       const result = await locationManager.geocodeCity('NonexistentCity');
 
       // Should return null on timeout
       expect(result).toBeNull();
-    });
+    }, 10000); // Increase Jest timeout to 10s to allow for geocode timeout
   });
 
   describe('Distance Calculation', () => {
