@@ -20,13 +20,13 @@ const AddressComponent = ({ address }) => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 10,
+    paddingVertical: 4,
     width: '100%',
   },
   addressComponent: {
     fontSize: 14,
     color: AppColors.darkGray,
-    marginBottom: 10,
+    marginBottom: 8,
   }
 });
 
