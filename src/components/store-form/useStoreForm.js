@@ -115,13 +115,17 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
     try {
       // Use Mapbox with French language preference for better French results
+      // Add proximity biasing if user location is available
+      const proximityParam = userProximity
+        ? `&proximity=${userProximity.longitude},${userProximity.latitude}`
+        : '';
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
         `access_token=${MAPBOX_TOKEN}` +
         `&autocomplete=true` +
         `&limit=10` +
         `&language=fr` +
-        `&types=address,poi,place,locality,neighborhood`
+        proximityParam
       );
       const result = await response.json();
       setSuggestions(result.features || []);
