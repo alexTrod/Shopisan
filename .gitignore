@@ -82,3 +82,9 @@ src/screens/app/map/index - Copie.js
 src/screens/app/map/index - googlemap.js
 src/screens/app/map/index copy.js
 shopisan-release.apk
+
+# Secrets - DO NOT COMMIT
+serviceAccountKey.json
+scripts/migrateS3Images.js
+rootkey.csv
+migration-report.json
