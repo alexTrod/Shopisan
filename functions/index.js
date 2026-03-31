@@ -46,7 +46,7 @@ const shopperEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -88,7 +88,7 @@ const shopperEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -133,7 +133,7 @@ const merchantEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -176,7 +176,7 @@ const merchantEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -250,7 +250,7 @@ const storeValidationEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -299,7 +299,7 @@ const storeValidationEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -497,7 +497,7 @@ const merchantVerificationEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
     .pending-badge { display: inline-block; background-color: #FFA500; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
@@ -556,7 +556,7 @@ const merchantVerificationEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
     .pending-badge { display: inline-block; background-color: #FFA500; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
