@@ -125,6 +125,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
         `&autocomplete=true` +
         `&limit=10` +
         `&language=fr` +
+        `&types=address,poi,place,locality,neighborhood` +
         proximityParam
       );
       const result = await response.json();
