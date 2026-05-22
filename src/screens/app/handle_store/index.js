@@ -14,7 +14,15 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
@@ -27,13 +35,16 @@ import StarIcon from "../../../../assets/icons/star-icon";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setCategories } from "../../../Redux/Actions/CategoriesActions";
-import * as Location from 'expo-location';
+import * as Location from "expo-location";
 import MapboxGL from "@rnmapbox/maps";
 import locationManager from "../../../services/LocationManager";
 import { ensureCityExists } from "../../../utils/cityManagement";
-import * as ImagePicker from 'expo-image-picker';
-import { useTranslation } from '../../../utils/useTranslation';
+import * as ImagePicker from "expo-image-picker";
+import { useTranslation } from "../../../utils/useTranslation";
 import OpeningHoursPicker from "../../../components/opening-hours-picker";
+import ImageEditor from "../../../components/image-editor";
+import { ScreenNames } from "../../../Routes/routes";
+import AddPostIcon from "../../../../assets/icons/add-post-icon";
 
 export default function HandleStoreScreen({ route, navigation }) {
   const { storeId } = route.params;
@@ -46,7 +57,7 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [description, setDescription] = useState("");
-  const categories = useSelector(state => state.categories.categories);
+  const categories = useSelector((state) => state.categories.categories);
   const [storeCategories, setStoreCategories] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -54,29 +65,39 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [groupedDays, setGroupedDays] = useState([]);
-  const [storeEmail, setStoreEmail] = useState('');
-  const [website, setWebsite] = useState('');
-  const [phone, setPhone] = useState('');
-  const [managerFirstName, setManagerFirstName] = useState('');
-  const [managerLastName, setManagerLastName] = useState('');
+  const [storeEmail, setStoreEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [phone, setPhone] = useState("");
+  const [managerFirstName, setManagerFirstName] = useState("");
+  const [managerLastName, setManagerLastName] = useState("");
   const [selectedImages, setSelectedImages] = useState([]);
   const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageToEdit, setImageToEdit] = useState(null);
   const [mainImageIndex, setMainImageIndex] = useState(0);
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [addressQuery, setAddressQuery] = useState('');
+  const [addressQuery, setAddressQuery] = useState("");
   const [streetNumber, setStreetNumber] = useState("");
   const [expandedDay, setExpandedDay] = useState(null);
   const dispatch = useDispatch();
 
   const timePresets = [
-    { label: "9h-12h / 14h-19h", morning: { start: "9", end: "12" }, afternoon: { start: "14", end: "19" } },
-    { label: "8h-12h / 13h-18h", morning: { start: "8", end: "12" }, afternoon: { start: "13", end: "18" } },
+    {
+      label: "9h-12h / 14h-19h",
+      morning: { start: "9", end: "12" },
+      afternoon: { start: "14", end: "19" },
+    },
+    {
+      label: "8h-12h / 13h-18h",
+      morning: { start: "8", end: "12" },
+      afternoon: { start: "13", end: "18" },
+    },
     { label: "10h-19h", morning: { start: "10", end: "19" }, afternoon: null },
     { label: "closed", morning: null, afternoon: null, isTranslationKey: true },
   ];
 
-  const getPresetLabel = (preset) => preset.isTranslationKey ? t(preset.label) : preset.label;
+  const getPresetLabel = (preset) =>
+    preset.isTranslationKey ? t(preset.label) : preset.label;
 
   const days = [
     "monday",
@@ -85,8 +106,8 @@ export default function HandleStoreScreen({ route, navigation }) {
     "thursday",
     "friday",
     "saturday",
-    "sunday"
-  ]; 
+    "sunday",
+  ];
 
   const getDayLabel = (day) => t(day);
 
@@ -98,7 +119,7 @@ export default function HandleStoreScreen({ route, navigation }) {
     friday: { morning: null, afternoon: null },
     saturday: { morning: null, afternoon: null },
     sunday: { morning: null, afternoon: null },
-  }); 
+  });
 
   const [storeData, setStoreData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,71 +127,76 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   useEffect(() => {
     const fetchStoreData = async () => {
-        try {      
-          const storesRef = collection(firestore, "stores");
-          const q = query(storesRef, where("id", "==", storeId));
-      
-          const querySnapshot = await getDocs(q);
-      
-          if (!querySnapshot.empty) {
-            const storeSnap = querySnapshot.docs[0];
-            const store = storeSnap.data();
+      try {
+        const storesRef = collection(firestore, "stores");
+        const q = query(storesRef, where("id", "==", storeId));
 
-            setStoreDocumentId(storeSnap.id);
-      
-            setStoreData(store);
-      
-            setName(store.name);
-            setStreet(store.address[0]?.location?.address?.street || "");
-            setAddressQuery(store.address[0]?.location?.address?.street || "");
-            setCity(store.cityName || "");
-            setPostalCode(store.address[0]?.location?.city?.postal_code || "");
-            setLatitude(store.address[0]?.location?.geopoint?.latitude?.toString() || "");
-            setLongitude(store.address[0]?.location?.geopoint?.longitude?.toString() || "");
-            setDescription(store.description?.fr || "");
-      
-            setStoreCategories(Array.isArray(store.category) ? store.category : []);
+        const querySnapshot = await getDocs(q);
 
-            setStoreEmail(store?.email ?? "");
-            setWebsite(store?.website ?? "");
-            setPhone(store?.phone ?? "");
-            setManagerFirstName(store?.managerFirstName ?? "");
-            setManagerLastName(store?.managerLastName ?? "");
+        if (!querySnapshot.empty) {
+          const storeSnap = querySnapshot.docs[0];
+          const store = storeSnap.data();
 
-            // Load existing images (support both single imageUrl and images array)
-            const existingImages = [];
-            if (store?.images && Array.isArray(store.images)) {
-              existingImages.push(...store.images);
-            } else if (store?.imageUrl) {
-              existingImages.push(store.imageUrl);
-            }
-            setExistingImageUrls(existingImages);
+          setStoreDocumentId(storeSnap.id);
 
-            const hours =
-            store?.openingHours ?? {
-              monday: { morning: null, afternoon: null },
-              tuesday: { morning: null, afternoon: null },
-              wednesday: { morning: null, afternoon: null },
-              thursday: { morning: null, afternoon: null },
-              friday: { morning: null, afternoon: null },
-              saturday: { morning: null, afternoon: null },
-              sunday: { morning: null, afternoon: null },
-            };
+          setStoreData(store);
+
+          setName(store.name);
+          setStreet(store.address[0]?.location?.address?.street || "");
+          setAddressQuery(store.address[0]?.location?.address?.street || "");
+          setCity(store.cityName || "");
+          setPostalCode(store.address[0]?.location?.city?.postal_code || "");
+          setLatitude(
+            store.address[0]?.location?.geopoint?.latitude?.toString() || "",
+          );
+          setLongitude(
+            store.address[0]?.location?.geopoint?.longitude?.toString() || "",
+          );
+          setDescription(store.description?.fr || "");
+
+          setStoreCategories(
+            Array.isArray(store.category) ? store.category : [],
+          );
+
+          setStoreEmail(store?.email ?? "");
+          setWebsite(store?.website ?? "");
+          setPhone(store?.phone ?? "");
+          setManagerFirstName(store?.managerFirstName ?? "");
+          setManagerLastName(store?.managerLastName ?? "");
+
+          // Load existing images (support both single imageUrl and images array)
+          const existingImages = [];
+          if (store?.images && Array.isArray(store.images)) {
+            existingImages.push(...store.images);
+          } else if (store?.imageUrl) {
+            existingImages.push(store.imageUrl);
+          }
+          setExistingImageUrls(existingImages);
+
+          const hours = store?.openingHours ?? {
+            monday: { morning: null, afternoon: null },
+            tuesday: { morning: null, afternoon: null },
+            wednesday: { morning: null, afternoon: null },
+            thursday: { morning: null, afternoon: null },
+            friday: { morning: null, afternoon: null },
+            saturday: { morning: null, afternoon: null },
+            sunday: { morning: null, afternoon: null },
+          };
 
           setOpeningHours(hours);
           updateGroupedDays(hours);
-          } else {
-            Alert.alert(t('error'), t('store_not_found'));
-            navigation.goBack();
-          }
-        } catch (error) {
-          console.error("Error loading store:", error);
-          Alert.alert(t('error'), t('unable_to_load_store'));
+        } else {
+          Alert.alert(t("error"), t("store_not_found"));
           navigation.goBack();
-        } finally {
-          setLoading(false);
         }
-      };
+      } catch (error) {
+        console.error("Error loading store:", error);
+        Alert.alert(t("error"), t("unable_to_load_store"));
+        navigation.goBack();
+      } finally {
+        setLoading(false);
+      }
+    };
 
     fetchStoreData();
   }, [storeId, dispatch, navigation]);
@@ -183,30 +209,37 @@ export default function HandleStoreScreen({ route, navigation }) {
     loadCategories();
   }, []);
 
-  const data = categories.map(category => ({
+  const data = categories.map((category) => ({
     value: category.id,
     label: category.name,
   }));
 
   const getCategoryName = (id) => {
-    const category = categories.find(cat => cat.id === id);
+    const category = categories.find((cat) => cat.id === id);
     return category ? category.name : null;
   };
 
   const handleSelectCategory = (item) => {
     const newCategories = storeCategories.includes(item.value)
-      ? storeCategories.filter(cat => cat !== item.value)
+      ? storeCategories.filter((cat) => cat !== item.value)
       : [...storeCategories, item.value];
     setStoreCategories(newCategories);
   };
 
   const handleRemoveCategory = (categoryID) => {
-    setStoreCategories(storeCategories.filter(cat => cat !== categoryID));
+    setStoreCategories(storeCategories.filter((cat) => cat !== categoryID));
   };
 
   const handleUpdateStore = async () => {
-    if (!name || !street || !city || !postalCode || !description || storeCategories.length === 0) {
-      Alert.alert(t('error'), t('all_fields_required'));
+    if (
+      !name ||
+      !street ||
+      !city ||
+      !postalCode ||
+      !description ||
+      storeCategories.length === 0
+    ) {
+      Alert.alert(t("error"), t("all_fields_required"));
       return;
     }
 
@@ -233,19 +266,19 @@ export default function HandleStoreScreen({ route, navigation }) {
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
 
-      const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
+      const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
       );
       const data = await response.json();
 
       if (data.status !== "OK" || data.results.length === 0) {
-        Alert.alert(t('error'), t('address_not_found'));
+        Alert.alert(t("error"), t("address_not_found"));
         return;
       }
 
       const location = data.results[0].geometry.location;
-      const latitude  = Number(location.lat);
+      const latitude = Number(location.lat);
       const longitude = Number(location.lng);
 
       const storeRef = doc(firestore, "stores", storeDocumentId);
@@ -295,23 +328,29 @@ export default function HandleStoreScreen({ route, navigation }) {
 
       // Ensure city exists in the cities collection
       try {
-        const cityResult = await ensureCityExists(city, postalCode, latitude, longitude, "FR");
+        const cityResult = await ensureCityExists(
+          city,
+          postalCode,
+          latitude,
+          longitude,
+          "FR",
+        );
         if (cityResult.success) {
           console.log(cityResult.message);
         } else {
-          console.warn('City creation/update had issues:', cityResult.error);
+          console.warn("City creation/update had issues:", cityResult.error);
         }
       } catch (cityError) {
-        console.error('Error ensuring city exists:', cityError);
+        console.error("Error ensuring city exists:", cityError);
         // Continue even if city creation fails - store is already updated
       }
 
-      DeviceEventEmitter.emit('stores:refresh');
-      Alert.alert(t('success'), t('store_updated_success'));
+      DeviceEventEmitter.emit("stores:refresh");
+      Alert.alert(t("success"), t("store_updated_success"));
       navigation.goBack();
     } catch (error) {
       console.error("Error updating store:", error);
-      Alert.alert(t('error'), t('unable_to_update_store'));
+      Alert.alert(t("error"), t("unable_to_update_store"));
     }
   };
 
@@ -320,29 +359,25 @@ export default function HandleStoreScreen({ route, navigation }) {
       setSuggestions([]);
       Keyboard.dismiss();
     }
-    Alert.alert(
-      t('delete_store'),
-      t('delete_store_confirm'),
-      [
-        { text: t('cancel'), style: "cancel" },
-        {
-          text: t('delete'),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const storeRef = doc(firestore, "stores", storeDocumentId);
-              await deleteDoc(storeRef);
-              DeviceEventEmitter.emit('stores:refresh');
-              Alert.alert(t('success'), t('store_deleted_success'));
-              navigation.goBack();
-            } catch (error) {
-              console.error("Error deleting store:", error);
-              Alert.alert(t('error'), t('unable_to_delete_store'));
-            }
-          },
+    Alert.alert(t("delete_store"), t("delete_store_confirm"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("delete"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const storeRef = doc(firestore, "stores", storeDocumentId);
+            await deleteDoc(storeRef);
+            DeviceEventEmitter.emit("stores:refresh");
+            Alert.alert(t("success"), t("store_deleted_success"));
+            navigation.goBack();
+          } catch (error) {
+            console.error("Error deleting store:", error);
+            Alert.alert(t("error"), t("unable_to_delete_store"));
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const fetchAddressSuggestions = async (text) => {
@@ -354,33 +389,34 @@ export default function HandleStoreScreen({ route, navigation }) {
     }
     setLoadingSuggestions(true);
 
-    const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+    const mapboxToken =
+      "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
 
     try {
       // Use Mapbox with French language preference for better French results
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
-        `access_token=${mapboxToken}` +
-        `&autocomplete=true` +
-        `&limit=10` +
-        `&language=fr` +
-        `&types=address,poi,place,locality,neighborhood`
+          `access_token=${mapboxToken}` +
+          `&autocomplete=true` +
+          `&limit=10` +
+          `&language=fr` +
+          `&types=address,poi,place,locality,neighborhood`,
       );
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
-      console.error('Mapbox search error:', error);
+      console.error("Mapbox search error:", error);
       setSuggestions([]);
     }
     setLoadingSuggestions(false);
-  };  
+  };
 
   const applyPresetToAllDays = (preset) => {
     const newOpeningHours = {};
-    days.forEach(day => {
+    days.forEach((day) => {
       newOpeningHours[day] = {
         morning: preset.morning ? { ...preset.morning } : null,
-        afternoon: preset.afternoon ? { ...preset.afternoon } : null
+        afternoon: preset.afternoon ? { ...preset.afternoon } : null,
       };
     });
     setOpeningHours(newOpeningHours);
@@ -388,24 +424,25 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const handleUseCurrentLocation = async () => {
-    const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+    const mapboxToken =
+      "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
 
     try {
       // Use LocationManager for GPS location
       const location = await locationManager.getUserLocation({
         useCache: false,
-        forceRefresh: true
+        forceRefresh: true,
       });
 
       setSelectedLocation({
         latitude: location.latitude,
-        longitude: location.longitude
+        longitude: location.longitude,
       });
       setShowMap(true);
 
       // Use Mapbox for reverse geocoding
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.longitude},${location.latitude}.json?access_token=${mapboxToken}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.longitude},${location.latitude}.json?access_token=${mapboxToken}`,
       );
       const data = await response.json();
 
@@ -414,8 +451,8 @@ export default function HandleStoreScreen({ route, navigation }) {
         handleAddressSelect(address);
       }
     } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert(t('error'), t('unable_to_get_location'));
+      console.error("Error getting location:", error);
+      Alert.alert(t("error"), t("unable_to_get_location"));
     }
   };
 
@@ -425,7 +462,7 @@ export default function HandleStoreScreen({ route, navigation }) {
 
     days.forEach((day, index) => {
       const dayHours = JSON.stringify(hours[day]);
-      
+
       if (currentGroup.hours === null) {
         currentGroup = { days: [day], hours: dayHours };
       } else if (currentGroup.hours === dayHours) {
@@ -451,9 +488,9 @@ export default function HandleStoreScreen({ route, navigation }) {
     const currentIndex = days.indexOf(day);
     if (currentIndex < days.length - 1) {
       const nextDay = days[currentIndex + 1];
-      setOpeningHours(prev => ({
+      setOpeningHours((prev) => ({
         ...prev,
-        [nextDay]: { ...prev[day] }
+        [nextDay]: { ...prev[day] },
       }));
     }
   };
@@ -461,38 +498,49 @@ export default function HandleStoreScreen({ route, navigation }) {
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        mediaTypes: ["images"],
+        allowsEditing: false, // Disable native editing, use our ImageEditor
+        quality: 1, // Keep full quality, ImageEditor will compress
       });
 
       if (!result.canceled && result.assets?.[0]?.uri) {
-        setSelectedImages(prev => [...prev, { uri: result.assets[0].uri }]);
+        // Show image editor instead of adding directly
+        setImageToEdit(result.assets[0].uri);
       }
     } catch (e) {
-      console.error('Image picker error', e);
-      Alert.alert(t('error'), t('unable_to_open_image_picker'));
+      console.error("Image picker error", e);
+      Alert.alert(t("error"), t("unable_to_open_image_picker"));
     }
+  };
+
+  // Callback when image editing is complete
+  const handleImageEdited = (editedUri) => {
+    setSelectedImages((prev) => [...prev, { uri: editedUri }]);
+    setImageToEdit(null);
+  };
+
+  // Cancel image editing
+  const handleCancelEdit = () => {
+    setImageToEdit(null);
   };
 
   const handleRemoveImage = (index, isExisting) => {
     const totalImages = existingImageUrls.length + selectedImages.length;
 
     if (isExisting) {
-      setExistingImageUrls(prev => prev.filter((_, i) => i !== index));
+      setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
       // Adjust main image index
       if (index < mainImageIndex) {
-        setMainImageIndex(prev => prev - 1);
+        setMainImageIndex((prev) => prev - 1);
       } else if (index === mainImageIndex) {
         setMainImageIndex(0);
       }
     } else {
       const actualIndex = existingImageUrls.length + index;
-      setSelectedImages(prev => prev.filter((_, i) => i !== index));
+      setSelectedImages((prev) => prev.filter((_, i) => i !== index));
       // Adjust main image index
       if (actualIndex < mainImageIndex) {
-        setMainImageIndex(prev => prev - 1);
+        setMainImageIndex((prev) => prev - 1);
       } else if (actualIndex === mainImageIndex) {
         setMainImageIndex(0);
       }
@@ -504,25 +552,34 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const getAllImages = () => {
-    const existing = existingImageUrls.map((url, i) => ({ uri: url, isExisting: true, originalIndex: i }));
-    const selected = selectedImages.map((img, i) => ({ uri: img.uri, isExisting: false, originalIndex: i }));
+    const existing = existingImageUrls.map((url, i) => ({
+      uri: url,
+      isExisting: true,
+      originalIndex: i,
+    }));
+    const selected = selectedImages.map((img, i) => ({
+      uri: img.uri,
+      isExisting: false,
+      originalIndex: i,
+    }));
     return [...existing, ...selected];
   };
 
   const uploadImageToCloudflare = async (uri) => {
-    const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
-    const apiToken = 'mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K';
+    const cloudflareAccountId = "e593403f5f942f93365e9cd0be4065a1";
+    const apiToken = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
 
     const fileName = `photo_${Date.now()}.jpg`;
-    const imageUri = Platform.OS === 'android' && !uri.startsWith('file://')
-      ? `file://${uri}`
-      : uri;
+    const imageUri =
+      Platform.OS === "android" && !uri.startsWith("file://")
+        ? `file://${uri}`
+        : uri;
 
     const formData = new FormData();
-    formData.append('file', {
+    formData.append("file", {
       uri: imageUri,
       name: fileName,
-      type: 'image/jpeg'
+      type: "image/jpeg",
     });
 
     const controller = new AbortController();
@@ -531,28 +588,31 @@ export default function HandleStoreScreen({ route, navigation }) {
     }, 30000);
 
     try {
-      const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiToken}`,
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: formData,
+          signal: controller.signal,
         },
-        body: formData,
-        signal: controller.signal
-      });
+      );
 
       clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!data.success) {
         console.error("Cloudflare error:", data.errors);
-        throw new Error('Cloudflare upload failed');
+        throw new Error("Cloudflare upload failed");
       }
 
       return data.result.variants[0];
     } catch (uploadError) {
       clearTimeout(timeoutId);
-      if (uploadError.name === 'AbortError') {
-        throw new Error('IMAGE_UPLOAD_TIMEOUT');
+      if (uploadError.name === "AbortError") {
+        throw new Error("IMAGE_UPLOAD_TIMEOUT");
       }
       throw uploadError;
     }
@@ -565,14 +625,14 @@ export default function HandleStoreScreen({ route, navigation }) {
 
     // Parse Mapbox response
     const context = item.context || [];
-    const cityInfo = context.find(c => c.id.includes('place'));
-    const postalCodeInfo = context.find(c => c.id.includes('postcode'));
+    const cityInfo = context.find((c) => c.id.includes("place"));
+    const postalCodeInfo = context.find((c) => c.id.includes("postcode"));
 
-    const streetNumber = item.address || '';
-    const streetName = item.text || '';
+    const streetNumber = item.address || "";
+    const streetName = item.text || "";
 
-    const city = cityInfo ? cityInfo.text : '';
-    const postalCode = postalCodeInfo ? postalCodeInfo.text : '';
+    const city = cityInfo ? cityInfo.text : "";
+    const postalCode = postalCodeInfo ? postalCodeInfo.text : "";
 
     setStreet(streetName);
     setStreetNumber(streetNumber);
@@ -583,11 +643,11 @@ export default function HandleStoreScreen({ route, navigation }) {
     if (item.center) {
       setSelectedLocation({
         latitude: item.center[1],
-        longitude: item.center[0]
+        longitude: item.center[0],
       });
       setShowMap(true);
     }
-  };  
+  };
 
   const handleBackPress = () => {
     if (suggestions.length > 0) {
@@ -599,16 +659,16 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const formatHours = (hours) => {
-    if (!hours.morning && !hours.afternoon) return t('closed');
-    
+    if (!hours.morning && !hours.afternoon) return t("closed");
+
     const formatTimeDisplay = (timeStr) => {
       if (!timeStr) return "";
-      const parts = timeStr.split(':');
+      const parts = timeStr.split(":");
       const hour = parts[0];
       const minute = parts[1];
       return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
     };
-    
+
     let result = "";
     if (hours.morning) {
       result += `${formatTimeDisplay(hours.morning.start)}-${formatTimeDisplay(hours.morning.end)}`;
@@ -622,22 +682,28 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   const clampHour = (v) => {
     if (v === "" || v == null) return "";
-    const n = Math.max(0, Math.min(23, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
+    const n = Math.max(
+      0,
+      Math.min(23, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0),
+    );
     return String(n);
   };
 
   const clampMinute = (v) => {
     if (v === "" || v == null) return "";
-    const n = Math.max(0, Math.min(59, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0));
+    const n = Math.max(
+      0,
+      Math.min(59, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0),
+    );
     return String(n);
   };
 
   const parseTime = (timeStr) => {
     if (!timeStr) return { hour: "", minute: "" };
-    const parts = timeStr.split(':');
+    const parts = timeStr.split(":");
     return {
       hour: parts[0] || "",
-      minute: parts[1] || "00"
+      minute: parts[1] || "00",
     };
   };
 
@@ -648,7 +714,7 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const setDayClosed = (day, closed) => {
-    setOpeningHours(prev => {
+    setOpeningHours((prev) => {
       const next = { ...prev };
       next[day] = closed
         ? { morning: null, afternoon: null }
@@ -665,12 +731,15 @@ export default function HandleStoreScreen({ route, navigation }) {
   };
 
   const setDayMode = (day, mode) => {
-    setOpeningHours(prev => {
+    setOpeningHours((prev) => {
       const cur = normalizeDay(prev[day] || { morning: null, afternoon: null });
       if (mode === "day") {
         const start = cur.morning?.start ?? "9:00";
-        const end = (cur.afternoon?.end ?? cur.morning?.end) ?? "19:00";
-        return { ...prev, [day]: normalizeDay({ morning: { start, end }, afternoon: null }) };
+        const end = cur.afternoon?.end ?? cur.morning?.end ?? "19:00";
+        return {
+          ...prev,
+          [day]: normalizeDay({ morning: { start, end }, afternoon: null }),
+        };
       } else {
         const mStart = cur.morning?.start ?? "9:00";
         const mEnd = "12:00";
@@ -687,33 +756,43 @@ export default function HandleStoreScreen({ route, navigation }) {
 
   const setTime = (day, period, field, hour, minute = "00") => {
     const timeValue = formatTime(hour, minute);
-    setOpeningHours(prev => {
+    setOpeningHours((prev) => {
       const cur = prev[day] || { morning: null, afternoon: null };
-      const p = cur[period] ? { ...cur[period], [field]: timeValue } : { [field]: timeValue, ...(field === "start" ? { end: "" } : { start: "" }) };
+      const p = cur[period]
+        ? { ...cur[period], [field]: timeValue }
+        : {
+            [field]: timeValue,
+            ...(field === "start" ? { end: "" } : { start: "" }),
+          };
       const next = { ...prev, [day]: normalizeDay({ ...cur, [period]: p }) };
       return next;
     });
   };
 
   const [hoursErrors, setHoursErrors] = useState({});
-  
+
   const validateHour = (day, period, field, value) => {
-    let error = '';
+    let error = "";
     if (value && !/^\d{1,2}$/.test(value)) {
-      error = 'notNumber';
+      error = "notNumber";
     }
-    const otherField = field === 'start' ? 'end' : 'start';
+    const otherField = field === "start" ? "end" : "start";
     const otherValue = openingHours[day][period]?.[otherField];
-    if (value && otherValue && /^\d{1,2}$/.test(value) && /^\d{1,2}$/.test(otherValue)) {
-      const v1 = field === 'start' ? value : otherValue;
-      const v2 = field === 'end' ? value : otherValue;
+    if (
+      value &&
+      otherValue &&
+      /^\d{1,2}$/.test(value) &&
+      /^\d{1,2}$/.test(otherValue)
+    ) {
+      const v1 = field === "start" ? value : otherValue;
+      const v2 = field === "end" ? value : otherValue;
       if (parseInt(v1) >= parseInt(v2)) {
-        error = 'order';
+        error = "order";
       }
     }
-    setHoursErrors(prev => ({
+    setHoursErrors((prev) => ({
       ...prev,
-      [`${day}_${period}_${field}`]: error
+      [`${day}_${period}_${field}`]: error,
     }));
   };
 
@@ -726,48 +805,55 @@ export default function HandleStoreScreen({ route, navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={AppColors.primary} />
-        <Text style={styles.loadingText}>{t('loading')}</Text>
+        <Text style={styles.loadingText}>{t("loading")}</Text>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", padding: 10 }}>
         <TouchableOpacity onPress={handleBackPress}>
           <ChevronLeft width={30} height={30} color={AppColors.primary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
-          {t('update_store_title')}
+          {t("update_store_title")}
         </Text>
       </View>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled={true}
       >
         <View style={styles.container}>
-          <Text style={styles.label}>{t('store_name')}</Text>
-          <TextInput style={styles.input} placeholder={t('store_name')} value={name} onChangeText={setName} />
+          <Text style={styles.label}>{t("store_name")}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t("store_name")}
+            value={name}
+            onChangeText={setName}
+          />
 
-          <Text style={styles.label}>{t('store_address')}</Text>
+          <Text style={styles.label}>{t("store_address")}</Text>
           <View style={styles.addressContainer}>
             <View style={styles.addressInputWrapper}>
               <TextInput
                 style={styles.input}
                 value={addressQuery}
                 onChangeText={fetchAddressSuggestions}
-                placeholder={t('store_address')}
-                onBlur={() => setSuggestions([])} 
+                placeholder={t("store_address")}
+                onBlur={() => setSuggestions([])}
               />
 
               {suggestions.length > 0 && (
-                <View style={{
-                  height: 200,
-                  borderWidth: 1,
-                  borderColor: '#ccc',
-                  backgroundColor: '#fff',
-                }}>
+                <View
+                  style={{
+                    height: 200,
+                    borderWidth: 1,
+                    borderColor: "#ccc",
+                    backgroundColor: "#fff",
+                  }}
+                >
                   <FlatList
                     data={suggestions}
                     keyExtractor={(item, index) => `${item.id}-${index}`}
@@ -776,7 +862,9 @@ export default function HandleStoreScreen({ route, navigation }) {
                         onPress={() => handleAddressSelect(item)}
                         style={styles.suggestionItem}
                       >
-                        <Text style={styles.suggestionText}>{item.place_name}</Text>
+                        <Text style={styles.suggestionText}>
+                          {item.place_name}
+                        </Text>
                       </TouchableOpacity>
                     )}
                     keyboardShouldPersistTaps="handled"
@@ -787,7 +875,7 @@ export default function HandleStoreScreen({ route, navigation }) {
               )}
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.locationButton}
               onPress={handleUseCurrentLocation}
             >
@@ -799,94 +887,129 @@ export default function HandleStoreScreen({ route, navigation }) {
             <View style={styles.mapContainer}>
               <MapboxGL.MapView style={styles.map}>
                 <MapboxGL.Camera
-                  centerCoordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+                  centerCoordinate={[
+                    selectedLocation.longitude,
+                    selectedLocation.latitude,
+                  ]}
                   zoomLevel={14}
                 />
                 <MapboxGL.PointAnnotation
                   id="selected-location"
-                  coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+                  coordinate={[
+                    selectedLocation.longitude,
+                    selectedLocation.latitude,
+                  ]}
                 />
               </MapboxGL.MapView>
             </View>
           )}
 
-          <Text style={styles.label}>{t('city')}</Text>
-          <TextInput style={styles.input} placeholder={t('city')} value={city} onChangeText={setCity} />
+          <Text style={styles.label}>{t("city")}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t("city")}
+            value={city}
+            onChangeText={setCity}
+          />
 
-          <Text style={styles.label}>{t('postal_code')}</Text>
-          <TextInput style={styles.input} placeholder={t('postal_code')} value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" />
+          <Text style={styles.label}>{t("postal_code")}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t("postal_code")}
+            value={postalCode}
+            onChangeText={setPostalCode}
+            keyboardType="numeric"
+          />
 
-          <Text style={styles.label}>{t('description')}</Text>
-          <TextInput style={[styles.input, styles.textArea]} placeholder={t('description')} value={description} onChangeText={setDescription} multiline />
+          <Text style={styles.label}>{t("description")}</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder={t("description")}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+          />
 
           <OpeningHoursPicker
             value={openingHours}
             onChange={setOpeningHours}
-            locale={t('locale') === 'en' ? 'en' : 'fr'}
+            locale={t("locale") === "en" ? "en" : "fr"}
             showPresets={true}
             t={t}
           />
 
           {user?.userType === "merchant" && (
             <>
-              <Text style={styles.label}>{t('store_email')}</Text>
+              <Text style={styles.label}>{t("store_email")}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('store_email')}
+                placeholder={t("store_email")}
                 value={storeEmail}
                 onChangeText={setStoreEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
 
-              <Text style={styles.label}>{t('website')}</Text>
+              <Text style={styles.label}>{t("website")}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('website')}
+                placeholder={t("website")}
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
               />
 
-              <Text style={styles.label}>{t('phone')}</Text>
+              <Text style={styles.label}>{t("phone")}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('phone')}
+                placeholder={t("phone")}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
 
-              <Text style={styles.label}>{t('manager_first_name')}</Text>
+              <Text style={styles.label}>{t("manager_first_name")}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('manager_first_name')}
+                placeholder={t("manager_first_name")}
                 value={managerFirstName}
                 onChangeText={setManagerFirstName}
               />
 
-              <Text style={styles.label}>{t('manager_last_name')}</Text>
+              <Text style={styles.label}>{t("manager_last_name")}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('manager_last_name')}
+                placeholder={t("manager_last_name")}
                 value={managerLastName}
                 onChangeText={setManagerLastName}
               />
             </>
           )}
 
-          <Text style={styles.label}>{t('categories')}</Text>
-          <TouchableOpacity style={styles.categoryButton} onPress={() => setModalVisible(true)}>
+          <Text style={styles.label}>{t("categories")}</Text>
+          <TouchableOpacity
+            style={styles.categoryButton}
+            onPress={() => setModalVisible(true)}
+          >
             <Text style={styles.categoryButtonText}>
-              {storeCategories.length > 0 ? `${storeCategories.length} ${t('categories')}` : t('select_categories')}
+              {storeCategories.length > 0
+                ? `${storeCategories.length} ${t("categories")}`
+                : t("select_categories")}
             </Text>
           </TouchableOpacity>
 
-          <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}>
+          <ScrollView
+            horizontal={true}
+            style={styles.selectedCategoriesContainer}
+          >
             {storeCategories.map((categoryID) => (
               <View key={categoryID} style={styles.selectedCategoryItem}>
-                <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
-                <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
+                <Text style={styles.selectedCategoryText}>
+                  {getCategoryName(categoryID)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleRemoveCategory(categoryID)}
+                >
                   <CloseIcon width={20} height={20} color={AppColors.black} />
                 </TouchableOpacity>
               </View>
@@ -903,13 +1026,18 @@ export default function HandleStoreScreen({ route, navigation }) {
                   pagingEnabled
                   showsHorizontalScrollIndicator={false}
                   onMomentumScrollEnd={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.x / (width(80) + 10));
+                    const index = Math.round(
+                      e.nativeEvent.contentOffset.x / (width(80) + 10),
+                    );
                     setCurrentImageIndex(index);
                   }}
                   keyExtractor={(_, index) => index.toString()}
                   renderItem={({ item, index }) => (
                     <View style={styles.imageSlide}>
-                      <Image source={{ uri: item.uri }} style={styles.selectedImage} />
+                      <Image
+                        source={{ uri: item.uri }}
+                        style={styles.selectedImage}
+                      />
                       <View style={styles.imageOverlayButtons}>
                         {/* Set as main button */}
                         <TouchableOpacity
@@ -919,7 +1047,9 @@ export default function HandleStoreScreen({ route, navigation }) {
                           <StarIcon
                             width={24}
                             height={24}
-                            color={index === mainImageIndex ? "#FFD700" : "#888"}
+                            color={
+                              index === mainImageIndex ? "#FFD700" : "#888"
+                            }
                             filled={index === mainImageIndex}
                           />
                         </TouchableOpacity>
@@ -948,7 +1078,7 @@ export default function HandleStoreScreen({ route, navigation }) {
                         key={index}
                         style={[
                           styles.dot,
-                          currentImageIndex === index && styles.activeDot
+                          currentImageIndex === index && styles.activeDot,
                         ]}
                       />
                     ))}
@@ -956,21 +1086,50 @@ export default function HandleStoreScreen({ route, navigation }) {
                 )}
               </>
             ) : null}
-            <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
+            <TouchableOpacity
+              style={styles.addImageButton}
+              onPress={handlePickImage}
+            >
               <CameraIcon width={24} height={24} color={AppColors.primary} />
-              <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
+              <Text style={styles.addImageButtonText}>{t("add_image")}</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.addButton} onPress={handleDeleteStore}>
-            <Text style={styles.addButtonText}>{t('delete_store')}</Text>
+          {/* Manage Posts Button */}
+          <TouchableOpacity
+            style={[styles.addButton, styles.managePostsButton]}
+            onPress={() =>
+              navigation.navigate(ScreenNames.MANAGE_POSTS, {
+                storeId: storeData?.id,
+                storeName: name,
+              })
+            }
+          >
+            <AddPostIcon width={20} height={20} color="#fff" />
+            <Text style={[styles.addButtonText, { marginLeft: 8 }]}>
+              {t("manage_posts")}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.addButton} onPress={handleUpdateStore}>
-            <Text style={styles.addButtonText}>{t('update_store')}</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleDeleteStore}
+          >
+            <Text style={styles.addButtonText}>{t("delete_store")}</Text>
           </TouchableOpacity>
 
-          <Modal animationType="slide" transparent={true} visible={modalVisible}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleUpdateStore}
+          >
+            <Text style={styles.addButtonText}>{t("update_store")}</Text>
+          </TouchableOpacity>
+
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={modalVisible}
+          >
             <View style={styles.modalContainer}>
               <View style={styles.modalContent}>
                 <TouchableOpacity
@@ -978,46 +1137,94 @@ export default function HandleStoreScreen({ route, navigation }) {
                     if (storeCategories.length === categories.length) {
                       setStoreCategories([]);
                     } else {
-                      setStoreCategories(categories.map(category => category.id));
+                      setStoreCategories(
+                        categories.map((category) => category.id),
+                      );
                     }
                   }}
                   style={styles.categoryItem}
                 >
-                  <Text style={[styles.categoryText, { color: storeCategories.length === categories.length ? AppColors.primary : AppColors.black }]}>
-                    {t('select_all')}
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      {
+                        color:
+                          storeCategories.length === categories.length
+                            ? AppColors.primary
+                            : AppColors.black,
+                      },
+                    ]}
+                  >
+                    {t("select_all")}
                   </Text>
                 </TouchableOpacity>
                 <FlatList
                   data={data}
-                  keyExtractor={item => item.value.toString()}
+                  keyExtractor={(item) => item.value.toString()}
                   renderItem={({ item }) => (
-                    <TouchableOpacity onPress={() => handleSelectCategory(item)} style={styles.categoryItem}>
-                      <Text style={[styles.categoryText, { color: storeCategories.includes(item.value) ? AppColors.primary : AppColors.black }]}>{item.label}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleSelectCategory(item)}
+                      style={styles.categoryItem}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          {
+                            color: storeCategories.includes(item.value)
+                              ? AppColors.primary
+                              : AppColors.black,
+                          },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 />
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-                  <Text style={styles.cancelButtonText}>{t('close_button')}</Text>
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  style={styles.cancelButton}
+                >
+                  <Text style={styles.cancelButtonText}>
+                    {t("close_button")}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
           </Modal>
+
+          {/* Image Editor Modal */}
+          <Modal
+            visible={!!imageToEdit}
+            animationType="fade"
+            transparent={true}
+          >
+            {imageToEdit && (
+              <ImageEditor
+                imageUri={imageToEdit}
+                onDone={handleImageEdited}
+                onCancel={handleCancelEdit}
+                outputSize={800}
+                t={t}
+              />
+            )}
+          </Modal>
         </View>
       </ScrollView>
-  </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
     padding: width(4),
-    backgroundColor: AppColors.white_100
+    backgroundColor: AppColors.white_100,
   },
   label: {
     fontSize: 16,
-    fontWeight: "bold", 
-    marginBottom: 5
+    fontWeight: "bold",
+    marginBottom: 5,
   },
   input: {
     borderWidth: 1,
@@ -1026,26 +1233,26 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     marginBottom: 15,
-    backgroundColor: "#f8f8f8", 
+    backgroundColor: "#f8f8f8",
   },
   textArea: {
     height: 80,
-    textAlignVertical: "top"
+    textAlignVertical: "top",
   },
   categoryButton: {
     backgroundColor: AppColors.primary,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
-    marginBottom: 15
+    marginBottom: 15,
   },
   categoryButtonText: {
     color: "#fff",
-    fontSize: 16
+    fontSize: 16,
   },
   selectedCategoriesContainer: {
     flexDirection: "row",
-    marginTop: 10
+    marginTop: 10,
   },
   selectedCategoryItem: {
     flexDirection: "row",
@@ -1056,33 +1263,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginRight: 5,
-    height: 40
+    height: 40,
   },
-  selectedCategoryText: { 
+  selectedCategoryText: {
     marginRight: 5,
-    fontSize: 14
+    fontSize: 14,
   },
   addButton: {
     backgroundColor: AppColors.primary,
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 10
+    marginTop: 10,
+  },
+  managePostsButton: {
+    flexDirection: "row",
+    backgroundColor: "#007BFF",
   },
   addButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: '80%',
-    height: '80%',
+    width: "80%",
+    height: "80%",
     backgroundColor: AppColors.white,
     borderRadius: 10,
     padding: 20,
@@ -1091,7 +1302,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.grey_200,
-    flexDirection:'row',
+    flexDirection: "row",
   },
   categoryText: {
     fontSize: 14,
@@ -1101,18 +1312,18 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: AppColors.red,
     borderRadius: 5,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
     color: AppColors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   scrollContainer: {
     paddingBottom: 20,
   },
-  container: { 
+  container: {
     padding: width(4),
-    backgroundColor: AppColors.white_100
+    backgroundColor: AppColors.white_100,
   },
   dayContainer: {
     marginBottom: 0,
@@ -1280,14 +1491,14 @@ const styles = StyleSheet.create({
     height: 200,
     marginBottom: 15,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   map: {
     flex: 1,
   },
   presetsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginBottom: 15,
   },
@@ -1297,7 +1508,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: AppColors.primary_faded,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: "transparent",
   },
   selectedPreset: {
     borderColor: AppColors.primary,
@@ -1308,12 +1519,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   selectedPresetText: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   dayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   closedButton: {
@@ -1328,8 +1539,8 @@ const styles = StyleSheet.create({
   },
   closedText: {
     color: AppColors.grey_200,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    fontStyle: "italic",
+    textAlign: "center",
     padding: 10,
   },
   openingHoursContainer: {
@@ -1343,9 +1554,9 @@ const styles = StyleSheet.create({
     borderColor: AppColors.grey_200,
   },
   dayGroupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 12,
   },
   dayGroupTitle: {
@@ -1353,7 +1564,7 @@ const styles = StyleSheet.create({
   },
   dayGroupText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: AppColors.black,
   },
   dayGroupHours: {
@@ -1370,17 +1581,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   dayRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: 8,
     marginBottom: 16,
     paddingHorizontal: 2,
     minHeight: 48,
   },
   block: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flexShrink: 1,
     minWidth: 0,
     marginRight: 4,
@@ -1391,8 +1602,8 @@ const styles = StyleSheet.create({
   },
 
   timeInputs: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flexShrink: 1,
   },
 
@@ -1402,7 +1613,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.grey_200,
     borderRadius: 6,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
     marginHorizontal: 4,
     backgroundColor: AppColors.white_100,
@@ -1410,15 +1621,15 @@ const styles = StyleSheet.create({
   },
   hoursContainer: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   timeInputGroup: {
     flex: 1,
   },
   timeInputs: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   timeInput: {
     width: 44,
@@ -1426,7 +1637,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.grey_200,
     borderRadius: 6,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
     marginHorizontal: 4,
     backgroundColor: AppColors.white_100,
@@ -1437,25 +1648,25 @@ const styles = StyleSheet.create({
     color: AppColors.grey_200,
   },
   dayActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   actionButton: {
     padding: 4,
   },
   hoursHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
     paddingHorizontal: 2,
   },
   hoursHeaderBlock: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   hoursHeaderText: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: AppColors.primary,
     marginBottom: 2,
   },
@@ -1469,7 +1680,7 @@ const styles = StyleSheet.create({
   },
   timeInputError: {
     borderColor: AppColors.red,
-    backgroundColor: '#fff0f0',
+    backgroundColor: "#fff0f0",
   },
   timeInputErrorText: {
     color: AppColors.red,
@@ -1479,9 +1690,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   dayActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
     width: 48,
     marginLeft: 4,
   },
@@ -1489,9 +1700,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
   },
   addressInputWrapper: {
     flex: 1,
@@ -1500,17 +1711,17 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   timeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   minuteInput: {
     width: 36,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   loadingText: {
     marginTop: 12,
@@ -1518,4 +1729,3 @@ const styles = StyleSheet.create({
     color: AppColors.grey_300,
   },
 });
-

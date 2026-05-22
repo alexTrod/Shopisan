@@ -1,32 +1,80 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Alert, Keyboard, Platform } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
-import { collection, addDoc, getDocs, doc, getDoc, query as firestoreQuery, orderBy, limit } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  getDoc,
+  query as firestoreQuery,
+  orderBy,
+  limit,
+  serverTimestamp,
+} from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../../firebaseconfig";
 import { getCategoriesLocale } from "../../Redux/Reducers/CategoriesReducer";
-import { setSelectedCategories, setCategories } from "../../Redux/Actions/CategoriesActions";
-import * as Location from 'expo-location';
-import * as ImagePicker from 'expo-image-picker';
+import {
+  setSelectedCategories,
+  setCategories,
+} from "../../Redux/Actions/CategoriesActions";
+import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
 import { ensureCityExists } from "../../utils/cityManagement";
 
 // Mapbox token
-const MAPBOX_TOKEN = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+const MAPBOX_TOKEN =
+  "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
 
 // Helper to add timeout to any promise
 const withTimeout = (promise, ms, errorMessage) => {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(errorMessage || 'Operation timed out')), ms)
-    )
+      setTimeout(
+        () => reject(new Error(errorMessage || "Operation timed out")),
+        ms,
+      ),
+    ),
   ]);
 };
 
-export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
+// Helper for delay
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Fetch with retry and exponential backoff
+const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      // Non-ok response, retry if not last attempt
+      if (i < maxRetries - 1) {
+        await delay(500 * Math.pow(2, i));
+        continue;
+      }
+      // Last attempt failed with non-ok response
+      throw new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      lastError = err;
+      // Don't retry if aborted
+      if (err.name === "AbortError") throw err;
+      if (i < maxRetries - 1) {
+        await delay(500 * Math.pow(2, i));
+      }
+    }
+  }
+  throw lastError;
+};
+
+export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user.userData);
-  const { categories, selectedCategories } = useSelector(state => state.categories);
+  const { categories, selectedCategories } = useSelector(
+    (state) => state.categories,
+  );
 
   // Store fields
   const [name, setName] = useState("");
@@ -37,11 +85,11 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   const [description, setDescription] = useState("");
   const [selectedImages, setSelectedImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [storeEmail, setStoreEmail] = useState('');
-  const [website, setWebsite] = useState('');
-  const [phone, setPhone] = useState('');
-  const [managerFirstName, setManagerFirstName] = useState('');
-  const [managerLastName, setManagerLastName] = useState('');
+  const [storeEmail, setStoreEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [phone, setPhone] = useState("");
+  const [managerFirstName, setManagerFirstName] = useState("");
+  const [managerLastName, setManagerLastName] = useState("");
 
   // Opening hours
   const [openingHours, setOpeningHours] = useState({
@@ -55,7 +103,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   });
 
   // UI state
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,6 +111,14 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [userProximity, setUserProximity] = useState(null);
+
+  // Image editor state
+  const [imageToEdit, setImageToEdit] = useState(null);
+
+  // Address search robustness
+  const abortControllerRef = useRef(null);
+  const [searchError, setSearchError] = useState(null);
+  const [manualEntryMode, setManualEntryMode] = useState(false);
 
   // Validation state
   const [validationErrors, setValidationErrors] = useState({});
@@ -73,15 +129,15 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
+        if (status === "granted") {
           const location = await Location.getCurrentPositionAsync({});
           setUserProximity({
             longitude: location.coords.longitude,
-            latitude: location.coords.latitude
+            latitude: location.coords.latitude,
           });
         }
       } catch (error) {
-        console.log('Could not get location for proximity:', error);
+        console.log("Could not get location for proximity:", error);
       }
     })();
   }, []);
@@ -98,7 +154,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   // Clear selected categories when unmounting in wizard mode
   useEffect(() => {
     return () => {
-      if (mode === 'wizard') {
+      if (mode === "wizard") {
         dispatch(setSelectedCategories([]));
       }
     };
@@ -107,10 +163,19 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
     setStreet(text);
+    setSearchError(null);
+
     if (text.length < 3) {
       setSuggestions([]);
       return;
     }
+
+    // Abort previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoadingSuggestions(true);
 
     try {
@@ -118,23 +183,43 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       // Add proximity biasing if user location is available
       const proximityParam = userProximity
         ? `&proximity=${userProximity.longitude},${userProximity.latitude}`
-        : '';
-      const response = await fetch(
+        : "";
+      const url =
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
         `access_token=${MAPBOX_TOKEN}` +
         `&autocomplete=true` +
         `&limit=10` +
         `&language=fr` +
         `&types=address,poi,place,locality,neighborhood` +
-        proximityParam
+        proximityParam;
+
+      const response = await fetchWithRetry(
+        url,
+        { signal: abortControllerRef.current.signal },
+        3,
       );
+
+      if (!response.ok) {
+        throw new Error(`Mapbox error: ${response.status}`);
+      }
+
       const result = await response.json();
       setSuggestions(result.features || []);
+      setSearchError(null);
     } catch (error) {
-      console.error('Mapbox search error:', error);
+      // Ignore abort errors (user typed new text)
+      if (error.name === "AbortError") {
+        return;
+      }
+      console.error("Mapbox search error:", error);
       setSuggestions([]);
+      setSearchError(
+        t("address_search_error") ||
+          "Address search failed. Try entering manually.",
+      );
+    } finally {
+      setLoadingSuggestions(false);
     }
-    setLoadingSuggestions(false);
   };
 
   const handleAddressSelect = (item) => {
@@ -144,14 +229,14 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
     // Parse Mapbox response
     const context = item.context || [];
-    const cityInfo = context.find(c => c.id.includes('place'));
-    const postalCodeInfo = context.find(c => c.id.includes('postcode'));
+    const cityInfo = context.find((c) => c.id.includes("place"));
+    const postalCodeInfo = context.find((c) => c.id.includes("postcode"));
 
-    const streetNumberFromItem = item.address || '';
-    const streetName = item.text || '';
+    const streetNumberFromItem = item.address || "";
+    const streetName = item.text || "";
 
-    const cityName = cityInfo ? cityInfo.text : '';
-    const postalCodeValue = postalCodeInfo ? postalCodeInfo.text : '';
+    const cityName = cityInfo ? cityInfo.text : "";
+    const postalCodeValue = postalCodeInfo ? postalCodeInfo.text : "";
 
     setStreet(streetName);
     setStreetNumber(streetNumberFromItem);
@@ -162,7 +247,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     if (item.center) {
       setSelectedLocation({
         latitude: item.center[1],
-        longitude: item.center[0]
+        longitude: item.center[0],
       });
       setShowMap(true);
     }
@@ -171,10 +256,11 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   const handleUseCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== "granted") {
         Alert.alert(
-          t('permission_denied') || 'Permission denied',
-          t('location_permission_message') || 'We need your location to continue.'
+          t("permission_denied") || "Permission denied",
+          t("location_permission_message") ||
+            "We need your location to continue.",
         );
         return;
       }
@@ -182,13 +268,13 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       const location = await Location.getCurrentPositionAsync({});
       setSelectedLocation({
         latitude: location.coords.latitude,
-        longitude: location.coords.longitude
+        longitude: location.coords.longitude,
       });
       setShowMap(true);
 
       // Use Mapbox for reverse geocoding
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${MAPBOX_TOKEN}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${MAPBOX_TOKEN}`,
       );
       const data = await response.json();
 
@@ -197,69 +283,86 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
         handleAddressSelect(address);
       }
     } catch (error) {
-      console.error('Error getting location:', error);
+      console.error("Error getting location:", error);
       Alert.alert(
-        t('error') || 'Error',
-        t('location_error') || 'Unable to get your current location'
+        t("error") || "Error",
+        t("location_error") || "Unable to get your current location",
       );
     }
   };
 
   const handleSelectCategory = (item) => {
     const newSelectedCategories = selectedCategories.includes(item.value)
-      ? selectedCategories.filter(cat => cat !== item.value)
+      ? selectedCategories.filter((cat) => cat !== item.value)
       : [...selectedCategories, item.value];
     dispatch(setSelectedCategories(newSelectedCategories));
   };
 
   const handleRemoveCategory = (categoryID) => {
-    dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)));
+    dispatch(
+      setSelectedCategories(
+        selectedCategories.filter((cat) => cat !== categoryID),
+      ),
+    );
   };
 
   const getCategoryName = (id) => {
-    const category = categories.find(cat => cat.id === id);
+    const category = categories.find((cat) => cat.id === id);
     return category ? category.name : null;
   };
 
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        mediaTypes: ["images"],
+        allowsEditing: false, // Disable native editing, use our ImageEditor
+        quality: 1, // Keep full quality, ImageEditor will compress
       });
 
       if (!result.canceled && result.assets?.[0]?.uri) {
-        setSelectedImages(prev => [...prev, { uri: result.assets[0].uri }]);
+        // Show image editor instead of adding directly
+        setImageToEdit(result.assets[0].uri);
       }
     } catch (e) {
-      console.error('Image picker error:', e);
+      console.error("Image picker error:", e);
       Alert.alert(
-        t('error') || 'Error',
-        t('image_picker_error') || 'Unable to open image picker. Please try again.'
+        t("error") || "Error",
+        t("image_picker_error") ||
+          "Unable to open image picker. Please try again.",
       );
     }
   };
 
+  // Callback when image editing is complete
+  const handleImageEdited = (editedUri) => {
+    setSelectedImages((prev) => [...prev, { uri: editedUri }]);
+    setImageToEdit(null);
+  };
+
+  // Cancel image editing
+  const handleCancelEdit = () => {
+    setImageToEdit(null);
+  };
+
   const handleRemoveImage = (index) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const uploadImageToCloudflare = async (uri) => {
-    const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
-    const apiToken = 'mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K';
+    const cloudflareAccountId = "e593403f5f942f93365e9cd0be4065a1";
+    const apiToken = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
 
     const fileName = `photo_${Date.now()}.jpg`;
-    const imageUri = Platform.OS === 'android' && !uri.startsWith('file://')
-      ? `file://${uri}`
-      : uri;
+    const imageUri =
+      Platform.OS === "android" && !uri.startsWith("file://")
+        ? `file://${uri}`
+        : uri;
 
     const formData = new FormData();
-    formData.append('file', {
+    formData.append("file", {
       uri: imageUri,
       name: fileName,
-      type: 'image/jpeg'
+      type: "image/jpeg",
     });
 
     const controller = new AbortController();
@@ -268,14 +371,17 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     }, 30000);
 
     try {
-      const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiToken}`,
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: formData,
+          signal: controller.signal,
         },
-        body: formData,
-        signal: controller.signal
-      });
+      );
 
       clearTimeout(timeoutId);
 
@@ -283,24 +389,30 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
       if (!data.success) {
         console.error("Cloudflare error:", data.errors);
-        throw new Error('Cloudflare upload failed');
+        throw new Error("Cloudflare upload failed");
       }
 
       return data.result.variants[0];
     } catch (uploadError) {
       clearTimeout(timeoutId);
-      if (uploadError.name === 'AbortError') {
-        throw new Error('IMAGE_UPLOAD_TIMEOUT');
+      if (uploadError.name === "AbortError") {
+        throw new Error("IMAGE_UPLOAD_TIMEOUT");
       }
       throw uploadError;
     }
   };
 
   const validateField = (fieldName, value) => {
-    const requiredFields = ['name', 'street', 'city', 'postalCode', 'description'];
+    const requiredFields = [
+      "name",
+      "street",
+      "city",
+      "postalCode",
+      "description",
+    ];
     const isRequired = requiredFields.includes(fieldName);
 
-    if (isRequired && (!value || value.trim() === '')) {
+    if (isRequired && (!value || value.trim() === "")) {
       return true;
     }
     return false;
@@ -309,14 +421,14 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
   const validateAllFields = () => {
     const errors = {};
     const requiredFields = [
-      { key: 'name', value: name },
-      { key: 'street', value: street },
-      { key: 'city', value: city },
-      { key: 'postalCode', value: postalCode },
-      { key: 'description', value: description }
+      { key: "name", value: name },
+      { key: "street", value: street },
+      { key: "city", value: city },
+      { key: "postalCode", value: postalCode },
+      { key: "description", value: description },
     ];
 
-    requiredFields.forEach(field => {
+    requiredFields.forEach((field) => {
       if (validateField(field.key, field.value)) {
         errors[field.key] = true;
       }
@@ -384,6 +496,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       images: images || [],
       imageUrl: images?.[0] || "",
       is_validated: false,
+      created: serverTimestamp(),
       email: storeEmail || "",
       phone: phone || "",
       managerFirstName: managerFirstName || "",
@@ -417,7 +530,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     setHasAttemptedSubmit(true);
 
     if (!validateAllFields()) {
-      Alert.alert(t('error'), t('required_fields_error'));
+      Alert.alert(t("error"), t("required_fields_error"));
       return;
     }
 
@@ -438,15 +551,17 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
           }
         } catch (uploadError) {
           setIsSubmitting(false);
-          if (uploadError.message === 'IMAGE_UPLOAD_TIMEOUT') {
+          if (uploadError.message === "IMAGE_UPLOAD_TIMEOUT") {
             Alert.alert(
-              t('error') || 'Error',
-              t('image_upload_timeout') || 'Image upload timed out. Please check your internet connection and try again.'
+              t("error") || "Error",
+              t("image_upload_timeout") ||
+                "Image upload timed out. Please check your internet connection and try again.",
             );
           } else {
             Alert.alert(
-              t('error') || 'Error',
-              t('image_upload_failed') || 'Image upload failed. Please try again or remove the image.'
+              t("error") || "Error",
+              t("image_upload_failed") ||
+                "Image upload failed. Please try again or remove the image.",
             );
           }
           return;
@@ -455,7 +570,7 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
       // Geocode address
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
-      const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
+      const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -466,16 +581,24 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       try {
         response = await fetch(
           `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         clearTimeout(timeoutId);
       } catch (fetchError) {
         clearTimeout(timeoutId);
         setIsSubmitting(false);
-        if (fetchError.name === 'AbortError') {
-          Alert.alert(t('error') || "Error", t('network_timeout') || "Connection timed out. Check your internet connection.");
+        if (fetchError.name === "AbortError") {
+          Alert.alert(
+            t("error") || "Error",
+            t("network_timeout") ||
+              "Connection timed out. Check your internet connection.",
+          );
         } else {
-          Alert.alert(t('error') || "Error", t('network_error') || "Connection error. Check your internet connection.");
+          Alert.alert(
+            t("error") || "Error",
+            t("network_error") ||
+              "Connection error. Check your internet connection.",
+          );
         }
         return;
       }
@@ -484,7 +607,11 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
 
       if (data.status !== "OK" || data.results.length === 0) {
         setIsSubmitting(false);
-        Alert.alert(t('error') || "Error", t('address_not_found') || "Unable to find address. Please check the information.");
+        Alert.alert(
+          t("error") || "Error",
+          t("address_not_found") ||
+            "Unable to find address. Please check the information.",
+        );
         return;
       }
 
@@ -492,12 +619,20 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       const latitude = Number(location.lat);
       const longitude = Number(location.lng);
 
-      const ownerId = user ? await getOwnerId(user.id) || null : null;
+      const ownerId = user ? (await getOwnerId(user.id)) || null : null;
 
       // Get next store ID
       const storesRef = collection(firestore, "stores");
-      const maxIdQuery = firestoreQuery(storesRef, orderBy('id', 'desc'), limit(1));
-      const maxIdSnapshot = await withTimeout(getDocs(maxIdQuery), 20000, 'FIRESTORE_TIMEOUT');
+      const maxIdQuery = firestoreQuery(
+        storesRef,
+        orderBy("id", "desc"),
+        limit(1),
+      );
+      const maxIdSnapshot = await withTimeout(
+        getDocs(maxIdQuery),
+        20000,
+        "FIRESTORE_TIMEOUT",
+      );
 
       let maxId = 0;
       if (!maxIdSnapshot.empty) {
@@ -506,31 +641,45 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       }
 
       const newStoreId = maxId + 1;
-      const storeData = await buildStoreData(ownerId, latitude, longitude, images);
+      const storeData = await buildStoreData(
+        ownerId,
+        latitude,
+        longitude,
+        images,
+      );
       storeData.id = newStoreId;
 
       // Add store to Firestore
-      await withTimeout(addDoc(storesRef, storeData), 20000, 'FIRESTORE_TIMEOUT');
+      await withTimeout(
+        addDoc(storesRef, storeData),
+        20000,
+        "FIRESTORE_TIMEOUT",
+      );
 
       // Send notification emails (fire-and-forget)
       const emailToUse = storeEmail || user?.email;
       if (emailToUse) {
-        const sendStoreCreationEmail = httpsCallable(functions, 'sendStoreCreationEmail');
+        const sendStoreCreationEmail = httpsCallable(
+          functions,
+          "sendStoreCreationEmail",
+        );
         sendStoreCreationEmail({
           storeName: name,
           storeEmail: emailToUse,
           city: city,
           categories: selectedCategories,
-          language: t('locale') === 'fr' ? 'fr' : 'en'
-        }).catch(emailError => {
-          console.error('Error sending store creation emails:', emailError);
+          language: t("locale") === "fr" ? "fr" : "en",
+        }).catch((emailError) => {
+          console.error("Error sending store creation emails:", emailError);
         });
       }
 
       // Update city in background
-      ensureCityExists(city, postalCode, latitude, longitude, "FR").catch(cityError => {
-        console.error('Error ensuring city exists:', cityError);
-      });
+      ensureCityExists(city, postalCode, latitude, longitude, "FR").catch(
+        (cityError) => {
+          console.error("Error ensuring city exists:", cityError);
+        },
+      );
 
       // Clear selected categories
       dispatch(setSelectedCategories([]));
@@ -544,15 +693,17 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
       console.error("Error adding store:", error);
       setIsSubmitting(false);
 
-      if (error.message === 'FIRESTORE_TIMEOUT') {
+      if (error.message === "FIRESTORE_TIMEOUT") {
         Alert.alert(
-          t('error') || "Error",
-          t('network_timeout') || "Connection timed out. Check your internet connection and try again."
+          t("error") || "Error",
+          t("network_timeout") ||
+            "Connection timed out. Check your internet connection and try again.",
         );
       } else {
         Alert.alert(
-          t('error') || "Error",
-          t('store_add_error') || "Unable to add store. Check your internet connection and try again."
+          t("error") || "Error",
+          t("store_add_error") ||
+            "Unable to add store. Check your internet connection and try again.",
         );
       }
     }
@@ -563,7 +714,10 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     setHasAttemptedSubmit(true);
 
     if (!validateAllFields()) {
-      Alert.alert(t('error'), t('required_fields_error') || 'Please fill in all required fields');
+      Alert.alert(
+        t("error"),
+        t("required_fields_error") || "Please fill in all required fields",
+      );
       return null;
     }
 
@@ -624,6 +778,9 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     handleAddressSelect,
     handleUseCurrentLocation,
     clearSuggestions,
+    searchError,
+    manualEntryMode,
+    setManualEntryMode,
 
     // Validation
     validationErrors,
@@ -641,6 +798,12 @@ export const useStoreForm = ({ t, onSuccess, mode = 'standalone' }) => {
     buildStoreData,
     uploadImageToCloudflare,
     getOwnerId,
+
+    // Image editor
+    imageToEdit,
+    setImageToEdit,
+    handleImageEdited,
+    handleCancelEdit,
 
     // User info
     user,

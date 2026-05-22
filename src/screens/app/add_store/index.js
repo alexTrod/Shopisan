@@ -14,17 +14,31 @@ import {
   Keyboard,
   BackHandler,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
-import { collection, addDoc, getDocs, doc, getDoc, query as firestoreQuery, orderBy, limit } from "firebase/firestore";
+import ImageEditor from "../../../components/image-editor";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  getDoc,
+  query as firestoreQuery,
+  orderBy,
+  limit,
+  serverTimestamp,
+} from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
-import { setSelectedCategories, setCategories } from "../../../Redux/Actions/CategoriesActions";
-import * as ImagePicker from 'expo-image-picker';
+import {
+  setSelectedCategories,
+  setCategories,
+} from "../../../Redux/Actions/CategoriesActions";
+import * as ImagePicker from "expo-image-picker";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
 import LocationIcon from "../../../../assets/icons/location-icon";
 import CloseIcon from "../../../../assets/icons/close-icon";
@@ -33,20 +47,25 @@ import CameraIcon from "../../../../assets/icons/camera-icon";
 import AddCircleIcon from "../../../../assets/icons/add-circle-icon";
 import MapboxGL from "@rnmapbox/maps";
 import { useTranslation } from "../../../utils/useTranslation";
-import * as Location from 'expo-location';
+import * as Location from "expo-location";
 import Toast from "react-native-toast-message";
 import { ensureCityExists } from "../../../utils/cityManagement";
 import OpeningHoursPicker from "../../../components/opening-hours-picker";
 
-MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
+MapboxGL.setAccessToken(
+  "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ",
+);
 
 // Helper to add timeout to any promise
 const withTimeout = (promise, ms, errorMessage) => {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(errorMessage || 'Operation timed out')), ms)
-    )
+      setTimeout(
+        () => reject(new Error(errorMessage || "Operation timed out")),
+        ms,
+      ),
+    ),
   ]);
 };
 
@@ -58,12 +77,16 @@ export default function AddStoreScreen({ navigation }) {
   useEffect(() => {
     if (!user) {
       Alert.alert(
-        t('login_required') || 'Login Required',
-        t('login_required_add_store_message') || 'Please sign up or log in to add a store.',
+        t("login_required") || "Login Required",
+        t("login_required_add_store_message") ||
+          "Please sign up or log in to add a store.",
         [
-          { text: t('cancel') || 'Cancel', onPress: () => navigation.goBack() },
-          { text: t('sign_up') || 'Sign Up', onPress: () => navigation.navigate('Signup') }
-        ]
+          { text: t("cancel") || "Cancel", onPress: () => navigation.goBack() },
+          {
+            text: t("sign_up") || "Sign Up",
+            onPress: () => navigation.navigate("Signup"),
+          },
+        ],
       );
     }
   }, [user, navigation, t]);
@@ -74,22 +97,25 @@ export default function AddStoreScreen({ navigation }) {
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [description, setDescription] = useState("");
-  const { categories, selectedCategories } = useSelector(state => state.categories);
+  const { categories, selectedCategories } = useSelector(
+    (state) => state.categories,
+  );
   const [modalVisible, setModalVisible] = useState(false);
   const dispatch = useDispatch();
   const [selectedImages, setSelectedImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [storeEmail, setStoreEmail] = useState('');
-  const [website, setWebsite] = useState('');
-  const [phone, setPhone] = useState('');
-  const [managerFirstName, setManagerFirstName] = useState('');
-  const [managerLastName, setManagerLastName] = useState('');
-  
+  const [imageToEdit, setImageToEdit] = useState(null);
+  const [storeEmail, setStoreEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [phone, setPhone] = useState("");
+  const [managerFirstName, setManagerFirstName] = useState("");
+  const [managerLastName, setManagerLastName] = useState("");
+
   // Validation states
   const [validationErrors, setValidationErrors] = useState({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  
-  const [query, setQuery] = useState('');
+
+  const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isAddingStore, setIsAddingStore] = useState(false);
@@ -103,15 +129,15 @@ export default function AddStoreScreen({ navigation }) {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
+        if (status === "granted") {
           const location = await Location.getCurrentPositionAsync({});
           setUserProximity({
             longitude: location.coords.longitude,
-            latitude: location.coords.latitude
+            latitude: location.coords.latitude,
           });
         }
       } catch (error) {
-        console.log('Could not get location for proximity:', error);
+        console.log("Could not get location for proximity:", error);
       }
     })();
   }, []);
@@ -125,22 +151,23 @@ export default function AddStoreScreen({ navigation }) {
     }
     setLoadingSuggestions(true);
 
-    const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+    const mapboxToken =
+      "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
 
     try {
       // Use Mapbox with French language preference for better French results
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
-        `access_token=${mapboxToken}` +
-        `&autocomplete=true` +
-        `&limit=10` +
-        `&language=fr` +
-        `&types=address,poi,place,locality,neighborhood`
+          `access_token=${mapboxToken}` +
+          `&autocomplete=true` +
+          `&limit=10` +
+          `&language=fr` +
+          `&types=address,poi,place,locality,neighborhood`,
       );
       const result = await response.json();
       setSuggestions(result.features || []);
     } catch (error) {
-      console.error('Mapbox search error:', error);
+      console.error("Mapbox search error:", error);
       setSuggestions([]);
     }
     setLoadingSuggestions(false);
@@ -153,14 +180,14 @@ export default function AddStoreScreen({ navigation }) {
 
     // Parse Mapbox response
     const context = item.context || [];
-    const cityInfo = context.find(c => c.id.includes('place'));
-    const postalCodeInfo = context.find(c => c.id.includes('postcode'));
+    const cityInfo = context.find((c) => c.id.includes("place"));
+    const postalCodeInfo = context.find((c) => c.id.includes("postcode"));
 
-    const streetNumber = item.address || '';
-    const streetName = item.text || '';
+    const streetNumber = item.address || "";
+    const streetName = item.text || "";
 
-    const city = cityInfo ? cityInfo.text : '';
-    const postalCode = postalCodeInfo ? postalCodeInfo.text : '';
+    const city = cityInfo ? cityInfo.text : "";
+    const postalCode = postalCodeInfo ? postalCodeInfo.text : "";
 
     setStreet(streetName);
     setStreetNumber(streetNumber);
@@ -171,32 +198,36 @@ export default function AddStoreScreen({ navigation }) {
     if (item.center) {
       setSelectedLocation({
         latitude: item.center[1],
-        longitude: item.center[0]
+        longitude: item.center[0],
       });
       setShowMap(true);
     }
-  };  
+  };
 
   const handleUseCurrentLocation = async () => {
-    const mapboxToken = 'sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ';
+    const mapboxToken =
+      "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission refusée', 'Nous avons besoin de votre localisation pour continuer.');
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission refusée",
+          "Nous avons besoin de votre localisation pour continuer.",
+        );
         return;
       }
 
       const location = await Location.getCurrentPositionAsync({});
       setSelectedLocation({
         latitude: location.coords.latitude,
-        longitude: location.coords.longitude
+        longitude: location.coords.longitude,
       });
       setShowMap(true);
 
       // Use Mapbox for reverse geocoding
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${mapboxToken}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${mapboxToken}`,
       );
       const data = await response.json();
 
@@ -205,8 +236,8 @@ export default function AddStoreScreen({ navigation }) {
         handleAddressSelect(address);
       }
     } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Erreur', 'Impossible d\'obtenir votre position actuelle');
+      console.error("Error getting location:", error);
+      Alert.alert("Erreur", "Impossible d'obtenir votre position actuelle");
     }
   };
 
@@ -218,7 +249,7 @@ export default function AddStoreScreen({ navigation }) {
     friday: { morning: null, afternoon: null },
     saturday: { morning: null, afternoon: null },
     sunday: { morning: null, afternoon: null },
-  });      
+  });
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -228,89 +259,106 @@ export default function AddStoreScreen({ navigation }) {
     loadCategories();
   }, []);
 
-  const data = categories.map(category => ({
+  const data = categories.map((category) => ({
     value: category.id,
     label: category.name,
   }));
 
   const getCategoryName = (id) => {
-    const category = categories.find(cat => cat.id === id);
+    const category = categories.find((cat) => cat.id === id);
     return category ? category.name : null;
   };
 
   const handleSelectCategory = (item) => {
     const newSelectedCategories = selectedCategories.includes(item.value)
-      ? selectedCategories.filter(cat => cat !== item.value)
+      ? selectedCategories.filter((cat) => cat !== item.value)
       : [...selectedCategories, item.value];
     dispatch(setSelectedCategories(newSelectedCategories));
   };
 
   const handleRemoveCategory = (categoryID) => {
-    dispatch(setSelectedCategories(selectedCategories.filter(cat => cat !== categoryID)));
+    dispatch(
+      setSelectedCategories(
+        selectedCategories.filter((cat) => cat !== categoryID),
+      ),
+    );
   };
 
   const uploadImageToCloudflare = async (uri) => {
-    const cloudflareAccountId = 'e593403f5f942f93365e9cd0be4065a1';
-    const apiToken = 'mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K';
+    const cloudflareAccountId = "e593403f5f942f93365e9cd0be4065a1";
+    const apiToken = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
 
     const fileName = `photo_${Date.now()}.jpg`;
 
     // On Android, ensure the URI is properly formatted
-    const imageUri = Platform.OS === 'android' && !uri.startsWith('file://')
-      ? `file://${uri}`
-      : uri;
+    const imageUri =
+      Platform.OS === "android" && !uri.startsWith("file://")
+        ? `file://${uri}`
+        : uri;
 
-    console.log('[AddStore] Uploading image from URI:', imageUri);
+    console.log("[AddStore] Uploading image from URI:", imageUri);
 
     const formData = new FormData();
-    formData.append('file', {
+    formData.append("file", {
       uri: imageUri,
       name: fileName,
-      type: 'image/jpeg'
+      type: "image/jpeg",
     });
 
     // Add timeout for image upload (30 seconds)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('[AddStore] Image upload timeout after 30s');
+      console.log("[AddStore] Image upload timeout after 30s");
       controller.abort();
     }, 30000);
 
     try {
-      const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiToken}`,
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: formData,
+          signal: controller.signal,
         },
-        body: formData,
-        signal: controller.signal
-      });
+      );
 
       clearTimeout(timeoutId);
 
       const data = await response.json();
-      console.log('[AddStore] Cloudflare response:', data.success ? 'success' : 'failed');
+      console.log(
+        "[AddStore] Cloudflare response:",
+        data.success ? "success" : "failed",
+      );
 
       if (!data.success) {
         console.error("Erreur Cloudflare:", data.errors);
-        throw new Error('Échec de l\'upload vers Cloudflare');
+        throw new Error("Échec de l'upload vers Cloudflare");
       }
 
       return data.result.variants[0];
     } catch (uploadError) {
       clearTimeout(timeoutId);
-      if (uploadError.name === 'AbortError') {
-        throw new Error('IMAGE_UPLOAD_TIMEOUT');
+      if (uploadError.name === "AbortError") {
+        throw new Error("IMAGE_UPLOAD_TIMEOUT");
       }
       throw uploadError;
     }
   };
 
   const validateField = (fieldName, value) => {
-    const requiredFields = ['name', 'street', 'city', 'postalCode', 'description'];
+    const requiredFields = [
+      "name",
+      "street",
+      "city",
+      "postalCode",
+      "description",
+    ];
     const isRequired = requiredFields.includes(fieldName);
-    
-    if (isRequired && (!value || value.trim() === '')) {
+
+    if (isRequired && (!value || value.trim() === "")) {
       return true; // Has error
     }
     return false; // No error
@@ -319,14 +367,14 @@ export default function AddStoreScreen({ navigation }) {
   const validateAllFields = () => {
     const errors = {};
     const requiredFields = [
-      { key: 'name', value: name },
-      { key: 'street', value: street },
-      { key: 'city', value: city },
-      { key: 'postalCode', value: postalCode },
-      { key: 'description', value: description }
+      { key: "name", value: name },
+      { key: "street", value: street },
+      { key: "city", value: city },
+      { key: "postalCode", value: postalCode },
+      { key: "description", value: description },
     ];
 
-    requiredFields.forEach(field => {
+    requiredFields.forEach((field) => {
       if (validateField(field.key, field.value)) {
         errors[field.key] = true;
       }
@@ -342,22 +390,29 @@ export default function AddStoreScreen({ navigation }) {
 
   const getInputStyle = (fieldName) => {
     const hasError = hasAttemptedSubmit && validationErrors[fieldName];
-    return [
-      styles.input,
-      hasError && styles.inputError
-    ];
+    return [styles.input, hasError && styles.inputError];
   };
 
   const handleAddStore = async () => {
     setHasAttemptedSubmit(true);
 
     if (!validateAllFields()) {
-      Alert.alert(t('error'), t('required_fields_error'));
+      Alert.alert(t("error"), t("required_fields_error"));
       return;
     }
 
-    if (!name || !street || !city || !postalCode || !description || selectedCategories.length === 0) {
-      Alert.alert("Erreur", "Les champs obligatoires sont : nom, adresse, ville, code postal, description et au moins une catégorie.");
+    if (
+      !name ||
+      !street ||
+      !city ||
+      !postalCode ||
+      !description ||
+      selectedCategories.length === 0
+    ) {
+      Alert.alert(
+        "Erreur",
+        "Les champs obligatoires sont : nom, adresse, ville, code postal, description et au moins une catégorie.",
+      );
       return;
     }
 
@@ -373,25 +428,27 @@ export default function AddStoreScreen({ navigation }) {
       // Upload all selected images
       if (selectedImages.length > 0) {
         try {
-          console.log('[AddStore] Starting image uploads...');
+          console.log("[AddStore] Starting image uploads...");
           for (const img of selectedImages) {
             const uploadedUrl = await uploadImageToCloudflare(img.uri);
             images.push(uploadedUrl);
           }
-          console.log('[AddStore] Image uploads successful:', images);
+          console.log("[AddStore] Image uploads successful:", images);
         } catch (uploadError) {
-          console.error('[AddStore] Image upload failed:', uploadError);
+          console.error("[AddStore] Image upload failed:", uploadError);
           setIsAddingStore(false);
 
-          if (uploadError.message === 'IMAGE_UPLOAD_TIMEOUT') {
+          if (uploadError.message === "IMAGE_UPLOAD_TIMEOUT") {
             Alert.alert(
-              t('error') || 'Error',
-              t('image_upload_timeout') || 'Image upload timed out. Please check your internet connection and try again.'
+              t("error") || "Error",
+              t("image_upload_timeout") ||
+                "Image upload timed out. Please check your internet connection and try again.",
             );
           } else {
             Alert.alert(
-              t('error') || 'Error',
-              t('image_upload_failed') || 'Image upload failed. Please try again or remove the image.'
+              t("error") || "Error",
+              t("image_upload_failed") ||
+                "Image upload failed. Please try again or remove the image.",
             );
           }
           return;
@@ -399,15 +456,15 @@ export default function AddStoreScreen({ navigation }) {
       }
 
       const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
-      console.log('[AddStore] Full address:', fullAddress);
+      console.log("[AddStore] Full address:", fullAddress);
 
-      const apiKey = 'AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA';
+      const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
 
       // Add timeout for geocoding API call (15 seconds)
-      console.log('[AddStore] Starting geocoding...');
+      console.log("[AddStore] Starting geocoding...");
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('[AddStore] Geocoding timeout after 15s');
+        console.log("[AddStore] Geocoding timeout after 15s");
         controller.abort();
       }, 15000);
 
@@ -415,16 +472,24 @@ export default function AddStoreScreen({ navigation }) {
       try {
         response = await fetch(
           `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         clearTimeout(timeoutId);
       } catch (fetchError) {
         clearTimeout(timeoutId);
         setIsAddingStore(false);
-        if (fetchError.name === 'AbortError') {
-          Alert.alert(t('error') || "Erreur", t('network_timeout') || "La connexion a pris trop de temps. Vérifiez votre connexion internet.");
+        if (fetchError.name === "AbortError") {
+          Alert.alert(
+            t("error") || "Erreur",
+            t("network_timeout") ||
+              "La connexion a pris trop de temps. Vérifiez votre connexion internet.",
+          );
         } else {
-          Alert.alert(t('error') || "Erreur", t('network_error') || "Erreur de connexion. Vérifiez votre connexion internet.");
+          Alert.alert(
+            t("error") || "Erreur",
+            t("network_error") ||
+              "Erreur de connexion. Vérifiez votre connexion internet.",
+          );
         }
         return;
       }
@@ -433,40 +498,50 @@ export default function AddStoreScreen({ navigation }) {
 
       if (data.status !== "OK" || data.results.length === 0) {
         setIsAddingStore(false);
-        Alert.alert("Erreur", "Impossible de trouver l'adresse. Vérifiez les informations.");
+        Alert.alert(
+          "Erreur",
+          "Impossible de trouver l'adresse. Vérifiez les informations.",
+        );
         return;
       }
 
       const location = data.results[0].geometry.location;
       const latitude = Number(location.lat);
       const longitude = Number(location.lng);
-      console.log('[AddStore] Geocoding successful:', latitude, longitude);
+      console.log("[AddStore] Geocoding successful:", latitude, longitude);
 
-      console.log('[AddStore] Getting owner ID...');
+      console.log("[AddStore] Getting owner ID...");
       let ownerId = null;
       if (user) {
         try {
           ownerId = await withTimeout(
             getOwnerId(user.id),
             15000,
-            'OWNER_ID_TIMEOUT'
+            "OWNER_ID_TIMEOUT",
           );
         } catch (ownerError) {
-          console.warn('[AddStore] Could not fetch owner ID, continuing without it:', ownerError.message);
+          console.warn(
+            "[AddStore] Could not fetch owner ID, continuing without it:",
+            ownerError.message,
+          );
           // Continue without owner ID - store can still be created
         }
       }
-      console.log('[AddStore] Owner ID:', ownerId);
+      console.log("[AddStore] Owner ID:", ownerId);
 
       const storesRef = collection(firestore, "stores");
 
       // Only fetch the store with highest ID instead of all stores (20s timeout)
-      console.log('[AddStore] Fetching max store ID...');
-      const maxIdQuery = firestoreQuery(storesRef, orderBy('id', 'desc'), limit(1));
+      console.log("[AddStore] Fetching max store ID...");
+      const maxIdQuery = firestoreQuery(
+        storesRef,
+        orderBy("id", "desc"),
+        limit(1),
+      );
       const maxIdSnapshot = await withTimeout(
         getDocs(maxIdQuery),
         20000,
-        'FIRESTORE_TIMEOUT'
+        "FIRESTORE_TIMEOUT",
       );
 
       let maxId = 0;
@@ -474,10 +549,10 @@ export default function AddStoreScreen({ navigation }) {
         const topStore = maxIdSnapshot.docs[0].data();
         maxId = topStore.id || 0;
       }
-      console.log('[AddStore] Max ID found:', maxId);
+      console.log("[AddStore] Max ID found:", maxId);
 
       const newStoreId = maxId + 1;
-      console.log('[AddStore] New store ID:', newStoreId);
+      console.log("[AddStore] New store ID:", newStoreId);
 
       const storeData = {
         id: newStoreId,
@@ -499,7 +574,7 @@ export default function AddStoreScreen({ navigation }) {
             },
           },
         ],
-        
+
         latitude,
         longitude,
 
@@ -512,6 +587,7 @@ export default function AddStoreScreen({ navigation }) {
         images: images,
         imageUrl: images[0] || "",
         is_validated: false,
+        created: serverTimestamp(),
         ...(user?.userType === "merchant" && {
           email: storeEmail || "",
           phone: phone || "",
@@ -521,51 +597,56 @@ export default function AddStoreScreen({ navigation }) {
       };
 
       // Add store to Firestore (20s timeout)
-      console.log('[AddStore] Adding store to Firestore...');
+      console.log("[AddStore] Adding store to Firestore...");
       await withTimeout(
         addDoc(storesRef, storeData),
         20000,
-        'FIRESTORE_TIMEOUT'
+        "FIRESTORE_TIMEOUT",
       );
-      console.log('[AddStore] Store added successfully!');
+      console.log("[AddStore] Store added successfully!");
 
       // Fire-and-forget: send store creation notification emails
       const emailToUse = storeEmail || user?.email;
       if (emailToUse) {
-        const sendStoreCreationEmail = httpsCallable(functions, 'sendStoreCreationEmail');
+        const sendStoreCreationEmail = httpsCallable(
+          functions,
+          "sendStoreCreationEmail",
+        );
         sendStoreCreationEmail({
           storeName: name,
           storeEmail: emailToUse,
           city: city,
           categories: selectedCategories,
-          language: t('locale') === 'fr' ? 'fr' : 'en'
-        }).then(() => {
-          console.log('Store creation emails sent successfully');
-        }).catch(emailError => {
-          console.error('Error sending store creation emails:', emailError);
-        });
+          language: t("locale") === "fr" ? "fr" : "en",
+        })
+          .then(() => {
+            console.log("Store creation emails sent successfully");
+          })
+          .catch((emailError) => {
+            console.error("Error sending store creation emails:", emailError);
+          });
       }
 
       // Fire-and-forget: update city in background (don't block UI)
       ensureCityExists(city, postalCode, latitude, longitude, "FR")
-        .then(cityResult => {
+        .then((cityResult) => {
           if (cityResult.success) {
             console.log(cityResult.message);
           } else {
-            console.warn('City creation/update had issues:', cityResult.error);
+            console.warn("City creation/update had issues:", cityResult.error);
           }
         })
-        .catch(cityError => {
-          console.error('Error ensuring city exists:', cityError);
+        .catch((cityError) => {
+          console.error("Error ensuring city exists:", cityError);
         });
 
-      DeviceEventEmitter.emit('stores:refresh');
+      DeviceEventEmitter.emit("stores:refresh");
       dispatch(setSelectedCategories([]));
-      
+
       Toast.show({
-        text1: t('store_added_title'),
-        text2: t('store_added_description'),
-        type: 'success',
+        text1: t("store_added_title"),
+        text2: t("store_added_description"),
+        type: "success",
         visibilityTime: 6000,
       });
 
@@ -576,69 +657,83 @@ export default function AddStoreScreen({ navigation }) {
       setIsAddingStore(false);
 
       // Check for timeout error
-      if (error.message === 'FIRESTORE_TIMEOUT') {
+      if (error.message === "FIRESTORE_TIMEOUT") {
         Alert.alert(
-          t('error') || "Erreur",
-          t('network_timeout') || "La connexion a pris trop de temps. Vérifiez votre connexion internet et réessayez."
+          t("error") || "Erreur",
+          t("network_timeout") ||
+            "La connexion a pris trop de temps. Vérifiez votre connexion internet et réessayez.",
         );
       } else {
         Alert.alert(
-          t('error') || "Erreur",
-          t('store_add_error') || "Impossible d'ajouter le magasin. Vérifiez votre connexion internet et réessayez."
+          t("error") || "Erreur",
+          t("store_add_error") ||
+            "Impossible d'ajouter le magasin. Vérifiez votre connexion internet et réessayez.",
         );
       }
     }
-  };  
+  };
 
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        mediaTypes: ["images"],
+        allowsEditing: false, // Disable native editing, use our ImageEditor
+        quality: 1, // Keep full quality, ImageEditor will compress
       });
 
       if (!result.canceled && result.assets?.[0]?.uri) {
-        setSelectedImages(prev => [...prev, { uri: result.assets[0].uri }]);
+        // Show image editor instead of adding directly
+        setImageToEdit(result.assets[0].uri);
       }
     } catch (e) {
-      console.error('[AddStore] Image picker error:', e);
+      console.error("[AddStore] Image picker error:", e);
       Alert.alert(
-        t('error') || 'Error',
-        t('image_picker_error') || 'Unable to open image picker. Please try again.'
+        t("error") || "Error",
+        t("image_picker_error") ||
+          "Unable to open image picker. Please try again.",
       );
     }
   };
 
+  // Callback when image editing is complete
+  const handleImageEdited = (editedUri) => {
+    setSelectedImages((prev) => [...prev, { uri: editedUri }]);
+    setImageToEdit(null);
+  };
+
+  // Cancel image editing
+  const handleCancelEdit = () => {
+    setImageToEdit(null);
+  };
+
   const handleRemoveImage = (index) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-  };  
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const getOwnerId = async (userId) => {
-      try {
-        const userRef = doc(firestore, "users", userId);
-        const userSnap = await getDoc(userRef);
-    
-        if (userSnap.exists()) {
-          const ownerId = userSnap.data().id;
-          return ownerId;
-        } else {
-          console.error("Utilisateur introuvable dans Firestore.");
-          return null;
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération de l'owner_id :", error);
+    try {
+      const userRef = doc(firestore, "users", userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const ownerId = userSnap.data().id;
+        return ownerId;
+      } else {
+        console.error("Utilisateur introuvable dans Firestore.");
         return null;
       }
-    };
+    } catch (error) {
+      console.error("Erreur lors de la récupération de l'owner_id :", error);
+      return null;
+    }
+  };
 
   const formatHours = (hours) => {
     if (!hours.morning && !hours.afternoon) return "Fermé";
 
     const formatTimeDisplay = (timeStr) => {
       if (!timeStr) return "";
-      const parts = timeStr.split(':');
+      const parts = timeStr.split(":");
       const hour = parts[0];
       const minute = parts[1];
       return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
@@ -658,22 +753,27 @@ export default function AddStoreScreen({ navigation }) {
   const [hoursErrors, setHoursErrors] = useState({});
 
   const validateHour = (day, period, field, value) => {
-    let error = '';
+    let error = "";
     if (value && !/^\d{1,2}$/.test(value)) {
-      error = 'notNumber';
+      error = "notNumber";
     }
-    const otherField = field === 'start' ? 'end' : 'start';
+    const otherField = field === "start" ? "end" : "start";
     const otherValue = openingHours[day][period]?.[otherField];
-    if (value && otherValue && /^\d{1,2}$/.test(value) && /^\d{1,2}$/.test(otherValue)) {
-      const v1 = field === 'start' ? value : otherValue;
-      const v2 = field === 'end' ? value : otherValue;
+    if (
+      value &&
+      otherValue &&
+      /^\d{1,2}$/.test(value) &&
+      /^\d{1,2}$/.test(otherValue)
+    ) {
+      const v1 = field === "start" ? value : otherValue;
+      const v2 = field === "end" ? value : otherValue;
       if (parseInt(v1) >= parseInt(v2)) {
-        error = 'order';
+        error = "order";
       }
     }
-    setHoursErrors(prev => ({
+    setHoursErrors((prev) => ({
       ...prev,
-      [`${day}_${period}_${field}`]: error
+      [`${day}_${period}_${field}`]: error,
     }));
   };
 
@@ -701,7 +801,10 @@ export default function AddStoreScreen({ navigation }) {
       return false;
     };
 
-    const sub = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
+    const sub = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onHardwareBack,
+    );
     return () => sub.remove();
   }, [suggestions]);
 
@@ -719,307 +822,408 @@ export default function AddStoreScreen({ navigation }) {
           Add a store
         </Text>
       </View>
-    <ScrollView 
-      contentContainerStyle={styles.scrollContainer} 
-      keyboardShouldPersistTaps="handled"
-      nestedScrollEnabled={true}
-    >
-      <View style={styles.container}>
-        <Text style={styles.label}>{t('store_name')}</Text>
-        <TextInput
-          style={getInputStyle('name')}
-          placeholder={t('store_name')}
-          value={name}
-          onChangeText={setName}
-        />
-
-        <Text style={styles.label}>{t('street_number')}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={t('street_number')}
-          value={streetNumber}
-          onChangeText={setStreetNumber}
-          keyboardType="numeric"
-        />
-
-        <Text style={styles.label}>{t('street')}</Text>
-        <View style={{ position: 'relative', zIndex: 1000 }}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={true}
+      >
+        <View style={styles.container}>
+          <Text style={styles.label}>{t("store_name")}</Text>
           <TextInput
-            style={getInputStyle('street')}
-            placeholder={t('street')}
-            value={street}
-            onChangeText={fetchAddressSuggestions}
+            style={getInputStyle("name")}
+            placeholder={t("store_name")}
+            value={name}
+            onChangeText={setName}
           />
-          {suggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                style={{ maxHeight: 200 }}
-                nestedScrollEnabled={true}
-              >
-                {suggestions.map((item, index) => (
-                  <TouchableOpacity
-                    key={`${item.id}-${index}`}
-                    style={styles.suggestionItem}
-                    onPress={() => handleAddressSelect(item)}
-                  >
-                    <Text style={styles.suggestionText}>{item.place_name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-        </View>
 
-        <Text style={styles.label}>{t('city')}</Text>
-        <TextInput
-          style={getInputStyle('city')}
-          placeholder={t('city')}
-          value={city}
-          onChangeText={setCity}
-        />
-
-        <Text style={styles.label}>{t('postal_code')}</Text>
-        <View style={styles.inputRow}>
+          <Text style={styles.label}>{t("street_number")}</Text>
           <TextInput
-            style={[getInputStyle('postalCode'), { flex: 1 }]}
-            placeholder={t('postal_code')}
-            value={postalCode}
-            onChangeText={setPostalCode}
+            style={styles.input}
+            placeholder={t("street_number")}
+            value={streetNumber}
+            onChangeText={setStreetNumber}
             keyboardType="numeric"
           />
-          <TouchableOpacity 
-            style={styles.locationButton} 
-            onPress={handleUseCurrentLocation}
-          >
-            <LocationIcon width={20} height={20} color={AppColors.primary} />
-          </TouchableOpacity>
-        </View>
 
-        <Text style={styles.label}>{t('description')}</Text>
-        <TextInput
-          style={[getInputStyle('description'), styles.textArea]}
-          placeholder={t('description')}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-        />
-
-        {user?.userType === "merchant" && (
-          <>
-            <Text style={styles.label}>{t('store_email')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
+          <Text style={styles.label}>{t("street")}</Text>
+          <View style={{ position: "relative", zIndex: 1000 }}>
             <TextInput
-              style={styles.input}
-              placeholder={t('store_email')}
-              value={storeEmail}
-              onChangeText={setStoreEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              style={getInputStyle("street")}
+              placeholder={t("street")}
+              value={street}
+              onChangeText={fetchAddressSuggestions}
             />
-
-            <Text style={styles.label}>{t('website')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('website')}
-              value={website}
-              onChangeText={setWebsite}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.label}>{t('phone')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('phone')}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
-
-            <Text style={styles.label}>{t('manager_first_name')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('manager_first_name')}
-              value={managerFirstName}
-              onChangeText={setManagerFirstName}
-            />
-
-            <Text style={styles.label}>{t('manager_last_name')} <Text style={styles.optionalText}>({t('optional')})</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('manager_last_name')}
-              value={managerLastName}
-              onChangeText={setManagerLastName}
-            />
-          </>
-        )}
-
-        <Text style={styles.label}>{t('categories')}</Text>
-        <TouchableOpacity 
-          style={[
-            styles.categoryButton, 
-            hasAttemptedSubmit && validationErrors.categories && styles.categoryButtonError
-          ]} 
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.categoryButtonText}>
-            {selectedCategories.length > 0 ? `${selectedCategories.length} catégorie(s) sélectionnée(s)` : t('select_categories')}
-          </Text>
-        </TouchableOpacity>
-
-        <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}>
-          {selectedCategories.map((categoryID) => (
-            <View key={categoryID} style={styles.selectedCategoryItem}>
-              <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
-              <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)}>
-                <CloseIcon width={18} height={18} color="#6B21A8" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-
-        {showMap && selectedLocation && (
-          <View style={styles.mapContainer}>
-            <MapboxGL.MapView style={styles.map}>
-              <MapboxGL.Camera
-                centerCoordinate={[selectedLocation.longitude, selectedLocation.latitude]}
-                zoomLevel={14}
-              />
-              <MapboxGL.PointAnnotation
-                id="selected-location"
-                coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
-              />
-            </MapboxGL.MapView>
-          </View>
-        )}
-
-        <OpeningHoursPicker
-          value={openingHours}
-          onChange={setOpeningHours}
-          locale={t('locale') === 'en' ? 'en' : 'fr'}
-          showPresets={true}
-          t={t}
-        />
-
-        {/* Image Gallery */}
-        <View style={styles.imageGalleryContainer}>
-          {selectedImages.length > 0 && (
-            <>
-              <FlatList
-                data={selectedImages}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={(e) => {
-                  const index = Math.round(e.nativeEvent.contentOffset.x / (width(80) + 10));
-                  setCurrentImageIndex(index);
-                }}
-                keyExtractor={(_, index) => index.toString()}
-                renderItem={({ item, index }) => (
-                  <View style={styles.imageSlide}>
-                    <Image source={{ uri: item.uri }} style={styles.selectedImage} />
+            {suggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  style={{ maxHeight: 200 }}
+                  nestedScrollEnabled={true}
+                >
+                  {suggestions.map((item, index) => (
                     <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => handleRemoveImage(index)}
+                      key={`${item.id}-${index}`}
+                      style={styles.suggestionItem}
+                      onPress={() => handleAddressSelect(item)}
                     >
-                      <CloseCircleIcon width={30} height={30} color="red" />
+                      <Text style={styles.suggestionText}>
+                        {item.place_name}
+                      </Text>
                     </TouchableOpacity>
-                  </View>
-                )}
-              />
-              {selectedImages.length > 1 && (
-                <View style={styles.paginationDots}>
-                  {selectedImages.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        currentImageIndex === index && styles.activeDot
-                      ]}
-                    />
                   ))}
-                </View>
-              )}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.label}>{t("city")}</Text>
+          <TextInput
+            style={getInputStyle("city")}
+            placeholder={t("city")}
+            value={city}
+            onChangeText={setCity}
+          />
+
+          <Text style={styles.label}>{t("postal_code")}</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[getInputStyle("postalCode"), { flex: 1 }]}
+              placeholder={t("postal_code")}
+              value={postalCode}
+              onChangeText={setPostalCode}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              style={styles.locationButton}
+              onPress={handleUseCurrentLocation}
+            >
+              <LocationIcon width={20} height={20} color={AppColors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>{t("description")}</Text>
+          <TextInput
+            style={[getInputStyle("description"), styles.textArea]}
+            placeholder={t("description")}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={4}
+          />
+
+          {user?.userType === "merchant" && (
+            <>
+              <Text style={styles.label}>
+                {t("store_email")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("store_email")}
+                value={storeEmail}
+                onChangeText={setStoreEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.label}>
+                {t("website")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("website")}
+                value={website}
+                onChangeText={setWebsite}
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.label}>
+                {t("phone")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("phone")}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.label}>
+                {t("manager_first_name")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("manager_first_name")}
+                value={managerFirstName}
+                onChangeText={setManagerFirstName}
+              />
+
+              <Text style={styles.label}>
+                {t("manager_last_name")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("manager_last_name")}
+                value={managerLastName}
+                onChangeText={setManagerLastName}
+              />
             </>
           )}
-          <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
-            <CameraIcon width={24} height={24} color={AppColors.primary} />
-            <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
+
+          <Text style={styles.label}>{t("categories")}</Text>
+          <TouchableOpacity
+            style={[
+              styles.categoryButton,
+              hasAttemptedSubmit &&
+                validationErrors.categories &&
+                styles.categoryButtonError,
+            ]}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={styles.categoryButtonText}>
+              {selectedCategories.length > 0
+                ? `${selectedCategories.length} catégorie(s) sélectionnée(s)`
+                : t("select_categories")}
+            </Text>
           </TouchableOpacity>
-        </View>
 
-        <TouchableOpacity
-          style={[styles.addButton, isAddingStore && styles.addButtonDisabled]}
-          onPress={handleAddStore}
-          disabled={isAddingStore}
-        >
-          {isAddingStore ? (
-            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
-          ) : (
-            <AddCircleIcon width={20} height={20} color="#fff" style={{ marginRight: 8 }} />
-          )}
-          <Text style={styles.addButtonText}>
-            {isAddingStore ? (t('adding_store') || 'Adding...') : t('add_store')}
-          </Text>
-        </TouchableOpacity>
-
-        <Modal animationType="slide" transparent={true} visible={modalVisible}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <TouchableOpacity
-                onPress={() => {
-                  if (selectedCategories.length === categories.length) {
-                    dispatch(setSelectedCategories([]));
-                  } else {
-                    dispatch(setSelectedCategories(categories.map(category => category.id)));
-                  }
-                }}
-                style={styles.categoryItem}
-              >
-                <Text style={[styles.categoryText, { color: selectedCategories.length === categories.length ? AppColors.primary : AppColors.black }]}>
-                  Tout sélectionner
+          <ScrollView
+            horizontal={true}
+            style={styles.selectedCategoriesContainer}
+          >
+            {selectedCategories.map((categoryID) => (
+              <View key={categoryID} style={styles.selectedCategoryItem}>
+                <Text style={styles.selectedCategoryText}>
+                  {getCategoryName(categoryID)}
                 </Text>
-              </TouchableOpacity>
-              <FlatList
-                data={data}
-                keyExtractor={item => item.value.toString()}
-                renderItem={({ item }) => {
-                  const isSelected = selectedCategories.includes(item.value);
-                  return (
-                    <TouchableOpacity
-                      onPress={() => handleSelectCategory(item)}
-                      style={[
-                        styles.categoryItem,
-                        isSelected && styles.categoryItemSelected
-                      ]}
-                    >
-                      <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>{item.label}</Text>
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-                <Text style={styles.cancelButtonText}>Fermer</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleRemoveCategory(categoryID)}
+                >
+                  <CloseIcon width={18} height={18} color="#6B21A8" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+
+          {showMap && selectedLocation && (
+            <View style={styles.mapContainer}>
+              <MapboxGL.MapView style={styles.map}>
+                <MapboxGL.Camera
+                  centerCoordinate={[
+                    selectedLocation.longitude,
+                    selectedLocation.latitude,
+                  ]}
+                  zoomLevel={14}
+                />
+                <MapboxGL.PointAnnotation
+                  id="selected-location"
+                  coordinate={[
+                    selectedLocation.longitude,
+                    selectedLocation.latitude,
+                  ]}
+                />
+              </MapboxGL.MapView>
             </View>
+          )}
+
+          <OpeningHoursPicker
+            value={openingHours}
+            onChange={setOpeningHours}
+            locale={t("locale") === "en" ? "en" : "fr"}
+            showPresets={true}
+            t={t}
+          />
+
+          {/* Image Gallery */}
+          <View style={styles.imageGalleryContainer}>
+            {selectedImages.length > 0 && (
+              <>
+                <FlatList
+                  data={selectedImages}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(
+                      e.nativeEvent.contentOffset.x / (width(80) + 10),
+                    );
+                    setCurrentImageIndex(index);
+                  }}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.imageSlide}>
+                      <Image
+                        source={{ uri: item.uri }}
+                        style={styles.selectedImage}
+                      />
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => handleRemoveImage(index)}
+                      >
+                        <CloseCircleIcon width={30} height={30} color="red" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+                {selectedImages.length > 1 && (
+                  <View style={styles.paginationDots}>
+                    {selectedImages.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.dot,
+                          currentImageIndex === index && styles.activeDot,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+            <TouchableOpacity
+              style={styles.addImageButton}
+              onPress={handlePickImage}
+            >
+              <CameraIcon width={24} height={24} color={AppColors.primary} />
+              <Text style={styles.addImageButtonText}>{t("add_image")}</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
-      </View>
-    </ScrollView>
-  </View>
+
+          <TouchableOpacity
+            style={[
+              styles.addButton,
+              isAddingStore && styles.addButtonDisabled,
+            ]}
+            onPress={handleAddStore}
+            disabled={isAddingStore}
+          >
+            {isAddingStore ? (
+              <ActivityIndicator
+                size="small"
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
+            ) : (
+              <AddCircleIcon
+                width={20}
+                height={20}
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
+            )}
+            <Text style={styles.addButtonText}>
+              {isAddingStore
+                ? t("adding_store") || "Adding..."
+                : t("add_store")}
+            </Text>
+          </TouchableOpacity>
+
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={modalVisible}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (selectedCategories.length === categories.length) {
+                      dispatch(setSelectedCategories([]));
+                    } else {
+                      dispatch(
+                        setSelectedCategories(
+                          categories.map((category) => category.id),
+                        ),
+                      );
+                    }
+                  }}
+                  style={styles.categoryItem}
+                >
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      {
+                        color:
+                          selectedCategories.length === categories.length
+                            ? AppColors.primary
+                            : AppColors.black,
+                      },
+                    ]}
+                  >
+                    Tout sélectionner
+                  </Text>
+                </TouchableOpacity>
+                <FlatList
+                  data={data}
+                  keyExtractor={(item) => item.value.toString()}
+                  renderItem={({ item }) => {
+                    const isSelected = selectedCategories.includes(item.value);
+                    return (
+                      <TouchableOpacity
+                        onPress={() => handleSelectCategory(item)}
+                        style={[
+                          styles.categoryItem,
+                          isSelected && styles.categoryItemSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryText,
+                            isSelected && styles.categoryTextSelected,
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  style={styles.cancelButton}
+                >
+                  <Text style={styles.cancelButtonText}>Fermer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Image Editor Modal */}
+          <Modal
+            visible={!!imageToEdit}
+            animationType="fade"
+            transparent={true}
+          >
+            {imageToEdit && (
+              <ImageEditor
+                imageUri={imageToEdit}
+                onDone={handleImageEdited}
+                onCancel={handleCancelEdit}
+                outputSize={800}
+                t={t}
+              />
+            )}
+          </Modal>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
     padding: width(4),
-    backgroundColor: AppColors.white_100
+    backgroundColor: AppColors.white_100,
   },
   label: {
     fontSize: 16,
-    fontWeight: "bold", 
-    marginBottom: 5
+    fontWeight: "bold",
+    marginBottom: 5,
   },
   input: {
     borderWidth: 1,
@@ -1028,7 +1232,7 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     marginBottom: 15,
-    backgroundColor: "#f8f8f8", 
+    backgroundColor: "#f8f8f8",
   },
   inputError: {
     borderColor: AppColors.red,
@@ -1036,7 +1240,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     height: 80,
-    textAlignVertical: "top"
+    textAlignVertical: "top",
   },
   categoryButton: {
     backgroundColor: AppColors.primary_faded,
@@ -1052,18 +1256,18 @@ const styles = StyleSheet.create({
   },
   categoryButtonText: {
     color: AppColors.primary,
-    fontSize: 16
+    fontSize: 16,
   },
   selectedCategoriesContainer: {
     flexDirection: "row",
-    marginTop: 10
+    marginTop: 10,
   },
   selectedCategoryItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: '#F3E8FF',
+    backgroundColor: "#F3E8FF",
     borderWidth: 1.5,
-    borderColor: '#6B21A8',
+    borderColor: "#6B21A8",
     borderRadius: 25,
     paddingLeft: 12,
     paddingRight: 8,
@@ -1073,8 +1277,8 @@ const styles = StyleSheet.create({
   selectedCategoryText: {
     marginRight: 5,
     fontSize: 14,
-    color: '#6B21A8',
-    fontWeight: 'bold',
+    color: "#6B21A8",
+    fontWeight: "bold",
   },
   addButton: {
     backgroundColor: AppColors.primary,
@@ -1091,17 +1295,17 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: '80%',
-    height: '80%',
+    width: "80%",
+    height: "80%",
     backgroundColor: AppColors.white,
     borderRadius: 10,
     padding: 20,
@@ -1110,10 +1314,10 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.grey_200,
-    flexDirection:'row',
+    flexDirection: "row",
   },
   categoryItemSelected: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: "#F3E8FF",
     borderRadius: 8,
     marginHorizontal: -5,
     paddingHorizontal: 20,
@@ -1122,19 +1326,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   categoryTextSelected: {
-    color: '#6B21A8',
-    fontWeight: 'bold',
+    color: "#6B21A8",
+    fontWeight: "bold",
   },
   cancelButton: {
     marginTop: 20,
     padding: 10,
     backgroundColor: AppColors.red,
     borderRadius: 5,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
     color: AppColors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   scrollContainer: {
     paddingBottom: 20,
@@ -1250,15 +1454,15 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   suggestionsContainer: {
-    position: 'absolute',
-    top: '100%',
+    position: "absolute",
+    top: "100%",
     left: 0,
     right: 0,
     backgroundColor: AppColors.white,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: AppColors.grey_200,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -1286,14 +1490,14 @@ const styles = StyleSheet.create({
     height: 200,
     marginBottom: 15,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   map: {
     flex: 1,
   },
   presetsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginBottom: 15,
   },
@@ -1303,7 +1507,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: AppColors.primary_faded,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: "transparent",
   },
   selectedPreset: {
     borderColor: AppColors.primary,
@@ -1314,12 +1518,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   selectedPresetText: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   dayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   closedButton: {
@@ -1334,8 +1538,8 @@ const styles = StyleSheet.create({
   },
   closedText: {
     color: AppColors.grey_200,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    fontStyle: "italic",
+    textAlign: "center",
     padding: 10,
   },
   openingHoursContainer: {
@@ -1349,9 +1553,9 @@ const styles = StyleSheet.create({
     borderColor: AppColors.grey_200,
   },
   dayGroupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 12,
   },
   dayGroupTitle: {
@@ -1359,7 +1563,7 @@ const styles = StyleSheet.create({
   },
   dayGroupText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: AppColors.black,
   },
   dayGroupHours: {
@@ -1376,17 +1580,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   dayRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: 8,
     marginBottom: 16,
     paddingHorizontal: 2,
     minHeight: 48,
   },
   block: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flexShrink: 1,
     minWidth: 0,
     marginRight: 4,
@@ -1397,8 +1601,8 @@ const styles = StyleSheet.create({
   },
 
   timeInputs: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flexShrink: 1,
   },
 
@@ -1408,7 +1612,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.grey_200,
     borderRadius: 6,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
     marginHorizontal: 4,
     backgroundColor: AppColors.white_100,
@@ -1416,15 +1620,15 @@ const styles = StyleSheet.create({
   },
   hoursContainer: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   timeInputGroup: {
     flex: 1,
   },
   timeInputs: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   timeInput: {
     width: 44,
@@ -1432,7 +1636,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.grey_200,
     borderRadius: 6,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
     marginHorizontal: 4,
     backgroundColor: AppColors.white_100,
@@ -1443,25 +1647,25 @@ const styles = StyleSheet.create({
     color: AppColors.grey_200,
   },
   dayActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   actionButton: {
     padding: 4,
   },
   hoursHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
     paddingHorizontal: 2,
   },
   hoursHeaderBlock: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   hoursHeaderText: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: AppColors.primary,
     marginBottom: 2,
   },
@@ -1475,7 +1679,7 @@ const styles = StyleSheet.create({
   },
   timeInputError: {
     borderColor: AppColors.red,
-    backgroundColor: '#fff0f0',
+    backgroundColor: "#fff0f0",
   },
   timeInputErrorText: {
     color: AppColors.red,
@@ -1485,9 +1689,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   dayActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
     width: 48,
     marginLeft: 4,
   },
@@ -1495,9 +1699,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
   },
   addressInputWrapper: {
     flex: 1,
@@ -1506,8 +1710,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   timeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   minuteInput: {
     width: 36,
