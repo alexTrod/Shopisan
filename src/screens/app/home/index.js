@@ -92,6 +92,7 @@ export default function HomeScreen({ navigation, route }) {
 
   const favoriteStores = useSelector(state => state.user.favoriteStores);
   const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
+  const [userOwnsStores, setUserOwnsStores] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -149,6 +150,26 @@ export default function HomeScreen({ navigation, route }) {
       dispatch(toggleFavoriteStore(null));
     }
   }, []);
+
+  // Check if the current user owns any stores
+  useEffect(() => {
+    const checkUserStores = async () => {
+      if (!user?.id) {
+        setUserOwnsStores(false);
+        return;
+      }
+      try {
+        const storesCollection = collection(firestore, 'stores');
+        const storesQuery = query(storesCollection, where('owner_id', '==', user.id));
+        const snapshot = await getDocs(storesQuery);
+        setUserOwnsStores(!snapshot.empty);
+      } catch (error) {
+        console.error('Error checking user stores:', error);
+        setUserOwnsStores(false);
+      }
+    };
+    checkUserStores();
+  }, [user?.id]);
 
   const handleDirectLogout = () => {
       setLoggingOut(true);
@@ -803,7 +824,7 @@ export default function HomeScreen({ navigation, route }) {
 
           <View style={styles.categoryChipRow}>
             <CategoryFilter
-              showMyStoresToggle={user?.userType === 'merchant'}
+              showMyStoresToggle={userOwnsStores}
               showMyStoresOnly={showMyStoresOnly}
               onToggleMyStores={handleToggleShowMyStores}
             />
