@@ -703,6 +703,7 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       openingHours: store.openingHours || {},
       imageUrl: imageUrl,
       is_validated: false,
+      created: serverTimestamp(),
       email: store.storeEmail || "",
       phone: store.phone || "",
       managerFirstName: store.managerFirstName || "",
