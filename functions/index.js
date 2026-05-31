@@ -1,35 +1,35 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
-const handlebars = require('handlebars');
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
+const handlebars = require("handlebars");
 
 admin.initializeApp();
 
 // Namecheap Private Email SMTP configuration
 const transporter = nodemailer.createTransport({
-  host: 'mail.privateemail.com',
+  host: "mail.privateemail.com",
   port: 465,
   secure: true,
   auth: {
-    user: 'info@shopisan.com',
-    pass: 'xW4MFyjIMCA0eo'
-  }
+    user: "info@shopisan.com",
+    pass: "xW4MFyjIMCA0eo",
+  },
 });
 
 // Support email transporter (for receiving feedback)
 const supportTransporter = nodemailer.createTransport({
-  host: 'mail.privateemail.com',
+  host: "mail.privateemail.com",
   port: 465,
   secure: true,
   auth: {
-    user: 'support@shopisan.com',
-    pass: 'oAn797mV0teNo7'
-  }
+    user: "support@shopisan.com",
+    pass: "oAn797mV0teNo7",
+  },
 });
 
-const ADMIN_EMAIL = 'info@shopisan.com';
-const SENDER_EMAIL = 'info@shopisan.com';
-const SUPPORT_EMAIL = 'support@shopisan.com';
+const ADMIN_EMAIL = "info@shopisan.com";
+const SENDER_EMAIL = "info@shopisan.com";
+const SUPPORT_EMAIL = "support@shopisan.com";
 
 // Email templates for different user types
 const shopperEmailTemplate = {
@@ -73,7 +73,7 @@ const shopperEmailTemplate = {
   </div>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Welcome to the Shopisan adventure 🚀",
@@ -115,8 +115,8 @@ const shopperEmailTemplate = {
   </div>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 const merchantEmailTemplate = {
@@ -145,7 +145,7 @@ const merchantEmailTemplate = {
       <h2>Bienvenue sur Shopisan 🚀</h2>
     </div>
     <div class="content">
-      <p>Bonjour {{storeName}},</p>
+      <p>Bonjour {{username}},</p>
       <p>Merci pour votre inscription sur Shopisan ! Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
       <p>Votre demande a bien été enregistrée et sera validée sous peu par notre équipe. Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
       <p>On vous tient au courant très vite par e-mail.</p>
@@ -161,7 +161,7 @@ const merchantEmailTemplate = {
   </div>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Welcome to Shopisan 🚀",
@@ -188,7 +188,7 @@ const merchantEmailTemplate = {
       <h2>Welcome to Shopisan 🚀</h2>
     </div>
     <div class="content">
-      <p>Hello {{storeName}},</p>
+      <p>Hello {{username}},</p>
       <p>Thank you for registering on Shopisan! We are delighted to welcome you to the community that highlights local businesses.</p>
       <p>Your request has been successfully received and will be validated shortly by our team. As soon as your registration is confirmed, you will be able to set up your account and start presenting your shop to the app's users.</p>
       <p>We will keep you updated by email very soon.</p>
@@ -204,8 +204,8 @@ const merchantEmailTemplate = {
   </div>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 const adminNotificationTemplate = `
@@ -284,7 +284,7 @@ const storeValidationEmailTemplate = {
   </div>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Your store is now live on Shopisan!",
@@ -333,8 +333,8 @@ const storeValidationEmailTemplate = {
   </div>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 // Store rejection email templates
@@ -390,7 +390,7 @@ const storeRejectionEmailTemplate = {
   </div>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Shop Registration Request – Not Approved",
@@ -443,8 +443,8 @@ const storeRejectionEmailTemplate = {
   </div>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 // Store creation notification template (for admin)
@@ -541,7 +541,7 @@ const merchantVerificationEmailTemplate = {
   </div>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Welcome to Shopisan - Confirm your registration",
@@ -600,203 +600,278 @@ const merchantVerificationEmailTemplate = {
   </div>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 // Function to send store creation notification (called when a new store is added)
-exports.sendStoreCreationEmail = functions.https.onCall(async (data, context) => {
-  try {
-    const { storeName, storeEmail, city, categories, language = 'fr' } = data;
+exports.sendStoreCreationEmail = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const {
+        storeName,
+        storeEmail,
+        city,
+        categories,
+        language = "fr",
+        username,
+      } = data;
 
-    if (!storeName || !storeEmail) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+      if (!storeName || !storeEmail) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Missing required parameters",
+        );
+      }
+
+      // Handle locale strings like 'en-US', 'fr-FR', etc. Default to French
+      const lang = (language || "fr").toLowerCase().startsWith("en")
+        ? "en"
+        : "fr";
+
+      // Send confirmation to merchant
+      const emailTemplate = merchantEmailTemplate[lang];
+      const subject = emailTemplate.subject;
+
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        storeName,
+        username: username || storeName, // Use username if provided, fallback to storeName
+        appUrl: "https://shopisan-bad76.web.app",
+        verificationUrl: "https://shopisan-bad76.web.app",
+        instagramUrl: "https://instagram.com/shopisanapp",
+      });
+
+      // Send to merchant
+      const merchantMailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: storeEmail,
+        subject: subject,
+        html: htmlContent,
+      };
+
+      await transporter.sendMail(merchantMailOptions);
+      console.log("Store creation email sent to merchant:", storeEmail);
+
+      // Send notification to admin
+      const adminTemplate = handlebars.compile(storeCreationAdminTemplate);
+      const adminHtmlContent = adminTemplate({
+        storeName,
+        city: city || "Not specified",
+        email: storeEmail,
+        categories: Array.isArray(categories)
+          ? categories.join(", ")
+          : categories || "Not specified",
+        registrationDate: new Date().toLocaleDateString(),
+      });
+
+      const adminMailOptions = {
+        from: `"Shopisan System" <${SENDER_EMAIL}>`,
+        to: ADMIN_EMAIL,
+        subject: `New Store Registration: ${storeName}`,
+        html: adminHtmlContent,
+      };
+
+      await transporter.sendMail(adminMailOptions);
+      console.log("Store creation notification sent to admin");
+
+      return {
+        success: true,
+        message: "Store creation emails sent successfully",
+      };
+    } catch (error) {
+      console.error("Error sending store creation email:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send store creation email",
+      );
     }
+  },
+);
 
-    // Handle locale strings like 'en-US', 'fr-FR', etc. Default to French
-    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
+// Function to send verification email (uses appropriate template based on userType)
+exports.sendVerificationEmail = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const {
+        email,
+        username,
+        token,
+        userType,
+        language = "en",
+        storeName,
+      } = data;
 
-    // Send confirmation to merchant
-    const emailTemplate = merchantEmailTemplate[lang];
-    const subject = emailTemplate.subject;
+      if (!email || !username || !token || !userType) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Missing required parameters",
+        );
+      }
 
-    const template = handlebars.compile(emailTemplate.template);
-    const htmlContent = template({
-      storeName,
-      username: storeName,
-      appUrl: 'https://shopisan-bad76.web.app',
-      verificationUrl: 'https://shopisan-bad76.web.app',
-      instagramUrl: 'https://instagram.com/shopisanapp'
-    });
+      // Create verification URL - using Firebase Hosting
+      const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
 
-    // Send to merchant
-    const merchantMailOptions = {
-      from: `"Shopisan" <${SENDER_EMAIL}>`,
-      to: storeEmail,
-      subject: subject,
-      html: htmlContent
-    };
+      // Select template based on user type. Default to French
+      const lang = (language || "fr").toLowerCase().startsWith("en")
+        ? "en"
+        : "fr";
+      const emailTemplate =
+        userType === "merchant"
+          ? merchantEmailTemplate[lang]
+          : shopperEmailTemplate[lang];
+      const subject = emailTemplate.subject;
 
-    await transporter.sendMail(merchantMailOptions);
-    console.log('Store creation email sent to merchant:', storeEmail);
+      // Compile email template
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        username,
+        storeName: storeName || username,
+        verificationUrl,
+        email,
+        appUrl: "https://shopisan-bad76.web.app",
+        instagramUrl: "https://instagram.com/shopisanapp",
+      });
 
-    // Send notification to admin
-    const adminTemplate = handlebars.compile(storeCreationAdminTemplate);
-    const adminHtmlContent = adminTemplate({
-      storeName,
-      city: city || 'Not specified',
-      email: storeEmail,
-      categories: Array.isArray(categories) ? categories.join(', ') : (categories || 'Not specified'),
-      registrationDate: new Date().toLocaleDateString()
-    });
+      // Send email using Nodemailer with Gmail
+      const mailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: email,
+        subject: subject,
+        html: htmlContent,
+      };
 
-    const adminMailOptions = {
-      from: `"Shopisan System" <${SENDER_EMAIL}>`,
-      to: ADMIN_EMAIL,
-      subject: `New Store Registration: ${storeName}`,
-      html: adminHtmlContent
-    };
+      const result = await transporter.sendMail(mailOptions);
 
-    await transporter.sendMail(adminMailOptions);
-    console.log('Store creation notification sent to admin');
-
-    return { success: true, message: 'Store creation emails sent successfully' };
-
-  } catch (error) {
-    console.error('Error sending store creation email:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send store creation email');
-  }
-});
-
-// Function to send verification email (same email for all account types - shopper or merchant)
-exports.sendVerificationEmail = functions.https.onCall(async (data, context) => {
-  try {
-    const { email, username, token, userType, language = 'en', storeName } = data;
-
-    if (!email || !username || !token || !userType) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+      console.log("Verification email sent successfully via Gmail:", result);
+      return {
+        success: true,
+        message: "Verification email sent successfully",
+        messageId: result.messageId,
+      };
+    } catch (error) {
+      console.error("Error sending verification email via Gmail:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send verification email",
+      );
     }
-
-    // Create verification URL - using Firebase Hosting
-    const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
-
-    // Same template for all account types (shopper and merchant). Default to French
-    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
-    const emailTemplate = shopperEmailTemplate[lang];
-    const subject = emailTemplate.subject;
-
-    // Compile email template
-    const template = handlebars.compile(emailTemplate.template);
-    const htmlContent = template({
-      username,
-      storeName: storeName || username,
-      verificationUrl,
-      email,
-      appUrl: 'https://shopisan-bad76.web.app',
-      instagramUrl: 'https://instagram.com/shopisanapp'
-    });
-
-    // Send email using Nodemailer with Gmail
-    const mailOptions = {
-      from: `"Shopisan" <${SENDER_EMAIL}>`,
-      to: email,
-      subject: subject,
-      html: htmlContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    
-    console.log('Verification email sent successfully via Gmail:', result);
-    return { success: true, message: 'Verification email sent successfully', messageId: result.messageId };
-
-  } catch (error) {
-    console.error('Error sending verification email via Gmail:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send verification email');
-  }
-});
+  },
+);
 
 // Function to send merchant verification email (with store info)
-exports.sendMerchantVerificationEmail = functions.https.onCall(async (data, context) => {
-  try {
-    const { email, username, token, storeName, storeCity, language = 'fr' } = data;
+exports.sendMerchantVerificationEmail = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const {
+        email,
+        username,
+        token,
+        storeName,
+        storeCity,
+        language = "fr",
+      } = data;
 
-    if (!email || !username || !token || !storeName) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+      if (!email || !username || !token || !storeName) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Missing required parameters",
+        );
+      }
+
+      // Create verification URL
+      const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
+
+      // Select language template
+      const lang = (language || "fr").toLowerCase().startsWith("en")
+        ? "en"
+        : "fr";
+      const emailTemplate = merchantVerificationEmailTemplate[lang];
+
+      // Compile email template
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        username,
+        storeName,
+        storeCity: storeCity || "Non specifie",
+        verificationUrl,
+        appUrl: "https://shopisan-bad76.web.app",
+        instagramUrl: "https://instagram.com/shopisanapp",
+      });
+
+      // Send email
+      const mailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: email,
+        subject: emailTemplate.subject,
+        html: htmlContent,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+
+      console.log("Merchant verification email sent successfully:", result);
+      return {
+        success: true,
+        message: "Merchant verification email sent successfully",
+        messageId: result.messageId,
+      };
+    } catch (error) {
+      console.error("Error sending merchant verification email:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send merchant verification email",
+      );
     }
-
-    // Create verification URL
-    const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${token}`;
-
-    // Select language template
-    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
-    const emailTemplate = merchantVerificationEmailTemplate[lang];
-
-    // Compile email template
-    const template = handlebars.compile(emailTemplate.template);
-    const htmlContent = template({
-      username,
-      storeName,
-      storeCity: storeCity || 'Non specifie',
-      verificationUrl,
-      appUrl: 'https://shopisan-bad76.web.app',
-      instagramUrl: 'https://instagram.com/shopisanapp'
-    });
-
-    // Send email
-    const mailOptions = {
-      from: `"Shopisan" <${SENDER_EMAIL}>`,
-      to: email,
-      subject: emailTemplate.subject,
-      html: htmlContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-
-    console.log('Merchant verification email sent successfully:', result);
-    return { success: true, message: 'Merchant verification email sent successfully', messageId: result.messageId };
-
-  } catch (error) {
-    console.error('Error sending merchant verification email:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send merchant verification email');
-  }
-});
+  },
+);
 
 // Function to send admin notification
-exports.sendAdminNotification = functions.https.onCall(async (data, context) => {
-  try {
-    const { email, username, userType } = data;
+exports.sendAdminNotification = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const { email, username, userType } = data;
 
-    if (!email || !username || !userType) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+      if (!email || !username || !userType) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Missing required parameters",
+        );
+      }
+
+      // Compile admin notification template
+      const template = handlebars.compile(adminNotificationTemplate);
+      const htmlContent = template({
+        username,
+        email,
+        userType,
+        registrationDate: new Date().toLocaleDateString(),
+      });
+
+      // Send admin notification using Nodemailer with Gmail
+      const mailOptions = {
+        from: `"Shopisan System" <${SENDER_EMAIL}>`,
+        to: ADMIN_EMAIL,
+        subject: `New ${userType} registration`,
+        html: htmlContent,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+
+      console.log("Admin notification sent successfully via Gmail:", result);
+      return {
+        success: true,
+        message: "Admin notification sent successfully",
+        messageId: result.messageId,
+      };
+    } catch (error) {
+      console.error("Error sending admin notification via Gmail:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send admin notification",
+      );
     }
-
-    // Compile admin notification template
-    const template = handlebars.compile(adminNotificationTemplate);
-    const htmlContent = template({
-      username,
-      email,
-      userType,
-      registrationDate: new Date().toLocaleDateString()
-    });
-
-    // Send admin notification using Nodemailer with Gmail
-    const mailOptions = {
-      from: `"Shopisan System" <${SENDER_EMAIL}>`,
-      to: ADMIN_EMAIL,
-      subject: `New ${userType} registration`,
-      html: htmlContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    
-    console.log('Admin notification sent successfully via Gmail:', result);
-    return { success: true, message: 'Admin notification sent successfully', messageId: result.messageId };
-    
-  } catch (error) {
-    console.error('Error sending admin notification via Gmail:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send admin notification');
-  }
-});
+  },
+);
 
 // Function to handle email verification (called when user clicks verification link)
 exports.verifyEmail = functions.https.onCall(async (data, context) => {
@@ -804,177 +879,205 @@ exports.verifyEmail = functions.https.onCall(async (data, context) => {
     const { token } = data;
 
     if (!token) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing verification token');
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing verification token",
+      );
     }
 
     // Get user by verification token
-    const usersRef = admin.firestore().collection('users');
-    const querySnapshot = await usersRef.where('verificationToken', '==', token).get();
+    const usersRef = admin.firestore().collection("users");
+    const querySnapshot = await usersRef
+      .where("verificationToken", "==", token)
+      .get();
 
     if (querySnapshot.empty) {
-      throw new functions.https.HttpsError('not-found', 'Invalid verification token');
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Invalid verification token",
+      );
     }
 
     const userDoc = querySnapshot.docs[0];
     const userData = userDoc.data();
 
     // Check if token has expired
-    if (userData.verificationExpiresAt && new Date() > userData.verificationExpiresAt.toDate()) {
-      throw new functions.https.HttpsError('failed-precondition', 'Verification token has expired');
+    if (
+      userData.verificationExpiresAt &&
+      new Date() > userData.verificationExpiresAt.toDate()
+    ) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Verification token has expired",
+      );
     }
 
     // Mark email as verified
     await userDoc.ref.update({
-      emailVerificationStatus: 'verified',
+      emailVerificationStatus: "verified",
       is_validated: true,
       verificationToken: null,
       verificationExpiresAt: null,
-      emailVerifiedAt: admin.firestore.FieldValue.serverTimestamp()
+      emailVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { 
-      success: true, 
-      message: 'Email verified successfully',
-      userId: userDoc.id
+    return {
+      success: true,
+      message: "Email verified successfully",
+      userId: userDoc.id,
     };
-    
   } catch (error) {
-    console.error('Error verifying email:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to verify email');
+    console.error("Error verifying email:", error);
+    throw new functions.https.HttpsError("internal", "Failed to verify email");
   }
 });
 
 // Scheduled function to expire verification tokens after 7 days
-exports.expireVerificationTokens = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
-  try {
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+exports.expireVerificationTokens = functions.pubsub
+  .schedule("every 24 hours")
+  .onRun(async (context) => {
+    try {
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const usersRef = admin.firestore().collection('users');
-    const querySnapshot = await usersRef
-      .where('emailVerificationStatus', '==', 'pending')
-      .where('verificationExpiresAt', '<', sevenDaysAgo)
-      .get();
+      const usersRef = admin.firestore().collection("users");
+      const querySnapshot = await usersRef
+        .where("emailVerificationStatus", "==", "pending")
+        .where("verificationExpiresAt", "<", sevenDaysAgo)
+        .get();
 
-    const batch = admin.firestore().batch();
-    let expiredCount = 0;
+      const batch = admin.firestore().batch();
+      let expiredCount = 0;
 
-    querySnapshot.docs.forEach(doc => {
-      batch.update(doc.ref, {
-        emailVerificationStatus: 'expired',
-        is_validated: false
+      querySnapshot.docs.forEach((doc) => {
+        batch.update(doc.ref, {
+          emailVerificationStatus: "expired",
+          is_validated: false,
+        });
+        expiredCount++;
       });
-      expiredCount++;
-    });
 
-    if (expiredCount > 0) {
-      await batch.commit();
-      console.log(`Expired ${expiredCount} verification tokens`);
+      if (expiredCount > 0) {
+        await batch.commit();
+        console.log(`Expired ${expiredCount} verification tokens`);
+      }
+
+      return { success: true, expiredCount };
+    } catch (error) {
+      console.error("Error expiring verification tokens:", error);
+      throw error;
     }
-
-    return { success: true, expiredCount };
-    
-  } catch (error) {
-    console.error('Error expiring verification tokens:', error);
-    throw error;
-  }
-});
+  });
 
 // Function to resend verification email
-exports.resendVerificationEmail = functions.https.onCall(async (data, context) => {
-  try {
-    const { email, username, userType, language = 'en', storeName } = data;
+exports.resendVerificationEmail = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const { email, username, userType, language = "en", storeName } = data;
 
-    if (!email || !username || !userType) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+      if (!email || !username || !userType) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Missing required parameters",
+        );
+      }
+
+      // Generate new verification token
+      const newToken =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+      const newExpiration = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      // Update user document with new token
+      const usersRef = admin.firestore().collection("users");
+      const querySnapshot = await usersRef.where("email", "==", email).get();
+
+      if (querySnapshot.empty) {
+        throw new functions.https.HttpsError("not-found", "User not found");
+      }
+
+      const userDoc = querySnapshot.docs[0];
+      await userDoc.ref.update({
+        verificationToken: newToken,
+        verificationExpiresAt: newExpiration,
+        lastVerificationSent: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Send new verification email
+      const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${newToken}`;
+
+      // Select template based on user type and language
+      // Handle full locale strings like 'en-US', 'fr-FR', etc. Default to French
+      let emailTemplate, subject;
+      const lang = (language || "fr").toLowerCase().startsWith("en")
+        ? "en"
+        : "fr";
+
+      // Select template based on user type
+      emailTemplate =
+        userType === "merchant"
+          ? merchantEmailTemplate[lang]
+          : shopperEmailTemplate[lang];
+      subject = emailTemplate.subject;
+
+      // Compile email template
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        username: userType === "merchant" ? storeName || username : username,
+        storeName: storeName || username,
+        verificationUrl,
+        email,
+        appUrl: "https://shopisan-bad76.web.app",
+        instagramUrl: "https://instagram.com/shopisanapp",
+      });
+
+      const mailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: email,
+        subject: subject,
+        html: htmlContent,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+
+      return {
+        success: true,
+        message: "New verification email sent successfully",
+        newToken,
+        newExpiration,
+      };
+    } catch (error) {
+      console.error("Error resending verification email via Gmail:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to resend verification email",
+      );
     }
-
-    // Generate new verification token
-    const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const newExpiration = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    // Update user document with new token
-    const usersRef = admin.firestore().collection('users');
-    const querySnapshot = await usersRef.where('email', '==', email).get();
-
-    if (querySnapshot.empty) {
-      throw new functions.https.HttpsError('not-found', 'User not found');
-    }
-
-    const userDoc = querySnapshot.docs[0];
-    await userDoc.ref.update({
-      verificationToken: newToken,
-      verificationExpiresAt: newExpiration,
-      lastVerificationSent: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    // Send new verification email
-    const verificationUrl = `https://shopisan-bad76.web.app/verify-email?token=${newToken}`;
-
-    // Select template based on user type and language
-    // Handle full locale strings like 'en-US', 'fr-FR', etc. Default to French
-    let emailTemplate, subject;
-    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
-
-    // Same template for all user types (shopper and merchant)
-    emailTemplate = shopperEmailTemplate[lang];
-    subject = emailTemplate.subject;
-    
-    // Compile email template
-    const template = handlebars.compile(emailTemplate.template);
-    const htmlContent = template({
-      username: userType === 'merchant' ? (storeName || username) : username,
-      storeName: storeName || username,
-      verificationUrl,
-      email,
-      appUrl: 'https://shopisan-bad76.web.app',
-      instagramUrl: 'https://instagram.com/shopisanapp'
-    });
-
-    const mailOptions = {
-      from: `"Shopisan" <${SENDER_EMAIL}>`,
-      to: email,
-      subject: subject,
-      html: htmlContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    
-    return { 
-      success: true, 
-      message: 'New verification email sent successfully',
-      newToken,
-      newExpiration
-    };
-    
-  } catch (error) {
-    console.error('Error resending verification email via Gmail:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to resend verification email');
-  }
-});
+  },
+);
 
 // Add this new function after the existing functions
 exports.sendFeedback = functions.https.onRequest(async (req, res) => {
   try {
     // Enable CORS
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') {
-      res.status(204).send('');
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
       return;
     }
-    
-    if (req.method !== 'POST') {
-      res.status(405).send('Method Not Allowed');
+
+    if (req.method !== "POST") {
+      res.status(405).send("Method Not Allowed");
       return;
     }
-    
+
     const { message, type, userEmail, userName } = req.body;
-    
+
     if (!message || !type) {
-      res.status(400).json({ error: 'Missing required parameters' });
+      res.status(400).json({ error: "Missing required parameters" });
       return;
     }
 
@@ -1018,9 +1121,9 @@ exports.sendFeedback = functions.https.onRequest(async (req, res) => {
     const htmlContent = template({
       message,
       type,
-      userName: userName || 'Anonymous',
-      userEmail: userEmail || 'Not provided',
-      date: new Date().toLocaleString()
+      userName: userName || "Anonymous",
+      userEmail: userEmail || "Not provided",
+      date: new Date().toLocaleString(),
     });
 
     // Send feedback email to support@shopisan.com
@@ -1028,23 +1131,26 @@ exports.sendFeedback = functions.https.onRequest(async (req, res) => {
       from: `"Shopisan App" <${SENDER_EMAIL}>`,
       to: SUPPORT_EMAIL,
       subject: `Shopisan Feedback: ${type}`,
-      html: htmlContent
+      html: htmlContent,
     };
 
     const result = await transporter.sendMail(mailOptions);
-    
-    console.log('Feedback email sent successfully:', result);
-    res.status(200).json({ success: true, message: 'Feedback sent successfully', messageId: result.messageId });
-    
+
+    console.log("Feedback email sent successfully:", result);
+    res.status(200).json({
+      success: true,
+      message: "Feedback sent successfully",
+      messageId: result.messageId,
+    });
   } catch (error) {
-    console.error('Error sending feedback email:', error);
-    res.status(500).json({ error: 'Failed to send feedback' });
+    console.error("Error sending feedback email:", error);
+    res.status(500).json({ error: "Failed to send feedback" });
   }
 });
 
 // Cloud Function that triggers when a store is validated
 exports.onStoreValidated = functions.firestore
-  .document('stores/{storeId}')
+  .document("stores/{storeId}")
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
@@ -1053,7 +1159,9 @@ exports.onStoreValidated = functions.firestore
     // Check if store was just validated (is_validated changed to true from false or undefined)
     if (!before.is_validated && after.is_validated === true) {
       try {
-        console.log(`Store ${storeId} has been validated, sending confirmation email`);
+        console.log(
+          `Store ${storeId} has been validated, sending confirmation email`,
+        );
 
         // Get store owner information
         let storeEmail = after.storeEmail || after.email;
@@ -1062,7 +1170,11 @@ exports.onStoreValidated = functions.firestore
         // If no email on store, try to get it from the owner
         let ownerLanguage = null;
         if (after.owner_id) {
-          const ownerDoc = await admin.firestore().collection('users').doc(after.owner_id).get();
+          const ownerDoc = await admin
+            .firestore()
+            .collection("users")
+            .doc(after.owner_id)
+            .get();
           if (ownerDoc.exists) {
             const ownerData = ownerDoc.data();
             if (!storeEmail) {
@@ -1074,13 +1186,13 @@ exports.onStoreValidated = functions.firestore
         }
 
         if (!storeEmail) {
-          console.error('No email found for store:', storeId);
+          console.error("No email found for store:", storeId);
           return null;
         }
 
         // Determine language preference from owner, then store, default to French
-        const language = ownerLanguage || after.language || 'fr';
-        const lang = language.toLowerCase().startsWith('en') ? 'en' : 'fr';
+        const language = ownerLanguage || after.language || "fr";
+        const lang = language.toLowerCase().startsWith("en") ? "en" : "fr";
 
         // Get email template
         const emailTemplate = storeValidationEmailTemplate[lang];
@@ -1090,8 +1202,8 @@ exports.onStoreValidated = functions.firestore
         const template = handlebars.compile(emailTemplate.template);
         const htmlContent = template({
           storeName,
-          appUrl: 'https://shopisan-bad76.web.app',
-          instagramUrl: 'https://instagram.com/shopisanapp'
+          appUrl: "https://shopisan-bad76.web.app",
+          instagramUrl: "https://instagram.com/shopisanapp",
         });
 
         // Send validation confirmation email
@@ -1099,16 +1211,18 @@ exports.onStoreValidated = functions.firestore
           from: `"Shopisan" <${SENDER_EMAIL}>`,
           to: storeEmail,
           subject: subject,
-          html: htmlContent
+          html: htmlContent,
         };
 
         const result = await transporter.sendMail(mailOptions);
-        console.log('Store validation email sent successfully:', result.messageId);
+        console.log(
+          "Store validation email sent successfully:",
+          result.messageId,
+        );
 
         return result;
-
       } catch (error) {
-        console.error('Error sending store validation email:', error);
+        console.error("Error sending store validation email:", error);
         return null;
       }
     }
@@ -1118,7 +1232,7 @@ exports.onStoreValidated = functions.firestore
 
 // Cloud Function that triggers when a store is rejected
 exports.onStoreRejected = functions.firestore
-  .document('stores/{storeId}')
+  .document("stores/{storeId}")
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
@@ -1127,7 +1241,9 @@ exports.onStoreRejected = functions.firestore
     // Check if store was just rejected (is_rejected changed to true from false or undefined)
     if (!before.is_rejected && after.is_rejected === true) {
       try {
-        console.log(`Store ${storeId} has been rejected, sending rejection email`);
+        console.log(
+          `Store ${storeId} has been rejected, sending rejection email`,
+        );
 
         // Get store owner information
         let storeEmail = after.storeEmail || after.email;
@@ -1136,7 +1252,11 @@ exports.onStoreRejected = functions.firestore
         // If no email on store, try to get it from the owner
         let ownerLanguage = null;
         if (after.owner_id) {
-          const ownerDoc = await admin.firestore().collection('users').doc(after.owner_id).get();
+          const ownerDoc = await admin
+            .firestore()
+            .collection("users")
+            .doc(after.owner_id)
+            .get();
           if (ownerDoc.exists) {
             const ownerData = ownerDoc.data();
             if (!storeEmail) {
@@ -1148,13 +1268,13 @@ exports.onStoreRejected = functions.firestore
         }
 
         if (!storeEmail) {
-          console.error('No email found for store:', storeId);
+          console.error("No email found for store:", storeId);
           return null;
         }
 
         // Determine language preference from owner, then store, default to French
-        const language = ownerLanguage || after.language || 'fr';
-        const lang = language.toLowerCase().startsWith('en') ? 'en' : 'fr';
+        const language = ownerLanguage || after.language || "fr";
+        const lang = language.toLowerCase().startsWith("en") ? "en" : "fr";
 
         // Get email template
         const emailTemplate = storeRejectionEmailTemplate[lang];
@@ -1164,9 +1284,9 @@ exports.onStoreRejected = functions.firestore
         const template = handlebars.compile(emailTemplate.template);
         const htmlContent = template({
           storeName,
-          appUrl: 'https://shopisan-bad76.web.app',
-          instagramUrl: 'https://instagram.com/shopisanapp',
-          appStoreUrl: 'https://apps.apple.com/app/shopisan'
+          appUrl: "https://shopisan-bad76.web.app",
+          instagramUrl: "https://instagram.com/shopisanapp",
+          appStoreUrl: "https://apps.apple.com/app/shopisan",
         });
 
         // Send rejection email
@@ -1174,16 +1294,18 @@ exports.onStoreRejected = functions.firestore
           from: `"Shopisan" <${SENDER_EMAIL}>`,
           to: storeEmail,
           subject: subject,
-          html: htmlContent
+          html: htmlContent,
         };
 
         const result = await transporter.sendMail(mailOptions);
-        console.log('Store rejection email sent successfully:', result.messageId);
+        console.log(
+          "Store rejection email sent successfully:",
+          result.messageId,
+        );
 
         return result;
-
       } catch (error) {
-        console.error('Error sending store rejection email:', error);
+        console.error("Error sending store rejection email:", error);
         return null;
       }
     }
@@ -1224,7 +1346,7 @@ const emailChangeTemplate = {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 20px 0;">
-                    <a href="{{verificationUrl}}" style="display: inline-block; padding: 14px 32px; background-color: #6B2D5C; color: #ffffff !important; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Confirmer le changement</a>
+                    <a href="{{verificationUrl}}" style="display: inline-block; padding: 14px 32px; background-color: #FFFFFF; color: #000000 !important; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; border: 1px solid #000000;">Confirmer le changement</a>
                   </td>
                 </tr>
               </table>
@@ -1246,7 +1368,7 @@ const emailChangeTemplate = {
   </table>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Confirm your new email address - Shopisan",
@@ -1279,7 +1401,7 @@ const emailChangeTemplate = {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 20px 0;">
-                    <a href="{{verificationUrl}}" style="display: inline-block; padding: 14px 32px; background-color: #6B2D5C; color: #ffffff !important; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Confirm Change</a>
+                    <a href="{{verificationUrl}}" style="display: inline-block; padding: 14px 32px; background-color: #FFFFFF; color: #000000 !important; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; border: 1px solid #000000;">Confirm Change</a>
                   </td>
                 </tr>
               </table>
@@ -1301,8 +1423,8 @@ const emailChangeTemplate = {
   </table>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 // Function to check if email already exists in Firebase Auth
@@ -1312,7 +1434,10 @@ exports.checkEmailExists = functions.https.onCall(async (data, context) => {
     const { email } = data;
 
     if (!email) {
-      throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Email is required",
+      );
     }
 
     // Normalize email
@@ -1324,7 +1449,7 @@ exports.checkEmailExists = functions.https.onCall(async (data, context) => {
       // If we get here, the user exists
       return { exists: true };
     } catch (error) {
-      if (error.code === 'auth/user-not-found') {
+      if (error.code === "auth/user-not-found") {
         // Email is available
         return { exists: false };
       }
@@ -1332,11 +1457,11 @@ exports.checkEmailExists = functions.https.onCall(async (data, context) => {
       throw error;
     }
   } catch (error) {
-    console.error('Error checking email existence:', error);
+    console.error("Error checking email existence:", error);
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    throw new functions.https.HttpsError('internal', 'Failed to check email');
+    throw new functions.https.HttpsError("internal", "Failed to check email");
   }
 });
 
@@ -1346,7 +1471,10 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
     const { userId, email } = data;
 
     if (!userId && !email) {
-      throw new functions.https.HttpsError('invalid-argument', 'userId or email is required');
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "userId or email is required",
+      );
     }
 
     let authUid = null;
@@ -1360,10 +1488,10 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
         authUid = userRecord.uid;
         console.log(`Found Auth UID by email: ${authUid}`);
       } catch (error) {
-        if (error.code === 'auth/user-not-found') {
-          console.log('User not found in Auth by email:', normalizedEmail);
+        if (error.code === "auth/user-not-found") {
+          console.log("User not found in Auth by email:", normalizedEmail);
         } else {
-          console.error('Error looking up user by email:', error);
+          console.error("Error looking up user by email:", error);
         }
       }
     }
@@ -1380,17 +1508,17 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
         await admin.auth().deleteUser(authUid);
         console.log(`Deleted user ${authUid} from Firebase Auth`);
       } catch (error) {
-        if (error.code === 'auth/user-not-found') {
+        if (error.code === "auth/user-not-found") {
           console.log(`User ${authUid} not found in Auth (already deleted?)`);
         } else {
-          console.error('Error deleting from Auth:', error);
+          console.error("Error deleting from Auth:", error);
           // Don't throw - continue to delete from Firestore
         }
       }
     }
 
     // Delete from Firestore
-    const usersRef = admin.firestore().collection('users');
+    const usersRef = admin.firestore().collection("users");
 
     // Try to delete by userId first
     if (authUid) {
@@ -1398,15 +1526,17 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
         await usersRef.doc(authUid).delete();
         console.log(`Deleted user document ${authUid} from Firestore`);
       } catch (error) {
-        console.log('Could not delete by userId, trying by email');
+        console.log("Could not delete by userId, trying by email");
       }
     }
 
     // Also try to delete by email query (in case document ID doesn't match Auth UID)
     if (email) {
-      const querySnapshot = await usersRef.where('email', '==', email.toLowerCase()).get();
+      const querySnapshot = await usersRef
+        .where("email", "==", email.toLowerCase())
+        .get();
       const batch = admin.firestore().batch();
-      querySnapshot.docs.forEach(doc => {
+      querySnapshot.docs.forEach((doc) => {
         batch.delete(doc.ref);
         console.log(`Deleting user document by email: ${doc.id}`);
       });
@@ -1417,11 +1547,13 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 
     // Also delete any stores owned by this user
     if (authUid) {
-      const storesRef = admin.firestore().collection('stores');
-      const storesSnapshot = await storesRef.where('owner_id', '==', authUid).get();
+      const storesRef = admin.firestore().collection("stores");
+      const storesSnapshot = await storesRef
+        .where("owner_id", "==", authUid)
+        .get();
       if (!storesSnapshot.empty) {
         const batch = admin.firestore().batch();
-        storesSnapshot.docs.forEach(doc => {
+        storesSnapshot.docs.forEach((doc) => {
           batch.delete(doc.ref);
           console.log(`Deleting store ${doc.id} owned by user ${authUid}`);
         });
@@ -1429,89 +1561,109 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    return { success: true, message: 'User deleted successfully' };
-
+    return { success: true, message: "User deleted successfully" };
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error("Error deleting user:", error);
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    throw new functions.https.HttpsError('internal', 'Failed to delete user: ' + error.message);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to delete user: " + error.message,
+    );
   }
 });
 
 // Function to send email change verification
-exports.sendEmailChangeVerification = functions.https.onCall(async (data, context) => {
-  try {
-    const { userId, oldEmail, newEmail, username, language = 'fr' } = data;
-
-    if (!userId || !oldEmail || !newEmail || !username) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
-    }
-
-    // Check if new email already exists in Firebase Auth BEFORE sending verification
-    const normalizedNewEmail = newEmail.trim().toLowerCase();
+exports.sendEmailChangeVerification = functions.https.onCall(
+  async (data, context) => {
     try {
-      await admin.auth().getUserByEmail(normalizedNewEmail);
-      // If we get here, email exists - throw error
-      throw new functions.https.HttpsError('already-exists', 'This email address is already in use by another account.');
-    } catch (error) {
-      if (error.code === 'auth/user-not-found') {
-        // Good - email is available, continue
-        console.log('Email is available:', normalizedNewEmail);
-      } else if (error instanceof functions.https.HttpsError) {
-        throw error; // Re-throw our custom error
-      } else {
-        throw error; // Re-throw unexpected errors
+      const { userId, oldEmail, newEmail, username, language = "fr" } = data;
+
+      if (!userId || !oldEmail || !newEmail || !username) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Missing required parameters",
+        );
       }
+
+      // Check if new email already exists in Firebase Auth BEFORE sending verification
+      const normalizedNewEmail = newEmail.trim().toLowerCase();
+      try {
+        await admin.auth().getUserByEmail(normalizedNewEmail);
+        // If we get here, email exists - throw error
+        throw new functions.https.HttpsError(
+          "already-exists",
+          "This email address is already in use by another account.",
+        );
+      } catch (error) {
+        if (error.code === "auth/user-not-found") {
+          // Good - email is available, continue
+          console.log("Email is available:", normalizedNewEmail);
+        } else if (error instanceof functions.https.HttpsError) {
+          throw error; // Re-throw our custom error
+        } else {
+          throw error; // Re-throw unexpected errors
+        }
+      }
+
+      // Generate a secure token
+      const token = require("crypto").randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      // Store the pending email change in Firestore
+      const db = admin.firestore();
+      await db.collection("users").doc(userId).update({
+        emailChangeToken: token,
+        emailChangeNewEmail: newEmail,
+        emailChangeExpiresAt: expiresAt,
+      });
+
+      // Create verification URL
+      const verificationUrl = `https://shopisan-bad76.web.app/confirm-email-change?token=${token}&userId=${userId}`;
+
+      // Select language
+      const lang = (language || "fr").toLowerCase().startsWith("en")
+        ? "en"
+        : "fr";
+      const emailTemplate = emailChangeTemplate[lang];
+
+      // Compile email template
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        username,
+        oldEmail,
+        newEmail,
+        verificationUrl,
+      });
+
+      // Send email to the NEW email address
+      const mailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: newEmail,
+        subject: emailTemplate.subject,
+        html: htmlContent,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      console.log(
+        "Email change verification sent successfully:",
+        result.messageId,
+      );
+
+      return {
+        success: true,
+        message: "Verification email sent to new address",
+      };
+    } catch (error) {
+      console.error("Error sending email change verification:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send verification email",
+      );
     }
-
-    // Generate a secure token
-    const token = require('crypto').randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Store the pending email change in Firestore
-    const db = admin.firestore();
-    await db.collection('users').doc(userId).update({
-      emailChangeToken: token,
-      emailChangeNewEmail: newEmail,
-      emailChangeExpiresAt: expiresAt,
-    });
-
-    // Create verification URL
-    const verificationUrl = `https://shopisan-bad76.web.app/confirm-email-change?token=${token}&userId=${userId}`;
-
-    // Select language
-    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
-    const emailTemplate = emailChangeTemplate[lang];
-
-    // Compile email template
-    const template = handlebars.compile(emailTemplate.template);
-    const htmlContent = template({
-      username,
-      oldEmail,
-      newEmail,
-      verificationUrl
-    });
-
-    // Send email to the NEW email address
-    const mailOptions = {
-      from: `"Shopisan" <${SENDER_EMAIL}>`,
-      to: newEmail,
-      subject: emailTemplate.subject,
-      html: htmlContent
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    console.log('Email change verification sent successfully:', result.messageId);
-
-    return { success: true, message: 'Verification email sent to new address' };
-
-  } catch (error) {
-    console.error('Error sending email change verification:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send verification email');
-  }
-});
+  },
+);
 
 // Function to confirm email change (called when user clicks the link)
 exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
@@ -1519,26 +1671,35 @@ exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
     const { token, userId } = data;
 
     if (!token || !userId) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters');
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing required parameters",
+      );
     }
 
     const db = admin.firestore();
-    const userDoc = await db.collection('users').doc(userId).get();
+    const userDoc = await db.collection("users").doc(userId).get();
 
     if (!userDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'User not found');
+      throw new functions.https.HttpsError("not-found", "User not found");
     }
 
     const userData = userDoc.data();
 
     // Verify token
     if (userData.emailChangeToken !== token) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid or expired token');
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Invalid or expired token",
+      );
     }
 
     // Check expiration
     if (new Date() > userData.emailChangeExpiresAt.toDate()) {
-      throw new functions.https.HttpsError('invalid-argument', 'Token has expired');
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Token has expired",
+      );
     }
 
     const newEmail = userData.emailChangeNewEmail;
@@ -1546,11 +1707,11 @@ exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
     // Update Firebase Auth email using Admin SDK
     await admin.auth().updateUser(userId, {
       email: newEmail,
-      emailVerified: true
+      emailVerified: true,
     });
 
     // Update Firestore
-    await db.collection('users').doc(userId).update({
+    await db.collection("users").doc(userId).update({
       email: newEmail,
       emailChangeToken: null,
       emailChangeNewEmail: null,
@@ -1560,11 +1721,13 @@ exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
 
     console.log(`Email changed successfully for user ${userId} to ${newEmail}`);
 
-    return { success: true, message: 'Email changed successfully', newEmail };
-
+    return { success: true, message: "Email changed successfully", newEmail };
   } catch (error) {
-    console.error('Error confirming email change:', error);
-    throw new functions.https.HttpsError('internal', error.message || 'Failed to change email');
+    console.error("Error confirming email change:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      error.message || "Failed to change email",
+    );
   }
 });
 
@@ -1583,7 +1746,7 @@ const passwordResetEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 14px 28px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 8px; font-weight: bold; border: 1px solid #000000; }
     .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; color: #666; }
     .code { font-size: 32px; font-weight: bold; color: #6B2D5C; letter-spacing: 4px; text-align: center; padding: 20px; background-color: #f8f4f9; border-radius: 8px; margin: 20px 0; }
@@ -1611,7 +1774,7 @@ const passwordResetEmailTemplate = {
   </div>
 </body>
 </html>
-    `
+    `,
   },
   en: {
     subject: "Reset your password - Shopisan",
@@ -1626,7 +1789,7 @@ const passwordResetEmailTemplate = {
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
-    .button { display: inline-block; padding: 14px 28px; background-color: #6B2D5C; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 8px; font-weight: bold; border: 1px solid #000000; }
     .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; color: #666; }
     .code { font-size: 32px; font-weight: bold; color: #6B2D5C; letter-spacing: 4px; text-align: center; padding: 20px; background-color: #f8f4f9; border-radius: 8px; margin: 20px 0; }
@@ -1654,141 +1817,181 @@ const passwordResetEmailTemplate = {
   </div>
 </body>
 </html>
-    `
-  }
+    `,
+  },
 };
 
 // Custom password reset - sends email from info@shopisan.com
-exports.sendCustomPasswordReset = functions.https.onCall(async (data, context) => {
-  try {
-    const { email, language = 'fr' } = data;
-
-    if (!email) {
-      throw new functions.https.HttpsError('invalid-argument', 'Email is required');
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // Check if user exists in Firebase Auth
-    let userRecord;
+exports.sendCustomPasswordReset = functions.https.onCall(
+  async (data, context) => {
     try {
-      userRecord = await admin.auth().getUserByEmail(normalizedEmail);
-    } catch (error) {
-      if (error.code === 'auth/user-not-found') {
-        // Don't reveal if email exists or not for security
-        return { success: true, message: 'If an account exists, a reset email has been sent' };
+      const { email, language = "fr" } = data;
+
+      if (!email) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Email is required",
+        );
       }
-      throw error;
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Check if user exists in Firebase Auth
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+      } catch (error) {
+        if (error.code === "auth/user-not-found") {
+          // Don't reveal if email exists or not for security
+          return {
+            success: true,
+            message: "If an account exists, a reset email has been sent",
+          };
+        }
+        throw error;
+      }
+
+      // Generate a 6-digit reset code
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      // Store reset code in Firestore
+      const db = admin.firestore();
+      await db.collection("passwordResets").doc(normalizedEmail).set({
+        code: resetCode,
+        expiresAt: expiresAt,
+        userId: userRecord.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        attempts: 0,
+      });
+
+      // Select language template
+      const lang = (language || "fr").toLowerCase().startsWith("en")
+        ? "en"
+        : "fr";
+      const emailTemplate = passwordResetEmailTemplate[lang];
+
+      // Compile email template
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        email: normalizedEmail,
+        resetCode: resetCode,
+      });
+
+      // Send email
+      const mailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: normalizedEmail,
+        subject: emailTemplate.subject,
+        html: htmlContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log("Password reset email sent to:", normalizedEmail);
+
+      return { success: true, message: "Reset email sent successfully" };
+    } catch (error) {
+      console.error("Error sending password reset email:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send reset email",
+      );
     }
-
-    // Generate a 6-digit reset code
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    // Store reset code in Firestore
-    const db = admin.firestore();
-    await db.collection('passwordResets').doc(normalizedEmail).set({
-      code: resetCode,
-      expiresAt: expiresAt,
-      userId: userRecord.uid,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      attempts: 0
-    });
-
-    // Select language template
-    const lang = (language || 'fr').toLowerCase().startsWith('en') ? 'en' : 'fr';
-    const emailTemplate = passwordResetEmailTemplate[lang];
-
-    // Compile email template
-    const template = handlebars.compile(emailTemplate.template);
-    const htmlContent = template({
-      email: normalizedEmail,
-      resetCode: resetCode
-    });
-
-    // Send email
-    const mailOptions = {
-      from: `"Shopisan" <${SENDER_EMAIL}>`,
-      to: normalizedEmail,
-      subject: emailTemplate.subject,
-      html: htmlContent
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log('Password reset email sent to:', normalizedEmail);
-
-    return { success: true, message: 'Reset email sent successfully' };
-
-  } catch (error) {
-    console.error('Error sending password reset email:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send reset email');
-  }
-});
+  },
+);
 
 // Verify reset code and reset password
-exports.resetPasswordWithCode = functions.https.onCall(async (data, context) => {
-  try {
-    const { email, code, newPassword } = data;
+exports.resetPasswordWithCode = functions.https.onCall(
+  async (data, context) => {
+    try {
+      const { email, code, newPassword } = data;
 
-    if (!email || !code || !newPassword) {
-      throw new functions.https.HttpsError('invalid-argument', 'Email, code, and new password are required');
+      if (!email || !code || !newPassword) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Email, code, and new password are required",
+        );
+      }
+
+      if (newPassword.length < 6) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Password must be at least 6 characters",
+        );
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const db = admin.firestore();
+
+      // Get reset document
+      const resetDoc = await db
+        .collection("passwordResets")
+        .doc(normalizedEmail)
+        .get();
+
+      if (!resetDoc.exists) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "No reset request found for this email",
+        );
+      }
+
+      const resetData = resetDoc.data();
+
+      // Check attempts (max 5)
+      if (resetData.attempts >= 5) {
+        await db.collection("passwordResets").doc(normalizedEmail).delete();
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Too many attempts. Please request a new code.",
+        );
+      }
+
+      // Increment attempts
+      await db
+        .collection("passwordResets")
+        .doc(normalizedEmail)
+        .update({
+          attempts: admin.firestore.FieldValue.increment(1),
+        });
+
+      // Check if code has expired
+      if (new Date() > resetData.expiresAt.toDate()) {
+        await db.collection("passwordResets").doc(normalizedEmail).delete();
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Reset code has expired",
+        );
+      }
+
+      // Verify code
+      if (resetData.code !== code) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Invalid reset code",
+        );
+      }
+
+      // Reset password using Admin SDK
+      await admin.auth().updateUser(resetData.userId, {
+        password: newPassword,
+      });
+
+      // Delete reset document
+      await db.collection("passwordResets").doc(normalizedEmail).delete();
+
+      console.log("Password reset successful for:", normalizedEmail);
+
+      return { success: true, message: "Password reset successfully" };
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to reset password",
+      );
     }
-
-    if (newPassword.length < 6) {
-      throw new functions.https.HttpsError('invalid-argument', 'Password must be at least 6 characters');
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const db = admin.firestore();
-
-    // Get reset document
-    const resetDoc = await db.collection('passwordResets').doc(normalizedEmail).get();
-
-    if (!resetDoc.exists) {
-      throw new functions.https.HttpsError('not-found', 'No reset request found for this email');
-    }
-
-    const resetData = resetDoc.data();
-
-    // Check attempts (max 5)
-    if (resetData.attempts >= 5) {
-      await db.collection('passwordResets').doc(normalizedEmail).delete();
-      throw new functions.https.HttpsError('permission-denied', 'Too many attempts. Please request a new code.');
-    }
-
-    // Increment attempts
-    await db.collection('passwordResets').doc(normalizedEmail).update({
-      attempts: admin.firestore.FieldValue.increment(1)
-    });
-
-    // Check if code has expired
-    if (new Date() > resetData.expiresAt.toDate()) {
-      await db.collection('passwordResets').doc(normalizedEmail).delete();
-      throw new functions.https.HttpsError('failed-precondition', 'Reset code has expired');
-    }
-
-    // Verify code
-    if (resetData.code !== code) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid reset code');
-    }
-
-    // Reset password using Admin SDK
-    await admin.auth().updateUser(resetData.userId, {
-      password: newPassword
-    });
-
-    // Delete reset document
-    await db.collection('passwordResets').doc(normalizedEmail).delete();
-
-    console.log('Password reset successful for:', normalizedEmail);
-
-    return { success: true, message: 'Password reset successfully' };
-
-  } catch (error) {
-    console.error('Error resetting password:', error);
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    }
-    throw new functions.https.HttpsError('internal', 'Failed to reset password');
-  }
-});
+  },
+);

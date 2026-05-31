@@ -51,6 +51,8 @@ import * as Location from "expo-location";
 import Toast from "react-native-toast-message";
 import { ensureCityExists } from "../../../utils/cityManagement";
 import OpeningHoursPicker from "../../../components/opening-hours-picker";
+import MapPickerModal from "../../../components/store-form/MapPickerModal";
+import { Ionicons } from "@expo/vector-icons";
 
 MapboxGL.setAccessToken(
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ",
@@ -123,6 +125,13 @@ export default function AddStoreScreen({ navigation }) {
   const [selectedLocation, setSelectedLocation] = useState(null);
 
   const [userProximity, setUserProximity] = useState(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+
+  // Handle map picker confirmation
+  const handleMapPickerConfirm = (mapboxFeature) => {
+    setShowMapPicker(false);
+    handleAddressSelect(mapboxFeature);
+  };
 
   // Get user's location for search proximity on mount
   useEffect(() => {
@@ -618,6 +627,7 @@ export default function AddStoreScreen({ navigation }) {
           city: city,
           categories: selectedCategories,
           language: t("locale") === "fr" ? "fr" : "en",
+          username: user?.username || user?.name || name, // Pass user's name for greeting
         })
           .then(() => {
             console.log("Store creation emails sent successfully");
@@ -846,34 +856,46 @@ export default function AddStoreScreen({ navigation }) {
           />
 
           <Text style={styles.label}>{t("street")}</Text>
-          <View style={{ position: "relative", zIndex: 1000 }}>
-            <TextInput
-              style={getInputStyle("street")}
-              placeholder={t("street")}
-              value={street}
-              onChangeText={fetchAddressSuggestions}
-            />
-            {suggestions.length > 0 && (
-              <View style={styles.suggestionsContainer}>
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  style={{ maxHeight: 200 }}
-                  nestedScrollEnabled={true}
-                >
-                  {suggestions.map((item, index) => (
-                    <TouchableOpacity
-                      key={`${item.id}-${index}`}
-                      style={styles.suggestionItem}
-                      onPress={() => handleAddressSelect(item)}
-                    >
-                      <Text style={styles.suggestionText}>
-                        {item.place_name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+          <View style={styles.streetInputRow}>
+            <View style={{ position: "relative", zIndex: 1000, flex: 1 }}>
+              <TextInput
+                style={getInputStyle("street")}
+                placeholder={t("street")}
+                value={street}
+                onChangeText={fetchAddressSuggestions}
+              />
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    style={{ maxHeight: 200 }}
+                    nestedScrollEnabled={true}
+                  >
+                    {suggestions.map((item, index) => (
+                      <TouchableOpacity
+                        key={`${item.id}-${index}`}
+                        style={styles.suggestionItem}
+                        onPress={() => handleAddressSelect(item)}
+                      >
+                        <Text style={styles.suggestionText}>
+                          {item.place_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.mapPickerButton}
+              onPress={() => setShowMapPicker(true)}
+            >
+              <Ionicons
+                name="map-outline"
+                size={22}
+                color={AppColors.primary}
+              />
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>{t("city")}</Text>
@@ -1208,6 +1230,15 @@ export default function AddStoreScreen({ navigation }) {
               />
             )}
           </Modal>
+
+          {/* Map Picker Modal */}
+          <MapPickerModal
+            visible={showMapPicker}
+            onClose={() => setShowMapPicker(false)}
+            onConfirm={handleMapPickerConfirm}
+            initialLocation={selectedLocation || userProximity}
+            t={t}
+          />
         </View>
       </ScrollView>
     </View>
@@ -1721,5 +1752,20 @@ const styles = StyleSheet.create({
     fontWeight: "normal",
     color: AppColors.grey_200,
     fontStyle: "italic",
+  },
+  streetInputRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  mapPickerButton: {
+    padding: 10,
+    marginLeft: 10,
+    marginTop: 0,
+    backgroundColor: AppColors.primary_faded,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 48,
+    width: 48,
   },
 });
