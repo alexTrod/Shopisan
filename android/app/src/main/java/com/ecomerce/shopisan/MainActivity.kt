@@ -1,4 +1,4 @@
-package com.lukini.Shopisanv1
+package com.ecomerce.shopisan
 
 import android.os.Build
 import android.os.Bundle

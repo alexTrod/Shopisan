@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.lukini.Shopisanv1'
+    namespace 'com.ecomerce.shopisan'
     defaultConfig {
-        applicationId 'com.lukini.Shopisanv1'
+        applicationId 'com.ecomerce.shopisan'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
