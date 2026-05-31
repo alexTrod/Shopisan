@@ -88,3 +88,18 @@ serviceAccountKey.json
 scripts/migrateS3Images.js
 rootkey.csv
 migration-report.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Claude Code
+.claude/
+
+# Debug/reports
+bugreport-*.zip
+
+# Temp scripts
+cleanup-empty-cities.js
