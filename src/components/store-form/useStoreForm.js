@@ -120,6 +120,9 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
   const [searchError, setSearchError] = useState(null);
   const [manualEntryMode, setManualEntryMode] = useState(false);
 
+  // Map picker state
+  const [showMapPicker, setShowMapPicker] = useState(false);
+
   // Validation state
   const [validationErrors, setValidationErrors] = useState({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -289,6 +292,12 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
         t("location_error") || "Unable to get your current location",
       );
     }
+  };
+
+  // Handle map picker confirmation
+  const handleMapPickerConfirm = (mapboxFeature) => {
+    setShowMapPicker(false);
+    handleAddressSelect(mapboxFeature);
   };
 
   const handleSelectCategory = (item) => {
@@ -781,6 +790,10 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
     searchError,
     manualEntryMode,
     setManualEntryMode,
+    showMapPicker,
+    setShowMapPicker,
+    handleMapPickerConfirm,
+    userProximity,
 
     // Validation
     validationErrors,

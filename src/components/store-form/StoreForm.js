@@ -10,7 +10,7 @@ import {
   ScrollView,
   Image,
   BackHandler,
-  ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
@@ -18,8 +18,11 @@ import { AppColors } from "../../utils";
 import { width, height } from "../../utils/dimension";
 import OpeningHoursPicker from "../opening-hours-picker";
 import { useStoreForm } from "./useStoreForm";
+import MapPickerModal from "./MapPickerModal";
 
-MapboxGL.setAccessToken('sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ');
+MapboxGL.setAccessToken(
+  "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ",
+);
 
 /**
  * Reusable Store Form Component
@@ -40,13 +43,13 @@ export const StoreForm = ({
   submitButtonText,
   showHeader = false,
   onBack,
-  mode = 'standalone',
+  mode = "standalone",
   disabled = false,
   showMerchantFields = true,
 }) => {
   const form = useStoreForm({
     t,
-    onSuccess: mode === 'standalone' ? onSubmit : undefined,
+    onSuccess: mode === "standalone" ? onSubmit : undefined,
     mode,
   });
 
@@ -91,6 +94,13 @@ export const StoreForm = ({
     handleAddressSelect,
     handleUseCurrentLocation,
     clearSuggestions,
+    searchError,
+    manualEntryMode,
+    setManualEntryMode,
+    showMapPicker,
+    setShowMapPicker,
+    handleMapPickerConfirm,
+    userProximity,
     validationErrors,
     hasAttemptedSubmit,
     isSubmitting,
@@ -110,7 +120,10 @@ export const StoreForm = ({
       return false;
     };
 
-    const sub = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
+    const sub = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onHardwareBack,
+    );
     return () => sub.remove();
   }, [suggestions]);
 
@@ -130,7 +143,7 @@ export const StoreForm = ({
   };
 
   const handleFormSubmit = async () => {
-    if (mode === 'wizard') {
+    if (mode === "wizard") {
       const formData = await handleWizardSubmit();
       if (formData && onSubmit) {
         onSubmit(formData);
@@ -145,11 +158,11 @@ export const StoreForm = ({
     return [
       styles.input,
       hasError && styles.inputError,
-      disabled && styles.inputDisabled
+      disabled && styles.inputDisabled,
     ];
   };
 
-  const data = categories.map(category => ({
+  const data = categories.map((category) => ({
     value: category.id,
     label: category.name,
   }));
@@ -164,7 +177,7 @@ export const StoreForm = ({
             <Ionicons name="arrow-back" size={30} color={AppColors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {t('add_store') || 'Add a store'}
+            {t("add_store") || "Add a store"}
           </Text>
         </View>
       )}
@@ -175,69 +188,128 @@ export const StoreForm = ({
         nestedScrollEnabled={true}
       >
         <View style={styles.container}>
-          <Text style={styles.label}>{t('store_name')}</Text>
+          <Text style={styles.label}>{t("store_name")}</Text>
           <TextInput
-            style={getInputStyle('name')}
-            placeholder={t('store_name')}
+            style={getInputStyle("name")}
+            placeholder={t("store_name")}
             value={name}
             onChangeText={setName}
             editable={!disabled}
           />
 
-          <Text style={styles.label}>{t('street_number')}</Text>
+          {/* Pick on map - prominent placement */}
+          <TouchableOpacity
+            onPress={() => setShowMapPicker(true)}
+            style={styles.mapPickerButton}
+            disabled={disabled}
+          >
+            <Ionicons name="map" size={20} color="#fff" />
+            <Text style={styles.mapPickerButtonText}>
+              {t("pick_on_map") || "Pick location on map"}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>{t("street_number")}</Text>
           <TextInput
             style={[styles.input, disabled && styles.inputDisabled]}
-            placeholder={t('street_number')}
+            placeholder={t("street_number")}
             value={streetNumber}
             onChangeText={setStreetNumber}
             keyboardType="numeric"
             editable={!disabled}
           />
 
-          <Text style={styles.label}>{t('street')}</Text>
-          <View style={{ position: 'relative', zIndex: 1000 }}>
+          <Text style={styles.label}>{t("street")}</Text>
+          <View
+            style={{ position: "relative", zIndex: 1000, overflow: "visible" }}
+          >
             <TextInput
-              style={getInputStyle('street')}
-              placeholder={t('street')}
+              style={getInputStyle("street")}
+              placeholder={t("street")}
               value={street}
-              onChangeText={fetchAddressSuggestions}
+              onChangeText={
+                manualEntryMode ? form.setStreet : fetchAddressSuggestions
+              }
               editable={!disabled}
             />
-            {suggestions.length > 0 && (
+            {!manualEntryMode && suggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
-                <ScrollView
+                <FlatList
+                  data={suggestions}
+                  keyExtractor={(item, index) => `${item.id}-${index}`}
                   keyboardShouldPersistTaps="handled"
-                  style={{ maxHeight: 200 }}
                   nestedScrollEnabled={true}
-                >
-                  {suggestions.map((item, index) => (
+                  style={{ maxHeight: 200 }}
+                  renderItem={({ item }) => (
                     <TouchableOpacity
-                      key={`${item.id}-${index}`}
                       style={styles.suggestionItem}
                       onPress={() => handleAddressSelect(item)}
                     >
-                      <Text style={styles.suggestionText}>{item.place_name}</Text>
+                      <Text style={styles.suggestionText}>
+                        {item.place_name}
+                      </Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                  )}
+                />
               </View>
             )}
           </View>
 
-          <Text style={styles.label}>{t('city')}</Text>
+          {/* Search error message */}
+          {searchError && !manualEntryMode && (
+            <Text style={styles.errorText}>{searchError}</Text>
+          )}
+
+          {/* Manual entry toggle and map picker */}
+          <View style={styles.addressOptionsRow}>
+            {!manualEntryMode ? (
+              <TouchableOpacity
+                onPress={() => setManualEntryMode(true)}
+                style={styles.manualEntryLink}
+                disabled={disabled}
+              >
+                <Text style={styles.manualEntryLinkText}>
+                  {t("enter_address_manually") ||
+                    "Can't find your address? Enter manually"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setManualEntryMode(false)}
+                style={styles.manualEntryLink}
+                disabled={disabled}
+              >
+                <Text style={styles.manualEntryLinkText}>
+                  {t("back_to_search") || "Back to search"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setShowMapPicker(true)}
+              style={styles.mapPickerLink}
+              disabled={disabled}
+            >
+              <Ionicons name="map" size={16} color={AppColors.primary} />
+              <Text style={styles.mapPickerLinkText}>
+                {t("pick_on_map") || "Pick on map"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>{t("city")}</Text>
           <TextInput
-            style={getInputStyle('city')}
-            placeholder={t('city')}
+            style={getInputStyle("city")}
+            placeholder={t("city")}
             value={city}
             onChangeText={setCity}
             editable={!disabled}
           />
 
-          <Text style={styles.label}>{t('postal_code')}</Text>
+          <Text style={styles.label}>{t("postal_code")}</Text>
           <View style={styles.inputRow}>
             <TextInput
-              style={[getInputStyle('postalCode'), { flex: 1 }]}
-              placeholder={t('postal_code')}
+              style={[getInputStyle("postalCode"), { flex: 1 }]}
+              placeholder={t("postal_code")}
               value={postalCode}
               onChangeText={setPostalCode}
               keyboardType="numeric"
@@ -252,10 +324,10 @@ export const StoreForm = ({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>{t('description')}</Text>
+          <Text style={styles.label}>{t("description")}</Text>
           <TextInput
-            style={[getInputStyle('description'), styles.textArea]}
-            placeholder={t('description')}
+            style={[getInputStyle("description"), styles.textArea]}
+            placeholder={t("description")}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -266,11 +338,12 @@ export const StoreForm = ({
           {showMerchantFields && (
             <>
               <Text style={styles.label}>
-                {t('store_email')} <Text style={styles.optionalText}>({t('optional')})</Text>
+                {t("store_email")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
               </Text>
               <TextInput
                 style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t('store_email')}
+                placeholder={t("store_email")}
                 value={storeEmail}
                 onChangeText={setStoreEmail}
                 keyboardType="email-address"
@@ -279,11 +352,12 @@ export const StoreForm = ({
               />
 
               <Text style={styles.label}>
-                {t('website')} <Text style={styles.optionalText}>({t('optional')})</Text>
+                {t("website")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
               </Text>
               <TextInput
                 style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t('website')}
+                placeholder={t("website")}
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
@@ -291,11 +365,12 @@ export const StoreForm = ({
               />
 
               <Text style={styles.label}>
-                {t('phone')} <Text style={styles.optionalText}>({t('optional')})</Text>
+                {t("phone")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
               </Text>
               <TextInput
                 style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t('phone')}
+                placeholder={t("phone")}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
@@ -303,22 +378,24 @@ export const StoreForm = ({
               />
 
               <Text style={styles.label}>
-                {t('manager_first_name')} <Text style={styles.optionalText}>({t('optional')})</Text>
+                {t("manager_first_name")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
               </Text>
               <TextInput
                 style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t('manager_first_name')}
+                placeholder={t("manager_first_name")}
                 value={managerFirstName}
                 onChangeText={setManagerFirstName}
                 editable={!disabled}
               />
 
               <Text style={styles.label}>
-                {t('manager_last_name')} <Text style={styles.optionalText}>({t('optional')})</Text>
+                {t("manager_last_name")}{" "}
+                <Text style={styles.optionalText}>({t("optional")})</Text>
               </Text>
               <TextInput
                 style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t('manager_last_name')}
+                placeholder={t("manager_last_name")}
                 value={managerLastName}
                 onChangeText={setManagerLastName}
                 editable={!disabled}
@@ -326,29 +403,38 @@ export const StoreForm = ({
             </>
           )}
 
-          <Text style={styles.label}>{t('categories')}</Text>
+          <Text style={styles.label}>{t("categories")}</Text>
           <TouchableOpacity
             style={[
               styles.categoryButton,
-              hasAttemptedSubmit && validationErrors.categories && styles.categoryButtonError,
-              disabled && styles.categoryButtonDisabled
+              hasAttemptedSubmit &&
+                validationErrors.categories &&
+                styles.categoryButtonError,
+              disabled && styles.categoryButtonDisabled,
             ]}
             onPress={() => setModalVisible(true)}
             disabled={disabled}
           >
             <Text style={styles.categoryButtonText}>
               {selectedCategories.length > 0
-                ? `${selectedCategories.length} ${t('categories_selected') || 'category(ies) selected'}`
-                : t('select_categories')
-              }
+                ? `${selectedCategories.length} ${t("categories_selected") || "category(ies) selected"}`
+                : t("select_categories")}
             </Text>
           </TouchableOpacity>
 
-          <ScrollView horizontal={true} style={styles.selectedCategoriesContainer}>
+          <ScrollView
+            horizontal={true}
+            style={styles.selectedCategoriesContainer}
+          >
             {selectedCategories.map((categoryID) => (
               <View key={categoryID} style={styles.selectedCategoryItem}>
-                <Text style={styles.selectedCategoryText}>{getCategoryName(categoryID)}</Text>
-                <TouchableOpacity onPress={() => handleRemoveCategory(categoryID)} disabled={disabled}>
+                <Text style={styles.selectedCategoryText}>
+                  {getCategoryName(categoryID)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleRemoveCategory(categoryID)}
+                  disabled={disabled}
+                >
                   <Ionicons name="close" size={20} color={AppColors.black} />
                 </TouchableOpacity>
               </View>
@@ -359,12 +445,18 @@ export const StoreForm = ({
             <View style={styles.mapContainer}>
               <MapboxGL.MapView style={styles.map}>
                 <MapboxGL.Camera
-                  centerCoordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+                  centerCoordinate={[
+                    selectedLocation.longitude,
+                    selectedLocation.latitude,
+                  ]}
                   zoomLevel={14}
                 />
                 <MapboxGL.PointAnnotation
                   id="selected-location"
-                  coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+                  coordinate={[
+                    selectedLocation.longitude,
+                    selectedLocation.latitude,
+                  ]}
                 />
               </MapboxGL.MapView>
             </View>
@@ -373,7 +465,7 @@ export const StoreForm = ({
           <OpeningHoursPicker
             value={openingHours}
             onChange={setOpeningHours}
-            locale={t('locale') === 'en' ? 'en' : 'fr'}
+            locale={t("locale") === "en" ? "en" : "fr"}
             showPresets={true}
             t={t}
           />
@@ -388,13 +480,18 @@ export const StoreForm = ({
                   pagingEnabled
                   showsHorizontalScrollIndicator={false}
                   onMomentumScrollEnd={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.x / (width(80) + 10));
+                    const index = Math.round(
+                      e.nativeEvent.contentOffset.x / (width(80) + 10),
+                    );
                     setCurrentImageIndex(index);
                   }}
                   keyExtractor={(_, index) => index.toString()}
                   renderItem={({ item, index }) => (
                     <View style={styles.imageSlide}>
-                      <Image source={{ uri: item.uri }} style={styles.selectedImage} />
+                      <Image
+                        source={{ uri: item.uri }}
+                        style={styles.selectedImage}
+                      />
                       <TouchableOpacity
                         style={styles.removeImageButton}
                         onPress={() => handleRemoveImage(index)}
@@ -412,7 +509,7 @@ export const StoreForm = ({
                         key={index}
                         style={[
                           styles.dot,
-                          currentImageIndex === index && styles.activeDot
+                          currentImageIndex === index && styles.activeDot,
                         ]}
                       />
                     ))}
@@ -426,7 +523,7 @@ export const StoreForm = ({
               disabled={disabled}
             >
               <Ionicons name="camera" size={24} color={AppColors.primary} />
-              <Text style={styles.addImageButtonText}>{t('add_image')}</Text>
+              <Text style={styles.addImageButtonText}>{t("add_image")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -436,34 +533,55 @@ export const StoreForm = ({
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+              <ActivityIndicator
+                size="small"
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
             ) : (
-              <Ionicons name="add-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Ionicons
+                name="add-circle"
+                size={20}
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
             )}
             <Text style={styles.addButtonText}>
               {isLoading
-                ? (t('adding_store') || 'Adding...')
-                : (submitButtonText || t('add_store'))
-              }
+                ? t("adding_store") || "Adding..."
+                : submitButtonText || t("add_store")}
             </Text>
           </TouchableOpacity>
 
+          {/* Map Picker Modal */}
+          <MapPickerModal
+            visible={showMapPicker}
+            onClose={() => setShowMapPicker(false)}
+            onConfirm={handleMapPickerConfirm}
+            initialLocation={selectedLocation || userProximity}
+            t={t}
+          />
+
           {/* Categories Modal */}
-          <Modal animationType="slide" transparent={true} visible={modalVisible}>
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={modalVisible}
+          >
             <View style={styles.modalContainer}>
               <View style={styles.modalContent}>
                 <TouchableOpacity
                   onPress={() => {
                     if (selectedCategories.length === categories.length) {
                       // Deselect all - handled in hook
-                      categories.forEach(cat => {
+                      categories.forEach((cat) => {
                         if (selectedCategories.includes(cat.id)) {
                           handleRemoveCategory(cat.id);
                         }
                       });
                     } else {
                       // Select all
-                      categories.forEach(cat => {
+                      categories.forEach((cat) => {
                         if (!selectedCategories.includes(cat.id)) {
                           handleSelectCategory({ value: cat.id });
                         }
@@ -472,29 +590,50 @@ export const StoreForm = ({
                   }}
                   style={styles.categoryItem}
                 >
-                  <Text style={[
-                    styles.categoryText,
-                    { color: selectedCategories.length === categories.length ? AppColors.primary : AppColors.black }
-                  ]}>
-                    {t('select_all') || 'Select all'}
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      {
+                        color:
+                          selectedCategories.length === categories.length
+                            ? AppColors.primary
+                            : AppColors.black,
+                      },
+                    ]}
+                  >
+                    {t("select_all") || "Select all"}
                   </Text>
                 </TouchableOpacity>
                 <FlatList
                   data={data}
-                  keyExtractor={item => item.value.toString()}
+                  keyExtractor={(item) => item.value.toString()}
                   renderItem={({ item }) => (
-                    <TouchableOpacity onPress={() => handleSelectCategory(item)} style={styles.categoryItem}>
-                      <Text style={[
-                        styles.categoryText,
-                        { color: selectedCategories.includes(item.value) ? AppColors.primary : AppColors.black }
-                      ]}>
+                    <TouchableOpacity
+                      onPress={() => handleSelectCategory(item)}
+                      style={styles.categoryItem}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          {
+                            color: selectedCategories.includes(item.value)
+                              ? AppColors.primary
+                              : AppColors.black,
+                          },
+                        ]}
+                      >
                         {item.label}
                       </Text>
                     </TouchableOpacity>
                   )}
                 />
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
-                  <Text style={styles.cancelButtonText}>{t('close') || 'Close'}</Text>
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  style={styles.cancelButton}
+                >
+                  <Text style={styles.cancelButtonText}>
+                    {t("close") || "Close"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -519,7 +658,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: width(4),
-    backgroundColor: AppColors.white_100
+    backgroundColor: AppColors.white_100,
   },
   scrollContainer: {
     paddingBottom: 20,
@@ -527,7 +666,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "bold",
-    marginBottom: 5
+    marginBottom: 5,
   },
   input: {
     borderWidth: 1,
@@ -546,9 +685,58 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
     color: "#999",
   },
+  errorText: {
+    color: AppColors.red,
+    fontSize: 14,
+    marginTop: -10,
+    marginBottom: 10,
+  },
+  addressOptionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  manualEntryLink: {
+    paddingVertical: 5,
+    flex: 1,
+  },
+  manualEntryLinkText: {
+    color: AppColors.primary,
+    fontSize: 14,
+    textDecorationLine: "underline",
+  },
+  mapPickerLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  mapPickerLinkText: {
+    color: AppColors.primary,
+    fontSize: 14,
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  mapPickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: AppColors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  mapPickerButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
   textArea: {
     height: 80,
-    textAlignVertical: "top"
+    textAlignVertical: "top",
   },
   inputRow: {
     flexDirection: "row",
@@ -579,11 +767,11 @@ const styles = StyleSheet.create({
   },
   categoryButtonText: {
     color: AppColors.primary,
-    fontSize: 16
+    fontSize: 16,
   },
   selectedCategoriesContainer: {
     flexDirection: "row",
-    marginTop: 10
+    marginTop: 10,
   },
   selectedCategoryItem: {
     flexDirection: "row",
@@ -594,27 +782,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginRight: 5,
-    height: 40
+    height: 40,
   },
   selectedCategoryText: {
     marginRight: 5,
-    fontSize: 14
+    fontSize: 14,
   },
   suggestionsContainer: {
-    position: 'absolute',
-    top: '100%',
+    position: "absolute",
+    bottom: "100%",
     left: 0,
     right: 0,
     backgroundColor: AppColors.white,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: AppColors.grey_200,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 5,
     zIndex: 1000,
+    marginBottom: 4,
   },
   suggestionItem: {
     padding: 15,
@@ -629,7 +818,7 @@ const styles = StyleSheet.create({
     height: 200,
     marginBottom: 15,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   map: {
     flex: 1,
@@ -722,17 +911,17 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: '80%',
-    height: '80%',
+    width: "80%",
+    height: "80%",
     backgroundColor: AppColors.white,
     borderRadius: 10,
     padding: 20,
@@ -741,7 +930,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.grey_200,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   categoryText: {
     fontSize: 14,
@@ -751,11 +940,11 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: AppColors.red,
     borderRadius: 5,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
     color: AppColors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   optionalText: {
     fontSize: 14,
