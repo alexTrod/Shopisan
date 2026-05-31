@@ -56,19 +56,19 @@ const CategoryFilter = ({ showMyStoresToggle = false, showMyStoresOnly = false, 
           </Text>
         </TouchableOpacity>
 
-        {/* My Stores / All Stores toggle - only for merchants */}
+        {/* My Stores toggle - only for users who own stores */}
         {showMyStoresToggle && (
           <TouchableOpacity
             onPress={onToggleMyStores}
             style={[styles.storeToggleButton, showMyStoresOnly && styles.storeToggleButtonActive]}
           >
             <MaterialIcons
-              name={showMyStoresOnly ? "store" : "storefront"}
+              name="store"
               size={18}
-              color={showMyStoresOnly ? "#fff" : AppColors.black}
+              color={showMyStoresOnly ? "#fff" : AppColors.grey_200}
             />
             <Text style={[styles.storeToggleText, showMyStoresOnly && styles.storeToggleTextActive]}>
-              {showMyStoresOnly ? (t('my_stores') || 'My Stores') : (t('all_stores') || 'All Stores')}
+              {t('my_stores') || 'My Stores'}
             </Text>
           </TouchableOpacity>
         )}
@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
   storeToggleButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: AppColors.white,
     borderColor: AppColors.grey_200,
     borderWidth: 1.5,
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
   storeToggleText: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.black,
+    color: AppColors.grey_200,
   },
   storeToggleTextActive: {
     color: '#fff',
