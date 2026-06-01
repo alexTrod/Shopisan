@@ -33,7 +33,6 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
   const VIEWPORT_SIZE = screenWidth * 0.75;
 
   const [processing, setProcessing] = useState(false);
-  const [imageLayout, setImageLayout] = useState({ width: 0, height: 0 });
 
   // Transform shared values
   const scale = useSharedValue(1);
@@ -53,11 +52,14 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
 
   // Pinch gesture for scaling
   const pinchGesture = Gesture.Pinch()
+    .runOnJS(true)
     .onStart((e) => {
+      console.log("[ImageEditor] Pinch START", e.scale);
       focalX.value = e.focalX;
       focalY.value = e.focalY;
     })
     .onUpdate((e) => {
+      console.log("[ImageEditor] Pinch UPDATE", e.scale);
       scale.value = Math.max(0.5, Math.min(savedScale.value * e.scale, 5));
     })
     .onEnd(() => {
@@ -71,18 +73,28 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
 
   // Rotation gesture
   const rotationGesture = Gesture.Rotation()
+    .runOnJS(true)
+    .onStart(() => {
+      console.log("[ImageEditor] Rotation START");
+    })
     .onUpdate((e) => {
+      console.log("[ImageEditor] Rotation UPDATE", e.rotation);
       rotation.value = savedRotation.value + e.rotation;
     })
     .onEnd(() => {
       savedRotation.value = rotation.value;
     });
 
-  // Pan gesture for repositioning
+  // Pan gesture for repositioning (single finger only, 2 fingers = pinch/rotate)
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .minPointers(1)
-    .maxPointers(2)
+    .maxPointers(1)
+    .onStart(() => {
+      console.log("[ImageEditor] Pan START");
+    })
     .onUpdate((e) => {
+      console.log("[ImageEditor] Pan UPDATE");
       translateX.value = savedTranslateX.value + e.translationX;
       translateY.value = savedTranslateY.value + e.translationY;
     })
@@ -91,12 +103,9 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
       savedTranslateY.value = translateY.value;
     });
 
-  // Compose all gestures to work simultaneously
-  const composedGesture = Gesture.Simultaneous(
-    pinchGesture,
-    rotationGesture,
-    panGesture,
-  );
+  // Compose: pinch+rotation together, pan separate (pan needs 1 finger, pinch/rotate need 2)
+  const pinchRotate = Gesture.Simultaneous(pinchGesture, rotationGesture);
+  const composedGesture = Gesture.Simultaneous(pinchRotate, panGesture);
 
   // Animated style for image transforms
   const animatedImageStyle = useAnimatedStyle(() => ({
@@ -226,21 +235,21 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
           ]}
         >
           <GestureDetector gesture={composedGesture}>
-            <Animated.Image
-              source={{ uri: imageUri }}
+            <Animated.View
               style={[
-                styles.image,
                 { width: VIEWPORT_SIZE, height: VIEWPORT_SIZE },
                 animatedImageStyle,
               ]}
-              resizeMode="cover"
-              onLayout={(e) => {
-                setImageLayout({
-                  width: e.nativeEvent.layout.width,
-                  height: e.nativeEvent.layout.height,
-                });
-              }}
-            />
+            >
+              <Animated.Image
+                source={{ uri: imageUri }}
+                style={[
+                  styles.image,
+                  { width: VIEWPORT_SIZE, height: VIEWPORT_SIZE },
+                ]}
+                resizeMode="cover"
+              />
+            </Animated.View>
           </GestureDetector>
           {/* Square overlay mask */}
           <View style={styles.overlayMask} pointerEvents="none">

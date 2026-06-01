@@ -1214,23 +1214,6 @@ export default function AddStoreScreen({ navigation }) {
             </View>
           </Modal>
 
-          {/* Image Editor Modal */}
-          <Modal
-            visible={!!imageToEdit}
-            animationType="fade"
-            transparent={true}
-          >
-            {imageToEdit && (
-              <ImageEditor
-                imageUri={imageToEdit}
-                onDone={handleImageEdited}
-                onCancel={handleCancelEdit}
-                outputSize={800}
-                t={t}
-              />
-            )}
-          </Modal>
-
           {/* Map Picker Modal */}
           <MapPickerModal
             visible={showMapPicker}
@@ -1241,6 +1224,19 @@ export default function AddStoreScreen({ navigation }) {
           />
         </View>
       </ScrollView>
+
+      {/* Image Editor - Full screen overlay (not Modal, gestures don't work in Modal) */}
+      {imageToEdit && (
+        <View style={StyleSheet.absoluteFill}>
+          <ImageEditor
+            imageUri={imageToEdit}
+            onDone={handleImageEdited}
+            onCancel={handleCancelEdit}
+            outputSize={800}
+            t={t}
+          />
+        </View>
+      )}
     </View>
   );
 }
