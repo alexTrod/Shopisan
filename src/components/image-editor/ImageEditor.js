@@ -52,7 +52,6 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
 
   // Pinch gesture for scaling
   const pinchGesture = Gesture.Pinch()
-    .runOnJS(true)
     .onStart((e) => {
       console.log("[ImageEditor] Pinch START", e.scale);
       focalX.value = e.focalX;
@@ -73,7 +72,6 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
 
   // Rotation gesture
   const rotationGesture = Gesture.Rotation()
-    .runOnJS(true)
     .onStart(() => {
       console.log("[ImageEditor] Rotation START");
     })
@@ -87,7 +85,6 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
 
   // Pan gesture for repositioning (single finger only, 2 fingers = pinch/rotate)
   const panGesture = Gesture.Pan()
-    .runOnJS(true)
     .minPointers(1)
     .maxPointers(1)
     .onStart(() => {

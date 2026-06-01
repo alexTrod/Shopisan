@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
@@ -130,103 +129,99 @@ const MapPickerModal = ({
     }
   };
 
+  // Return null when not visible (parent controls visibility via conditional render)
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        {/* Map */}
-        <MapboxGL.MapView
-          style={styles.map}
-          styleURL={MapboxGL.StyleURL.Street}
-          onMapIdle={handleRegionDidChange}
-          compassEnabled={true}
-          logoEnabled={false}
-          attributionEnabled={false}
-        >
-          <MapboxGL.Camera
-            ref={cameraRef}
-            centerCoordinate={
-              centerCoordinate || [
-                startLocation.longitude,
-                startLocation.latitude,
-              ]
-            }
-            zoomLevel={15}
-            animationMode="flyTo"
-            animationDuration={300}
-          />
-          <MapboxGL.UserLocation visible={true} />
-        </MapboxGL.MapView>
+    <View style={[StyleSheet.absoluteFill, styles.container]}>
+      {/* Map */}
+      <MapboxGL.MapView
+        style={styles.map}
+        styleURL={MapboxGL.StyleURL.Street}
+        onMapIdle={handleRegionDidChange}
+        compassEnabled={true}
+        logoEnabled={false}
+        attributionEnabled={false}
+      >
+        <MapboxGL.Camera
+          ref={cameraRef}
+          centerCoordinate={
+            centerCoordinate || [
+              startLocation.longitude,
+              startLocation.latitude,
+            ]
+          }
+          zoomLevel={15}
+          animationMode="flyTo"
+          animationDuration={300}
+        />
+        <MapboxGL.UserLocation visible={true} />
+      </MapboxGL.MapView>
 
-        {/* Fixed crosshair in center */}
-        <View style={styles.crosshairContainer} pointerEvents="none">
-          <View style={styles.crosshair}>
-            <Ionicons name="location" size={40} color={AppColors.primary} />
-          </View>
-          {/* Shadow/pin effect */}
-          <View style={styles.pinShadow} />
+      {/* Fixed crosshair in center */}
+      <View style={styles.crosshairContainer} pointerEvents="none">
+        <View style={styles.crosshair}>
+          <Ionicons name="location" size={40} color={AppColors.primary} />
         </View>
-
-        {/* Header with close button */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color={AppColors.black} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {getTranslation(t, "pick_location", "Pick location")}
-          </Text>
-          <View style={{ width: 44 }} />
-        </View>
-
-        {/* Instructions */}
-        <View style={styles.instructionBanner}>
-          <Text style={styles.instructionText}>
-            {getTranslation(
-              t,
-              "drag_map_instruction",
-              "Drag the map to position the pin on your address",
-            )}
-          </Text>
-        </View>
-
-        {/* Error message */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="warning" size={20} color="#fff" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Confirm button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.confirmButton, isLoading && styles.buttonDisabled]}
-            onPress={handleConfirm}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={24}
-                  color="#fff"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.confirmButtonText}>
-                  {getTranslation(t, "confirm_location", "Confirm location")}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        {/* Shadow/pin effect */}
+        <View style={styles.pinShadow} />
       </View>
-    </Modal>
+
+      {/* Header with close button */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="close" size={28} color={AppColors.black} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {getTranslation(t, "pick_location", "Pick location")}
+        </Text>
+        <View style={{ width: 44 }} />
+      </View>
+
+      {/* Instructions */}
+      <View style={styles.instructionBanner}>
+        <Text style={styles.instructionText}>
+          {getTranslation(
+            t,
+            "drag_map_instruction",
+            "Drag the map to position the pin on your address",
+          )}
+        </Text>
+      </View>
+
+      {/* Error message */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="warning" size={20} color="#fff" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {/* Confirm button */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.confirmButton, isLoading && styles.buttonDisabled]}
+          onPress={handleConfirm}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons
+                name="checkmark-circle"
+                size={24}
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.confirmButtonText}>
+                {getTranslation(t, "confirm_location", "Confirm location")}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 

@@ -1213,17 +1213,21 @@ export default function AddStoreScreen({ navigation }) {
               </View>
             </View>
           </Modal>
+        </View>
+      </ScrollView>
 
-          {/* Map Picker Modal */}
+      {/* Map Picker - Full screen overlay (not Modal, native maps crash in Modal on Android) */}
+      {showMapPicker && (
+        <View style={StyleSheet.absoluteFill}>
           <MapPickerModal
-            visible={showMapPicker}
+            visible={true}
             onClose={() => setShowMapPicker(false)}
             onConfirm={handleMapPickerConfirm}
             initialLocation={selectedLocation || userProximity}
             t={t}
           />
         </View>
-      </ScrollView>
+      )}
 
       {/* Image Editor - Full screen overlay (not Modal, gestures don't work in Modal) */}
       {imageToEdit && (
