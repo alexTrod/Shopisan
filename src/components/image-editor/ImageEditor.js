@@ -53,15 +53,16 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
   // Pinch gesture for scaling
   const pinchGesture = Gesture.Pinch()
     .onStart((e) => {
-      console.log("[ImageEditor] Pinch START", e.scale);
+      "worklet";
       focalX.value = e.focalX;
       focalY.value = e.focalY;
     })
     .onUpdate((e) => {
-      console.log("[ImageEditor] Pinch UPDATE", e.scale);
+      "worklet";
       scale.value = Math.max(0.5, Math.min(savedScale.value * e.scale, 5));
     })
     .onEnd(() => {
+      "worklet";
       savedScale.value = scale.value;
       // Spring back if too small
       if (scale.value < 1) {
@@ -73,13 +74,14 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
   // Rotation gesture
   const rotationGesture = Gesture.Rotation()
     .onStart(() => {
-      console.log("[ImageEditor] Rotation START");
+      "worklet";
     })
     .onUpdate((e) => {
-      console.log("[ImageEditor] Rotation UPDATE", e.rotation);
+      "worklet";
       rotation.value = savedRotation.value + e.rotation;
     })
     .onEnd(() => {
+      "worklet";
       savedRotation.value = rotation.value;
     });
 
@@ -88,14 +90,15 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
     .minPointers(1)
     .maxPointers(1)
     .onStart(() => {
-      console.log("[ImageEditor] Pan START");
+      "worklet";
     })
     .onUpdate((e) => {
-      console.log("[ImageEditor] Pan UPDATE");
+      "worklet";
       translateX.value = savedTranslateX.value + e.translationX;
       translateY.value = savedTranslateY.value + e.translationY;
     })
     .onEnd(() => {
+      "worklet";
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
     });
