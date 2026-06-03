@@ -155,7 +155,7 @@ const MapPickerModal = ({
           animationMode="flyTo"
           animationDuration={300}
         />
-        <MapboxGL.UserLocation visible={true} />
+        <MapboxGL.UserLocation visible={true} androidRenderMode="normal" />
       </MapboxGL.MapView>
 
       {/* Fixed crosshair in center */}
