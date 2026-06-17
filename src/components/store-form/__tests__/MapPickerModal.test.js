@@ -17,12 +17,12 @@ jest.mock("@rnmapbox/maps", () => {
   const React = require("react");
   return {
     setAccessToken: jest.fn(),
-    MapView: ({ children, onMapIdle, ...props }) => {
+    MapView: ({ children, onMapIdle, testID, ...props }) => {
       // Store the callback for tests to trigger
       MapPickerModalTestHelpers.onMapIdle = onMapIdle;
       return React.createElement(
         "mock-map-view",
-        { testID: "map-view", ...props },
+        { testID: testID || "map-view", ...props },
         children,
       );
     },
@@ -51,6 +51,14 @@ jest.mock("../../../utils", () => ({
     red: "#dc3545",
   },
 }));
+
+// Mock expo-location
+jest.mock("expo-location", () => ({
+  requestForegroundPermissionsAsync: jest.fn(),
+  getCurrentPositionAsync: jest.fn(),
+  Accuracy: { Balanced: 3 },
+}));
+import * as Location from "expo-location";
 
 // Store original fetch
 const originalFetch = global.fetch;
@@ -85,6 +93,13 @@ describe("MapPickerModal", () => {
     jest.useFakeTimers();
     global.fetch = jest.fn();
     MapPickerModalTestHelpers.onMapIdle = null;
+    // Default: GPS permission granted, location available
+    Location.requestForegroundPermissionsAsync.mockResolvedValue({
+      status: "granted",
+    });
+    Location.getCurrentPositionAsync.mockResolvedValue({
+      coords: { latitude: 48.8566, longitude: 2.3522 },
+    });
   });
 
   afterEach(() => {
@@ -93,11 +108,11 @@ describe("MapPickerModal", () => {
   });
 
   describe("Map Initialization", () => {
-    it("should default to Paris (48.8566, 2.3522) if no initialLocation", () => {
+    it("should render map view", () => {
       const { getByTestId } = render(<MapPickerModal {...defaultProps} />);
 
       // Map should render
-      expect(getByTestId("map-view")).toBeTruthy();
+      expect(getByTestId("map-picker-map-view")).toBeTruthy();
     });
 
     it("should use initialLocation when provided", () => {
@@ -106,7 +121,7 @@ describe("MapPickerModal", () => {
         <MapPickerModal {...defaultProps} initialLocation={initialLocation} />,
       );
 
-      expect(getByTestId("map-view")).toBeTruthy();
+      expect(getByTestId("map-picker-map-view")).toBeTruthy();
     });
 
     it("should reset state when modal becomes visible", async () => {
@@ -498,13 +513,35 @@ describe("MapPickerModal", () => {
     });
   });
 
-  describe("Default Center Coordinate", () => {
-    it("should use default Paris coordinate when no initialLocation", async () => {
+  describe("GPS Location Behavior", () => {
+    it("should try GPS when no initialLocation", async () => {
+      jest.useRealTimers();
+
+      render(<MapPickerModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
+      });
+
+      jest.useFakeTimers();
+    });
+
+    it("should center on GPS location when successful", async () => {
+      jest.useRealTimers();
+
+      Location.getCurrentPositionAsync.mockResolvedValue({
+        coords: { latitude: 51.5074, longitude: -0.1278 }, // London
+      });
+
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({
-            features: [{ id: "test", place_name: "Test Address" }],
+            features: [{ id: "test", place_name: "London Address" }],
           }),
       });
 
@@ -513,15 +550,112 @@ describe("MapPickerModal", () => {
         <MapPickerModal {...defaultProps} onConfirm={onConfirm} />,
       );
 
-      // Press confirm - should use default Paris location
-      fireEvent.press(getByText("Confirm location"));
+      // Wait for GPS to complete
+      await waitFor(() => {
+        expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
+      });
+
+      // Wait for state to settle then press confirm
+      await waitFor(async () => {
+        fireEvent.press(getByText("Confirm location"));
+      });
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining("2.3522,48.8566"), // Paris coordinates
+          expect.stringContaining("-0.1278,51.5074"), // London coordinates
           expect.any(Object),
         );
       });
+
+      jest.useFakeTimers();
+    });
+
+    it("should show world view when GPS fails", async () => {
+      jest.useRealTimers();
+
+      Location.getCurrentPositionAsync.mockRejectedValue(
+        new Error("GPS unavailable"),
+      );
+
+      const { getByTestId } = render(<MapPickerModal {...defaultProps} />);
+
+      // Map should still render (with world view fallback)
+      await waitFor(() => {
+        expect(getByTestId("map-picker-map-view")).toBeTruthy();
+      });
+
+      // Verify GPS was attempted
+      await waitFor(() => {
+        expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
+      });
+
+      jest.useFakeTimers();
+    });
+
+    it("should show world view when permission denied", async () => {
+      jest.useRealTimers();
+
+      Location.requestForegroundPermissionsAsync.mockResolvedValue({
+        status: "denied",
+      });
+
+      const { getByTestId } = render(<MapPickerModal {...defaultProps} />);
+
+      // Map should still render (with world view fallback)
+      await waitFor(() => {
+        expect(getByTestId("map-picker-map-view")).toBeTruthy();
+      });
+
+      // GPS position should NOT be requested when permission denied
+      expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+
+      jest.useFakeTimers();
+    });
+
+    it("should skip GPS when initialLocation provided", async () => {
+      jest.useRealTimers();
+
+      const initialLocation = { latitude: 45.764, longitude: 4.8357 };
+
+      render(
+        <MapPickerModal {...defaultProps} initialLocation={initialLocation} />,
+      );
+
+      // Should NOT call GPS when initialLocation provided
+      await new Promise((r) => setTimeout(r, 100));
+      expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+      expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+
+      jest.useFakeTimers();
+    });
+
+    it("should show loading state while getting GPS", async () => {
+      jest.useRealTimers();
+
+      // Create a slow GPS response
+      let resolveGps;
+      Location.getCurrentPositionAsync.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveGps = resolve;
+          }),
+      );
+
+      const { queryByTestId, getByTestId } = render(
+        <MapPickerModal {...defaultProps} />,
+      );
+
+      // Map should render even while loading
+      await waitFor(() => {
+        expect(getByTestId("map-picker-map-view")).toBeTruthy();
+      });
+
+      // Resolve GPS
+      await act(async () => {
+        resolveGps({ coords: { latitude: 48.8566, longitude: 2.3522 } });
+      });
+
+      jest.useFakeTimers();
     });
   });
 });

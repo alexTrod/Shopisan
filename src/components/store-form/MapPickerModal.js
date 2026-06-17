@@ -9,14 +9,20 @@ import {
 } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { AppColors } from "../../utils";
-import { LOCATION_CONFIG } from "../../config/location";
 
 const MAPBOX_TOKEN =
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
 
 // Set access token
 MapboxGL.setAccessToken(MAPBOX_TOKEN);
+
+// World view fallback when no GPS available
+const WORLD_VIEW = {
+  center: [0, 0],
+  zoom: 2,
+};
 
 // Helper to get translation with fallback (handles missing translation strings)
 const getTranslation = (t, key, fallback) => {
@@ -46,16 +52,46 @@ const MapPickerModal = ({
   const cameraRef = useRef(null);
   const [centerCoordinate, setCenterCoordinate] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [error, setError] = useState(null);
 
-  // Default to Brussels (consistent with rest of app) if no initial location
-  const defaultLocation = LOCATION_CONFIG.DEFAULT_LOCATION;
-  const startLocation = initialLocation || defaultLocation;
+  // Get GPS location
+  const getGPSLocation = async () => {
+    setIsGettingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        setCenterCoordinate([
+          location.coords.longitude,
+          location.coords.latitude,
+        ]);
+      } else {
+        // Permission denied - use world view
+        setCenterCoordinate(null);
+      }
+    } catch (err) {
+      // GPS failed - use world view
+      setCenterCoordinate(null);
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
 
   useEffect(() => {
     if (visible) {
-      setCenterCoordinate([startLocation.longitude, startLocation.latitude]);
       setError(null);
+      if (initialLocation) {
+        setCenterCoordinate([
+          initialLocation.longitude,
+          initialLocation.latitude,
+        ]);
+      } else {
+        // No initial location - try GPS
+        getGPSLocation();
+      }
     }
   }, [visible, initialLocation]);
 
@@ -147,13 +183,8 @@ const MapPickerModal = ({
       >
         <MapboxGL.Camera
           ref={cameraRef}
-          centerCoordinate={
-            centerCoordinate || [
-              startLocation.longitude,
-              startLocation.latitude,
-            ]
-          }
-          zoomLevel={15}
+          centerCoordinate={centerCoordinate || WORLD_VIEW.center}
+          zoomLevel={centerCoordinate ? 15 : WORLD_VIEW.zoom}
         />
         <MapboxGL.UserLocation visible={true} androidRenderMode="normal" />
       </MapboxGL.MapView>
