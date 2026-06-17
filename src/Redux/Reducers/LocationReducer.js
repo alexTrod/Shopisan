@@ -4,10 +4,14 @@ const initialState = {
 
 const LocationReducer = (state = initialState, action) => {
   switch (action.type) {
-    case 'SET_CUSTOM_LOCATION':
+    case "SET_CUSTOM_LOCATION":
       return {
         ...state,
-        customLocation: action.payload,
+        customLocation: {
+          ...action.payload,
+          source: action.payload.source || "unknown",
+          timestamp: action.payload.timestamp || Date.now(),
+        },
       };
     default:
       return state;

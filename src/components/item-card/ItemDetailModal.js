@@ -126,7 +126,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
       }
 
       onClose();
-      dispatch(setCustomLocation({ latitude, longitude }));
+      dispatch(setCustomLocation({ latitude, longitude }, "search"));
       setTimeout(() => {
         navigation.navigate(ScreenNames.MAP, {
           initialStore: store,

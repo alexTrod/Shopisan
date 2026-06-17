@@ -10,6 +10,7 @@ import {
 import MapboxGL from "@rnmapbox/maps";
 import { Ionicons } from "@expo/vector-icons";
 import { AppColors } from "../../utils";
+import { LOCATION_CONFIG } from "../../config/location";
 
 const MAPBOX_TOKEN =
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
@@ -47,8 +48,8 @@ const MapPickerModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Default to Paris if no initial location
-  const defaultLocation = { latitude: 48.8566, longitude: 2.3522 };
+  // Default to Brussels (consistent with rest of app) if no initial location
+  const defaultLocation = LOCATION_CONFIG.DEFAULT_LOCATION;
   const startLocation = initialLocation || defaultLocation;
 
   useEffect(() => {
@@ -136,6 +137,7 @@ const MapPickerModal = ({
     <View style={[StyleSheet.absoluteFill, styles.container]}>
       {/* Map */}
       <MapboxGL.MapView
+        testID="map-picker-map-view"
         style={styles.map}
         styleURL={MapboxGL.StyleURL.Street}
         onMapIdle={handleRegionDidChange}
@@ -152,8 +154,6 @@ const MapPickerModal = ({
             ]
           }
           zoomLevel={15}
-          animationMode="flyTo"
-          animationDuration={300}
         />
         <MapboxGL.UserLocation visible={true} androidRenderMode="normal" />
       </MapboxGL.MapView>
@@ -169,7 +169,11 @@ const MapPickerModal = ({
 
       {/* Header with close button */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <TouchableOpacity
+          testID="map-picker-close-button"
+          onPress={onClose}
+          style={styles.closeButton}
+        >
           <Ionicons name="close" size={28} color={AppColors.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
@@ -200,6 +204,7 @@ const MapPickerModal = ({
       {/* Confirm button */}
       <View style={styles.footer}>
         <TouchableOpacity
+          testID="map-picker-confirm-button"
           style={[styles.confirmButton, isLoading && styles.buttonDisabled]}
           onPress={handleConfirm}
           disabled={isLoading}

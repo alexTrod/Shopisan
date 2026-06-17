@@ -5,11 +5,11 @@
  * Handles subscription lifecycle and state updates automatically.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import locationManager from '../services/LocationManager';
-import { LocationState } from '../config/location';
-import { setCustomLocation } from '../Redux/Actions/LocationActions';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import locationManager from "../services/LocationManager";
+import { LocationState } from "../config/location";
+import { setCustomLocation } from "../Redux/Actions/LocationActions";
 
 /**
  * Hook for accessing and managing location state
@@ -19,17 +19,14 @@ import { setCustomLocation } from '../Redux/Actions/LocationActions';
  * @returns {Object} Location state and methods
  */
 export function useLocation(options = {}) {
-  const {
-    autoFetch = false,
-    useCache = true,
-  } = options;
+  const { autoFetch = false, useCache = true } = options;
 
   const dispatch = useDispatch();
-  const customLocation = useSelector(state => state.location.customLocation);
+  const customLocation = useSelector((state) => state.location.customLocation);
 
   const [state, setState] = useState(locationManager.state);
   const [location, setLocation] = useState(
-    locationManager.getCurrentLocation()
+    locationManager.getCurrentLocation(),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -46,9 +43,9 @@ export function useLocation(options = {}) {
         setLocation(newLocation);
         setLoading(
           newState === LocationState.REQUESTING_PERMISSION ||
-          newState === LocationState.REQUESTING_GPS
+            newState === LocationState.REQUESTING_GPS,
         );
-        setError(newState === LocationState.ERROR ? 'Location error' : null);
+        setError(newState === LocationState.ERROR ? "Location error" : null);
       }
     });
 
@@ -76,71 +73,90 @@ export function useLocation(options = {}) {
   /**
    * Get user's current location
    */
-  const getUserLocation = useCallback(async (forceRefresh = false) => {
-    if (!isMounted.current) return null;
+  const getUserLocation = useCallback(
+    async (forceRefresh = false) => {
+      if (!isMounted.current) return null;
 
-    setLoading(true);
-    setError(null);
+      setLoading(true);
+      setError(null);
 
-    try {
-      const loc = await locationManager.getUserLocation({
-        useCache: !forceRefresh,
-        forceRefresh,
-      });
+      try {
+        const loc = await locationManager.getUserLocation({
+          useCache: !forceRefresh,
+          forceRefresh,
+        });
 
-      if (loc && isMounted.current) {
-        // Update Redux store
-        dispatch(setCustomLocation({
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-        }));
+        if (loc && isMounted.current) {
+          // Update Redux store
+          dispatch(
+            setCustomLocation(
+              {
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+              },
+              "gps",
+            ),
+          );
+        }
+
+        return loc;
+      } catch (err) {
+        if (isMounted.current) {
+          setError(err.message || "Failed to get location");
+        }
+        return null;
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
-
-      return loc;
-    } catch (err) {
-      if (isMounted.current) {
-        setError(err.message || 'Failed to get location');
-      }
-      return null;
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
-  }, [dispatch]);
+    },
+    [dispatch],
+  );
 
   /**
    * Set a custom/searched location
    */
-  const setLocation2 = useCallback((newLocation) => {
-    if (!newLocation?.latitude || !newLocation?.longitude) return;
+  const setLocation2 = useCallback(
+    (newLocation) => {
+      if (!newLocation?.latitude || !newLocation?.longitude) return;
 
-    locationManager.setCustomLocation(newLocation);
-    dispatch(setCustomLocation({
-      latitude: newLocation.latitude,
-      longitude: newLocation.longitude,
-    }));
-  }, [dispatch]);
+      locationManager.setCustomLocation(newLocation);
+      dispatch(
+        setCustomLocation(
+          {
+            latitude: newLocation.latitude,
+            longitude: newLocation.longitude,
+          },
+          "search",
+        ),
+      );
+    },
+    [dispatch],
+  );
 
   /**
    * Geocode a city name
    */
-  const geocodeCity = useCallback(async (cityName) => {
-    if (!cityName?.trim()) return null;
+  const geocodeCity = useCallback(
+    async (cityName) => {
+      if (!cityName?.trim()) return null;
 
-    setLoading(true);
-    try {
-      const coords = await locationManager.geocodeCity(cityName);
-      if (coords) {
-        setLocation2(coords);
+      setLoading(true);
+      try {
+        const coords = await locationManager.geocodeCity(cityName);
+        if (coords) {
+          setLocation2(coords);
+        }
+        return coords;
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
-      return coords;
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
-  }, [setLocation2]);
+    },
+    [setLocation2],
+  );
 
   /**
    * Enter exploring mode (user is panning map)
@@ -152,17 +168,20 @@ export function useLocation(options = {}) {
   /**
    * Calculate distance between current location and a point
    */
-  const getDistanceTo = useCallback((targetLat, targetLng) => {
-    const currentLoc = location || customLocation;
-    if (!currentLoc?.latitude || !currentLoc?.longitude) return null;
+  const getDistanceTo = useCallback(
+    (targetLat, targetLng) => {
+      const currentLoc = location || customLocation;
+      if (!currentLoc?.latitude || !currentLoc?.longitude) return null;
 
-    return locationManager.getDistanceInKm(
-      currentLoc.latitude,
-      currentLoc.longitude,
-      targetLat,
-      targetLng
-    );
-  }, [location, customLocation]);
+      return locationManager.getDistanceInKm(
+        currentLoc.latitude,
+        currentLoc.longitude,
+        targetLat,
+        targetLng,
+      );
+    },
+    [location, customLocation],
+  );
 
   /**
    * Cancel any pending location request

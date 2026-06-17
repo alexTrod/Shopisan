@@ -35,8 +35,10 @@ function TabsWithSearch() {
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const { allStores, setHasRequestedStores } = useContext(StoreContext);
-  const user = useSelector(state => state.user.userData);
-  const emailVerificationStatus = useSelector(state => state.user.emailVerificationStatus);
+  const user = useSelector((state) => state.user.userData);
+  const emailVerificationStatus = useSelector(
+    (state) => state.user.emailVerificationStatus,
+  );
   const [currentTab, setCurrentTab] = useState(ScreenNames.HOME);
 
   // Check Firebase Auth's emailVerified status
@@ -47,34 +49,47 @@ function TabsWithSearch() {
   // 1. Firebase Auth emailVerified is true
   // 2. Firestore emailVerificationStatus is 'verified'
   // 3. Firestore is_active is true
-  const isVerified = isFirebaseVerified ||
-                     emailVerificationStatus === 'verified' ||
-                     user?.is_active === true;
+  const isVerified =
+    isFirebaseVerified ||
+    emailVerificationStatus === "verified" ||
+    user?.is_active === true;
 
   // Show badge only when verification is explicitly needed AND user is not verified
-  const needsVerification = !isVerified &&
-                            (emailVerificationStatus === 'pending' || emailVerificationStatus === 'expired');
+  const needsVerification =
+    !isVerified &&
+    (emailVerificationStatus === "pending" ||
+      emailVerificationStatus === "expired");
   const showVerificationBadge = user && needsVerification;
 
   // Handler for city selection from unified search
   const handleCitySelect = (cityName, coordinates) => {
-    console.log('[UnifiedSearch] City selected:', cityName, coordinates);
+    console.log("[UnifiedSearch] City selected:", cityName, coordinates);
     // Update Redux location - this will trigger both Home and Map to update
-    dispatch(setCustomLocation({
-      latitude: coordinates.latitude,
-      longitude: coordinates.longitude
-    }));
+    dispatch(
+      setCustomLocation(
+        {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        },
+        "search",
+      ),
+    );
     setHasRequestedStores(true);
   };
 
   // Handler for store selection from unified search
   const handleStoreSelect = (storeSuggestion) => {
-    console.log('[UnifiedSearch] Store selected:', storeSuggestion);
+    console.log("[UnifiedSearch] Store selected:", storeSuggestion);
     if (storeSuggestion.location) {
-      dispatch(setCustomLocation({
-        latitude: storeSuggestion.location.latitude,
-        longitude: storeSuggestion.location.longitude
-      }));
+      dispatch(
+        setCustomLocation(
+          {
+            latitude: storeSuggestion.location.latitude,
+            longitude: storeSuggestion.location.longitude,
+          },
+          "search",
+        ),
+      );
       setHasRequestedStores(true);
     }
   };
@@ -82,11 +97,14 @@ function TabsWithSearch() {
   // Navigate to sign up by exiting guest mode
   const handleSignUp = () => {
     // Dispatch AUTH_LOGOUT to exit guest mode and show auth screens
-    dispatch({ type: 'AUTH_LOGOUT' });
+    dispatch({ type: "AUTH_LOGOUT" });
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[styles.container, { paddingTop: insets.top }]}
+      testID="main-tab-bar"
+    >
       {/* Header with Sign Up and Search Bar */}
       <View style={styles.headerContainer}>
         {/* Sign Up button - only show if not logged in */}
@@ -97,7 +115,7 @@ function TabsWithSearch() {
               color={AppColors.white}
               textStyles={{ fontWeight: "600" }}
             >
-              {t('sign_up')}
+              {t("sign_up")}
             </CustomText>
           </TouchableOpacity>
         )}
@@ -107,7 +125,7 @@ function TabsWithSearch() {
       {currentTab !== ScreenNames.PROFILE && (
         <View style={styles.searchContainer}>
           <SearchBar
-            placeholder={t('search_placeholder')}
+            placeholder={t("search_placeholder")}
             onCitySelect={handleCitySelect}
             onStoreSelect={handleStoreSelect}
             allStores={allStores}
@@ -142,7 +160,7 @@ function TabsWithSearch() {
               }
             } else if (route.name === ScreenNames.PROFILE) {
               return (
-                <View style={{ position: 'relative' }}>
+                <View style={{ position: "relative" }}>
                   {focused ? (
                     <ProfileFilled height={height(3)} width={height(3)} />
                   ) : (
@@ -150,7 +168,11 @@ function TabsWithSearch() {
                   )}
                   {showVerificationBadge && (
                     <View style={styles.notificationBadge}>
-                      <Ionicons name="alert" size={10} color={AppColors.white} />
+                      <Ionicons
+                        name="alert"
+                        size={10}
+                        color={AppColors.white}
+                      />
                     </View>
                   )}
                 </View>
@@ -165,17 +187,17 @@ function TabsWithSearch() {
         <Tab.Screen
           name={ScreenNames.HOME}
           component={HomeScreen}
-          options={{ title: t('home_title') }}
+          options={{ title: t("home_title") }}
         />
         <Tab.Screen
           name={ScreenNames.MAP}
           component={MapScreen}
-          options={{ title: t('map_title') }}
+          options={{ title: t("map_title") }}
         />
         <Tab.Screen
           name={ScreenNames.PROFILE}
           component={Profile}
-          options={{ title: t('profile_title') }}
+          options={{ title: t("profile_title") }}
         />
       </Tab.Navigator>
     </View>
@@ -196,9 +218,9 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white,
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
     paddingHorizontal: width(4),
     paddingTop: height(0.5),
     backgroundColor: AppColors.white,
@@ -219,15 +241,15 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   notificationBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -2,
     right: -4,
-    backgroundColor: AppColors.error || '#FF3B30',
+    backgroundColor: AppColors.error || "#FF3B30",
     borderRadius: 8,
     width: 16,
     height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1.5,
     borderColor: AppColors.white,
   },

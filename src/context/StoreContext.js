@@ -10,16 +10,23 @@
  * while leveraging the improved architecture.
  */
 
-import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { DeviceEventEmitter } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import Toast from 'react-native-toast-message';
+import React, {
+  createContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+import { DeviceEventEmitter } from "react-native";
+import { useSelector, useDispatch } from "react-redux";
+import Toast from "react-native-toast-message";
 
 // New services
-import locationManager from '../services/LocationManager';
-import storeService from '../services/StoreService';
-import { LOCATION_CONFIG } from '../config/location';
-import { setCustomLocation } from '../Redux/Actions/LocationActions';
+import locationManager from "../services/LocationManager";
+import storeService from "../services/StoreService";
+import { LOCATION_CONFIG } from "../config/location";
+import { setCustomLocation } from "../Redux/Actions/LocationActions";
+import { store } from "../Redux";
 
 export const StoreContext = createContext();
 
@@ -29,20 +36,25 @@ export const StoreProvider = ({ children }) => {
   const [filteredStores, setFilteredStores] = useState([]);
   const [loadingStores, setLoadingStores] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchCompleted, setSearchCompleted] = useState(false);
   const [hasRequestedStores, setHasRequestedStores] = useState(false);
 
   // Redux state
-  const customLocation = useSelector(state => state.location.customLocation);
-  const selectedCategories = useSelector(state => state.categories.selectedCategories);
+  const customLocation = useSelector((state) => state.location.customLocation);
+  const selectedCategories = useSelector(
+    (state) => state.categories.selectedCategories,
+  );
   const dispatch = useDispatch();
 
   // Listen for store refresh events
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('stores:refresh', () => {
-      fetchAllStores();
-    });
+    const subscription = DeviceEventEmitter.addListener(
+      "stores:refresh",
+      () => {
+        fetchAllStores();
+      },
+    );
     return () => subscription.remove();
   }, [fetchAllStores]);
 
@@ -56,7 +68,7 @@ export const StoreProvider = ({ children }) => {
       const stores = await storeService.fetchAllStores();
       setAllStores(stores);
     } catch (error) {
-      console.error('Error fetching stores:', error);
+      console.error("Error fetching stores:", error);
     } finally {
       setLoadingStores(false);
     }
@@ -69,7 +81,11 @@ export const StoreProvider = ({ children }) => {
   const fetchUserLocation = useCallback(async () => {
     // Prefer custom location if set (this is from user's city search)
     if (customLocation?.latitude && customLocation?.longitude) {
-      console.log('[StoreContext] Using customLocation from Redux:', customLocation.latitude, customLocation.longitude);
+      console.log(
+        "[StoreContext] Using customLocation from Redux:",
+        customLocation.latitude,
+        customLocation.longitude,
+      );
       setUserLocation(customLocation);
       return customLocation;
     }
@@ -83,36 +99,70 @@ export const StoreProvider = ({ children }) => {
         useCache: true,
       });
 
-      console.log('[StoreContext] LocationManager returned:', location?.latitude, location?.longitude, location?.source);
+      console.log(
+        "[StoreContext] LocationManager returned:",
+        location?.latitude,
+        location?.longitude,
+        location?.source,
+      );
 
       // Accept any valid location from LocationManager (GPS, custom, geocoding, or cache)
       // LocationManager already validates cache TTL, so cached locations are trustworthy
       // Using cache is better than falling back to Brussels which could be in a different country
       if (location && location.latitude && location.longitude) {
-        console.log('[StoreContext] Using location from source:', location.source);
+        console.log(
+          "[StoreContext] Using location from source:",
+          location.source,
+        );
         setUserLocation(location);
 
-        // Update Redux store
-        dispatch(setCustomLocation({
-          latitude: location.latitude,
-          longitude: location.longitude,
-        }));
+        // RACE CONDITION FIX: Re-check Redux state before dispatch
+        // If user searched for a city while GPS was pending, don't overwrite it
+        const currentState = store.getState().location.customLocation;
+        if (
+          !currentState?.latitude ||
+          currentState.source === "gps" ||
+          currentState.source === "default"
+        ) {
+          // Only dispatch GPS result if no search location exists
+          dispatch(
+            setCustomLocation(
+              {
+                latitude: location.latitude,
+                longitude: location.longitude,
+              },
+              "gps",
+            ),
+          );
+        } else {
+          console.log(
+            "[StoreContext] Skipping GPS dispatch - user search location exists:",
+            currentState.source,
+          );
+        }
 
         return location;
       }
 
       // No location available at all - use default as last resort
-      console.log('[StoreContext] No location available, using default Brussels');
+      console.log(
+        "[StoreContext] No location available, using default Brussels",
+      );
       const defaultLocation = {
         ...LOCATION_CONFIG.DEFAULT_LOCATION,
-        source: 'default',
+        source: "default",
         timestamp: Date.now(),
       };
       setUserLocation(defaultLocation);
-      dispatch(setCustomLocation({
-        latitude: defaultLocation.latitude,
-        longitude: defaultLocation.longitude,
-      }));
+      dispatch(
+        setCustomLocation(
+          {
+            latitude: defaultLocation.latitude,
+            longitude: defaultLocation.longitude,
+          },
+          "default",
+        ),
+      );
 
       // Set as current location but don't cache it - we don't want to pollute the cache
       // with a default location that could override a real GPS location later
@@ -120,21 +170,21 @@ export const StoreProvider = ({ children }) => {
 
       // Inform user they can search for their city
       Toast.show({
-        type: 'info',
-        text1: 'Location not available',
-        text2: 'Search for your city to find nearby stores',
-        position: 'bottom',
+        type: "info",
+        text1: "Location not available",
+        text2: "Search for your city to find nearby stores",
+        position: "bottom",
         visibilityTime: 4000,
       });
 
       return defaultLocation;
     } catch (error) {
-      console.error('[StoreContext] Error fetching user location:', error);
+      console.error("[StoreContext] Error fetching user location:", error);
 
       // Even on error, use default location so app is usable
       const defaultLocation = {
         ...LOCATION_CONFIG.DEFAULT_LOCATION,
-        source: 'default',
+        source: "default",
         timestamp: Date.now(),
       };
       setUserLocation(defaultLocation);
@@ -167,7 +217,7 @@ export const StoreProvider = ({ children }) => {
     const nearbyStores = storeService.filterStoresByRadius(
       userLocation,
       LOCATION_CONFIG.SEARCH_RADIUS_KM,
-      selectedCategories
+      selectedCategories,
     );
 
     setFilteredStores(nearbyStores);
@@ -176,50 +226,56 @@ export const StoreProvider = ({ children }) => {
   /**
    * Perform search with query
    */
-  const performSearch = useCallback(async (searchTerm) => {
-    if (!userLocation || !allStores.length) {
-      setFilteredStores([]);
-      return;
-    }
+  const performSearch = useCallback(
+    async (searchTerm) => {
+      if (!userLocation || !allStores.length) {
+        setFilteredStores([]);
+        return;
+      }
 
-    let filtered = [...allStores];
+      let filtered = [...allStores];
 
-    // Apply category filter
-    if (selectedCategories?.length > 0) {
-      const selectedCatStrings = selectedCategories.map(c => String(c));
-      filtered = filtered.filter(store =>
-        Array.isArray(store.category) &&
-        store.category.some(catId => selectedCatStrings.includes(String(catId)))
-      );
-    }
+      // Apply category filter
+      if (selectedCategories?.length > 0) {
+        const selectedCatStrings = selectedCategories.map((c) => String(c));
+        filtered = filtered.filter(
+          (store) =>
+            Array.isArray(store.category) &&
+            store.category.some((catId) =>
+              selectedCatStrings.includes(String(catId)),
+            ),
+        );
+      }
 
-    // Apply search query filter
-    if (searchTerm && searchTerm.trim().length > 0) {
-      const trimmedQuery = searchTerm.trim().toLowerCase();
+      // Apply search query filter
+      if (searchTerm && searchTerm.trim().length > 0) {
+        const trimmedQuery = searchTerm.trim().toLowerCase();
 
-      // Filter by store name
-      filtered = filtered.filter(
-        store => store.name?.toLowerCase().includes(trimmedQuery)
-      );
-    }
+        // Filter by store name
+        filtered = filtered.filter((store) =>
+          store.name?.toLowerCase().includes(trimmedQuery),
+        );
+      }
 
-    // Filter stores with valid geolocation
-    filtered = filtered.filter(store => {
-      const valid = store?.address?.[0]?.location?.geopoint;
-      return valid;
-    });
+      // Filter stores with valid geolocation
+      filtered = filtered.filter((store) => {
+        const valid = store?.address?.[0]?.location?.geopoint;
+        return valid;
+      });
 
-    // Apply radius filter using StoreService
-    const nearbyStores = storeService.filterStoresByRadius(
-      userLocation,
-      LOCATION_CONFIG.SEARCH_RADIUS_KM,
-      null // Categories already applied above
-    ).filter(store =>
-      filtered.some(f => f.id === store.id)
-    );
+      // Apply radius filter using StoreService
+      const nearbyStores = storeService
+        .filterStoresByRadius(
+          userLocation,
+          LOCATION_CONFIG.SEARCH_RADIUS_KM,
+          null, // Categories already applied above
+        )
+        .filter((store) => filtered.some((f) => f.id === store.id));
 
-    setFilteredStores(nearbyStores);
-  }, [allStores, selectedCategories, userLocation]);
+      setFilteredStores(nearbyStores);
+    },
+    [allStores, selectedCategories, userLocation],
+  );
 
   // Filter stores when userLocation or categories change
   useEffect(() => {
@@ -230,15 +286,18 @@ export const StoreProvider = ({ children }) => {
       let filtered = [...allStores];
 
       if (selectedCategories?.length > 0) {
-        const selectedCatStrings = selectedCategories.map(c => String(c));
-        filtered = filtered.filter(store =>
-          Array.isArray(store.category) &&
-          store.category.some(catId => selectedCatStrings.includes(String(catId)))
+        const selectedCatStrings = selectedCategories.map((c) => String(c));
+        filtered = filtered.filter(
+          (store) =>
+            Array.isArray(store.category) &&
+            store.category.some((catId) =>
+              selectedCatStrings.includes(String(catId)),
+            ),
         );
       }
 
       // Filter stores with valid geolocation
-      filtered = filtered.filter(store => {
+      filtered = filtered.filter((store) => {
         const valid = store?.address?.[0]?.location?.geopoint;
         return valid;
       });
@@ -254,7 +313,7 @@ export const StoreProvider = ({ children }) => {
       await locationManager.initialize();
 
       // Subscribe to store updates
-      const unsubscribeStores = storeService.subscribe(stores => {
+      const unsubscribeStores = storeService.subscribe((stores) => {
         setAllStores(stores);
         setLoadingStores(false);
       });
@@ -272,47 +331,50 @@ export const StoreProvider = ({ children }) => {
   }, [fetchAllStores, fetchUserLocation]);
 
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    // Store data
-    allStores,
-    filteredStores,
-    loadingStores,
+  const contextValue = useMemo(
+    () => ({
+      // Store data
+      allStores,
+      filteredStores,
+      loadingStores,
 
-    // Location data
-    userLocation,
-    customLocation,
+      // Location data
+      userLocation,
+      customLocation,
 
-    // Methods
-    refreshStores: fetchAllStores,
-    refreshLocation: fetchUserLocation,
+      // Methods
+      refreshStores: fetchAllStores,
+      refreshLocation: fetchUserLocation,
 
-    // Search state
-    searchQuery,
-    setSearchQuery,
-    performSearch,
-    searchCompleted,
-    setSearchCompleted,
+      // Search state
+      searchQuery,
+      setSearchQuery,
+      performSearch,
+      searchCompleted,
+      setSearchCompleted,
 
-    // Request tracking
-    hasRequestedStores,
-    setHasRequestedStores,
+      // Request tracking
+      hasRequestedStores,
+      setHasRequestedStores,
 
-    // New service access (for migration)
-    locationManager,
-    storeService,
-  }), [
-    allStores,
-    filteredStores,
-    loadingStores,
-    userLocation,
-    customLocation,
-    fetchAllStores,
-    fetchUserLocation,
-    searchQuery,
-    performSearch,
-    searchCompleted,
-    hasRequestedStores,
-  ]);
+      // New service access (for migration)
+      locationManager,
+      storeService,
+    }),
+    [
+      allStores,
+      filteredStores,
+      loadingStores,
+      userLocation,
+      customLocation,
+      fetchAllStores,
+      fetchUserLocation,
+      searchQuery,
+      performSearch,
+      searchCompleted,
+      hasRequestedStores,
+    ],
+  );
 
   return (
     <StoreContext.Provider value={contextValue}>

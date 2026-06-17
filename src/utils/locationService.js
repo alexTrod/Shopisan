@@ -1,14 +1,14 @@
-import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Toast from 'react-native-toast-message';
-import { setCustomLocation } from '../Redux/Actions/LocationActions';
-import perfLogger from './perfLogger';
-import { LOCATION_CONFIG } from '../config/location';
+import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
+import { setCustomLocation } from "../Redux/Actions/LocationActions";
+import perfLogger from "./perfLogger";
+import { LOCATION_CONFIG } from "../config/location";
 
 // Cache keys
 const CACHE_KEYS = {
-  LAST_LOCATION: '@last_location',
-  CACHE_TIMESTAMP: '@location_cache_timestamp'
+  LAST_LOCATION: "@last_location",
+  CACHE_TIMESTAMP: "@location_cache_timestamp",
 };
 
 // Cache duration (24 hours)
@@ -20,7 +20,9 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000;
  */
 class LocationService {
   constructor() {
-    console.warn('[DEPRECATED] locationService is deprecated. Use LocationManager from src/services/LocationManager.js');
+    console.warn(
+      "[DEPRECATED] locationService is deprecated. Use LocationManager from src/services/LocationManager.js",
+    );
     this.cachedLocation = null;
     this.isInitialized = false;
     this.pendingRequest = null; // Track in-flight request to prevent duplicates
@@ -31,12 +33,12 @@ class LocationService {
    */
   async initialize() {
     if (this.isInitialized) return;
-    
+
     try {
       await this.loadCachedLocation();
       this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize location service:', error);
+      console.error("Failed to initialize location service:", error);
     }
   }
 
@@ -50,7 +52,7 @@ class LocationService {
       useCache = true,
       showToast = true,
       accuracy = Location.Accuracy.High,
-      timeout = 8000
+      timeout = 8000,
     } = options;
 
     // Check cache first if enabled (before any async work)
@@ -67,7 +69,12 @@ class LocationService {
     }
 
     // Start new request and track it
-    this.pendingRequest = this._fetchLocation({ useCache, showToast, accuracy, timeout });
+    this.pendingRequest = this._fetchLocation({
+      useCache,
+      showToast,
+      accuracy,
+      timeout,
+    });
 
     try {
       const result = await this.pendingRequest;
@@ -83,81 +90,93 @@ class LocationService {
   async _fetchLocation(options) {
     const { showToast, accuracy, timeout } = options;
 
-    perfLogger.start('LocationService.getUserLocation.TOTAL');
+    perfLogger.start("LocationService.getUserLocation.TOTAL");
 
     try {
       // Request permission
-      perfLogger.start('LocationService.getUserLocation.requestPermission');
+      perfLogger.start("LocationService.getUserLocation.requestPermission");
       const { status } = await Location.requestForegroundPermissionsAsync();
-      perfLogger.end('LocationService.getUserLocation.requestPermission');
+      perfLogger.end("LocationService.getUserLocation.requestPermission");
 
-      if (status !== 'granted') {
+      if (status !== "granted") {
         if (showToast) {
           Toast.show({
-            type: 'info',
-            text1: 'Location Permission Required',
-            text2: 'Please enable location services to find nearby stores.',
-            position: 'bottom',
+            type: "info",
+            text1: "Location Permission Required",
+            text2: "Please enable location services to find nearby stores.",
+            position: "bottom",
             visibilityTime: 4000,
           });
         }
 
         // Return null instead of default location
-        perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'Permission not granted');
-        perfLogger.end('LocationService.getUserLocation.TOTAL');
+        perfLogger.checkpoint(
+          "LocationService.getUserLocation.TOTAL",
+          "Permission not granted",
+        );
+        perfLogger.end("LocationService.getUserLocation.TOTAL");
         return null;
       }
 
       // Get current location with timeout
-      perfLogger.start('LocationService.getUserLocation.getCurrentPosition');
+      perfLogger.start("LocationService.getUserLocation.getCurrentPosition");
       const location = await Promise.race([
         Location.getCurrentPositionAsync({ accuracy }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Location timeout')), timeout)
-        )
+          setTimeout(() => reject(new Error("Location timeout")), timeout),
+        ),
       ]);
-      perfLogger.end('LocationService.getUserLocation.getCurrentPosition');
+      perfLogger.end("LocationService.getUserLocation.getCurrentPosition");
 
       const userLocation = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         timestamp: Date.now(),
-        source: 'gps'
+        source: "gps",
       };
 
       // Cache the location
-      perfLogger.start('LocationService.getUserLocation.cacheLocation');
+      perfLogger.start("LocationService.getUserLocation.cacheLocation");
       await this.cacheLocation(userLocation);
-      perfLogger.end('LocationService.getUserLocation.cacheLocation');
+      perfLogger.end("LocationService.getUserLocation.cacheLocation");
 
-      perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', `Got GPS location: ${userLocation.latitude}, ${userLocation.longitude}`);
-      perfLogger.end('LocationService.getUserLocation.TOTAL');
+      perfLogger.checkpoint(
+        "LocationService.getUserLocation.TOTAL",
+        `Got GPS location: ${userLocation.latitude}, ${userLocation.longitude}`,
+      );
+      perfLogger.end("LocationService.getUserLocation.TOTAL");
       return userLocation;
-
     } catch (error) {
-      perfLogger.end('LocationService.getUserLocation.getCurrentPosition');
-      console.error('Error getting user location:', error);
+      perfLogger.end("LocationService.getUserLocation.getCurrentPosition");
+      console.error("Error getting user location:", error);
 
       if (showToast) {
         Toast.show({
-          type: 'error',
-          text1: 'Location Error',
-          text2: 'Unable to get your location. Use "Nearby" button to find stores.',
-          position: 'bottom',
+          type: "error",
+          text1: "Location Error",
+          text2:
+            'Unable to get your location. Use "Nearby" button to find stores.',
+          position: "bottom",
           visibilityTime: 3000,
         });
       }
 
       // Return cached location if available, otherwise null
       if (this.cachedLocation) {
-        perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'Using cached location as fallback');
-        perfLogger.end('LocationService.getUserLocation.TOTAL');
+        perfLogger.checkpoint(
+          "LocationService.getUserLocation.TOTAL",
+          "Using cached location as fallback",
+        );
+        perfLogger.end("LocationService.getUserLocation.TOTAL");
         return this.cachedLocation;
       }
 
       // Return null instead of default location
-      perfLogger.checkpoint('LocationService.getUserLocation.TOTAL', 'No location available');
-      perfLogger.end('LocationService.getUserLocation.TOTAL');
+      perfLogger.checkpoint(
+        "LocationService.getUserLocation.TOTAL",
+        "No location available",
+      );
+      perfLogger.end("LocationService.getUserLocation.TOTAL");
       return null;
     }
   }
@@ -174,11 +193,15 @@ class LocationService {
 
     // Use standardized radius steps from config
     const radiusSteps = LOCATION_CONFIG.RADIUS_STEPS;
-    const validSteps = radiusSteps.filter(step => step <= maxRadius);
+    const validSteps = radiusSteps.filter((step) => step <= maxRadius);
 
     for (const radius of validSteps) {
-      const nearbyStores = this.filterStoresByRadius(stores, userLocation, radius);
-      
+      const nearbyStores = this.filterStoresByRadius(
+        stores,
+        userLocation,
+        radius,
+      );
+
       if (nearbyStores.length > 0) {
         return nearbyStores;
       }
@@ -210,7 +233,7 @@ class LocationService {
           userLocation.latitude,
           userLocation.longitude,
           storeLat,
-          storeLng
+          storeLng,
         );
 
         if (distance > radiusKm) return null;
@@ -240,9 +263,9 @@ class LocationService {
     const dLon = ((lon2 - lon1) * Math.PI) / 180;
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * 
-      Math.cos((lat2 * Math.PI) / 180) * 
-      Math.sin(dLon / 2) ** 2;
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
@@ -252,11 +275,17 @@ class LocationService {
    */
   async cacheLocation(location) {
     try {
-      await AsyncStorage.setItem(CACHE_KEYS.LAST_LOCATION, JSON.stringify(location));
-      await AsyncStorage.setItem(CACHE_KEYS.CACHE_TIMESTAMP, Date.now().toString());
+      await AsyncStorage.setItem(
+        CACHE_KEYS.LAST_LOCATION,
+        JSON.stringify(location),
+      );
+      await AsyncStorage.setItem(
+        CACHE_KEYS.CACHE_TIMESTAMP,
+        Date.now().toString(),
+      );
       this.cachedLocation = location;
     } catch (error) {
-      console.error('Failed to cache location:', error);
+      console.error("Failed to cache location:", error);
     }
   }
 
@@ -267,13 +296,13 @@ class LocationService {
     try {
       const [cachedLocationStr, timestampStr] = await Promise.all([
         AsyncStorage.getItem(CACHE_KEYS.LAST_LOCATION),
-        AsyncStorage.getItem(CACHE_KEYS.CACHE_TIMESTAMP)
+        AsyncStorage.getItem(CACHE_KEYS.CACHE_TIMESTAMP),
       ]);
 
       if (cachedLocationStr && timestampStr) {
         const location = JSON.parse(cachedLocationStr);
         const timestamp = parseInt(timestampStr);
-        
+
         // Check if cache is still valid
         const cacheAge = Date.now() - timestamp;
         if (cacheAge < CACHE_DURATION) {
@@ -283,7 +312,7 @@ class LocationService {
         }
       }
     } catch (error) {
-      console.error('Failed to load cached location:', error);
+      console.error("Failed to load cached location:", error);
     }
   }
 
@@ -294,11 +323,11 @@ class LocationService {
     try {
       await Promise.all([
         AsyncStorage.removeItem(CACHE_KEYS.LAST_LOCATION),
-        AsyncStorage.removeItem(CACHE_KEYS.CACHE_TIMESTAMP)
+        AsyncStorage.removeItem(CACHE_KEYS.CACHE_TIMESTAMP),
       ]);
       this.cachedLocation = null;
     } catch (error) {
-      console.error('Failed to clear location cache:', error);
+      console.error("Failed to clear location cache:", error);
     }
   }
 
@@ -306,12 +335,18 @@ class LocationService {
    * Update Redux store with location
    * @param {Object} dispatch - Redux dispatch function
    * @param {Object} location - Location to set
+   * @param {string} source - Source of the location (gps, search, default)
    */
-  updateReduxLocation(dispatch, location) {
-    dispatch(setCustomLocation({
-      latitude: location.latitude,
-      longitude: location.longitude
-    }));
+  updateReduxLocation(dispatch, location, source = "unknown") {
+    dispatch(
+      setCustomLocation(
+        {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+        source,
+      ),
+    );
   }
 
   /**
@@ -343,11 +378,11 @@ class LocationService {
           longitude: locations[0].longitude,
           city: cityName,
           timestamp: Date.now(),
-          source: 'geocoding'
+          source: "geocoding",
         };
       }
     } catch (error) {
-      console.error('Error geocoding city:', error);
+      console.error("Error geocoding city:", error);
     }
     return null;
   }

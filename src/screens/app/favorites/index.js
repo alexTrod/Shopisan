@@ -7,7 +7,14 @@ import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
 import { height, width } from "../../../utils/dimension";
 import { firestore } from "../../../../firebaseconfig";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { useSelector, useDispatch } from "react-redux";
 import logging from "../../../utils/logging";
 
@@ -24,16 +31,18 @@ export default function FavoritesScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [favoriteStoreIds, setFavoriteStoreIds] = useState([]);
 
-  const user = useSelector(state => state.user.userData);
-  const locale = useSelector(state => state.locale.currentLocale);
-  const favoriteStores = useSelector(state => state.user.favoriteStores);
+  const user = useSelector((state) => state.user.userData);
+  const locale = useSelector((state) => state.locale.currentLocale);
+  const favoriteStores = useSelector((state) => state.user.favoriteStores);
 
   const dispatch = useDispatch();
 
   const handleToggleFavorite = (storeId) => {
     dispatch(toggleFavoriteStore(storeId));
 
-    setFavoriteStoresData(prevStores => prevStores.filter(store => store.id !== storeId));
+    setFavoriteStoresData((prevStores) =>
+      prevStores.filter((store) => store.id !== storeId),
+    );
   };
 
   useEffect(() => {
@@ -49,7 +58,9 @@ export default function FavoritesScreen({ navigation }) {
 
       if (userSnapshot.exists()) {
         const data = userSnapshot.data();
-        setFavoriteStoreIds(Array.isArray(data.favoriteStores) ? data.favoriteStores : []);
+        setFavoriteStoreIds(
+          Array.isArray(data.favoriteStores) ? data.favoriteStores : [],
+        );
       } else {
         setFavoriteStoreIds([]);
       }
@@ -76,7 +87,8 @@ export default function FavoritesScreen({ navigation }) {
   }, [favoriteStores]);
 
   const fetchFavoriteStores = async (isRefreshing = false) => {
-    if (loading || (!hasMore && !isRefreshing) || favoriteStoreIds.length === 0) return;
+    if (loading || (!hasMore && !isRefreshing) || favoriteStoreIds.length === 0)
+      return;
 
     setLoading(true);
     try {
@@ -84,16 +96,27 @@ export default function FavoritesScreen({ navigation }) {
       let batchIds = favoriteStoreIds.slice(0, STORES_PER_PAGE);
 
       const storePromises = batchIds.map(async (storeId) => {
-        const storeQuery = query(storesRef, where("id", "==", storeId), where("is_validated", "==", true));
+        const storeQuery = query(
+          storesRef,
+          where("id", "==", storeId),
+          where("is_validated", "==", true),
+        );
         const snapshot = await getDocs(storeQuery);
-        return snapshot.empty ? null : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        return snapshot.empty
+          ? null
+          : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
       });
 
-      const newStores = (await Promise.all(storePromises)).filter(store => store !== null);
+      const newStores = (await Promise.all(storePromises)).filter(
+        (store) => store !== null,
+      );
 
-      setFavoriteStoresData(prevStores => {
-        const existingIds = new Set(prevStores.map(store => store.id));
-        return [...prevStores, ...newStores.filter(store => !existingIds.has(store.id))];
+      setFavoriteStoresData((prevStores) => {
+        const existingIds = new Set(prevStores.map((store) => store.id));
+        return [
+          ...prevStores,
+          ...newStores.filter((store) => !existingIds.has(store.id)),
+        ];
       });
 
       setHasMore(newStores.length === STORES_PER_PAGE);
@@ -104,34 +127,48 @@ export default function FavoritesScreen({ navigation }) {
     }
   };
 
-  const renderItem = useCallback(({ item }) => (
-    <ItemCard
-      title={item.name}
-      id={item.id}
-      tags={item.tags || []}
-      description={item.description?.[locale] || "No description available"}
-      address={item.address}
-      image={item.image ? { uri: item.image } : (item.images?.[0] ? { uri: item.images[0] } : undefined)}
-      images={item.images || []}
-      imageUrl={item.imageUrl || item.image || null}
-      isFavorite={favoriteStores.includes(item.id)}
-      onPressFavorite={() => handleToggleFavorite(item.id)}
-      onPress={() => {
-        const geo = item?.address?.[0]?.location?.geopoint;
-        const store = item;
-
-        if (geo?.latitude && geo?.longitude) {
-          dispatch(setCustomLocation({ latitude: geo.latitude, longitude: geo.longitude }));
-          navigation.navigate(ScreenNames.MAP, {
-            initialStore: store,
-          });
-        } else {
-          console.warn("No valid GPS coordinates for this store:", item);
+  const renderItem = useCallback(
+    ({ item }) => (
+      <ItemCard
+        title={item.name}
+        id={item.id}
+        tags={item.tags || []}
+        description={item.description?.[locale] || "No description available"}
+        address={item.address}
+        image={
+          item.image
+            ? { uri: item.image }
+            : item.images?.[0]
+              ? { uri: item.images[0] }
+              : undefined
         }
-      }}
-      openingHours={item.openingHours || null}
-    />
-  ), [locale, favoriteStores, dispatch, navigation]);
+        images={item.images || []}
+        imageUrl={item.imageUrl || item.image || null}
+        isFavorite={favoriteStores.includes(item.id)}
+        onPressFavorite={() => handleToggleFavorite(item.id)}
+        onPress={() => {
+          const geo = item?.address?.[0]?.location?.geopoint;
+          const store = item;
+
+          if (geo?.latitude && geo?.longitude) {
+            dispatch(
+              setCustomLocation(
+                { latitude: geo.latitude, longitude: geo.longitude },
+                "search",
+              ),
+            );
+            navigation.navigate(ScreenNames.MAP, {
+              initialStore: store,
+            });
+          } else {
+            console.warn("No valid GPS coordinates for this store:", item);
+          }
+        }}
+        openingHours={item.openingHours || null}
+      />
+    ),
+    [locale, favoriteStores, dispatch, navigation],
+  );
 
   return (
     <ScreenWrapper
