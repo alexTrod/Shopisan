@@ -127,10 +127,88 @@ export default function AddStoreScreen({ navigation }) {
   const [userProximity, setUserProximity] = useState(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
 
+  // City autocomplete state
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [selectedCityCoords, setSelectedCityCoords] = useState(null);
+  const [loadingCitySuggestions, setLoadingCitySuggestions] = useState(false);
+
+  // Manual address entry mode (bypasses autocomplete)
+  const [manualAddressMode, setManualAddressMode] = useState(false);
+
   // Handle map picker confirmation
   const handleMapPickerConfirm = (mapboxFeature) => {
     setShowMapPicker(false);
     handleAddressSelect(mapboxFeature);
+  };
+
+  // Haversine formula for distance calculation
+  const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const mapboxToken =
+    "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
+
+  // Fetch city suggestions for autocomplete
+  const fetchCitySuggestions = async (text) => {
+    setCity(text);
+    // Clear selected coords when user edits city
+    setSelectedCityCoords(null);
+
+    // In manual mode, skip autocomplete
+    if (manualAddressMode) {
+      setCitySuggestions([]);
+      return;
+    }
+
+    if (text.length < 2) {
+      setCitySuggestions([]);
+      return;
+    }
+    setLoadingCitySuggestions(true);
+
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
+          `access_token=${mapboxToken}&types=place,locality&country=fr&limit=5&language=fr`,
+      );
+      const data = await response.json();
+      setCitySuggestions(data.features || []);
+    } catch (error) {
+      console.error("[AddStore] City search error:", error);
+      setCitySuggestions([]);
+    }
+    setLoadingCitySuggestions(false);
+  };
+
+  // Handle city selection from dropdown
+  const handleCitySelect = (item) => {
+    setCitySuggestions([]);
+    setCity(item.text);
+
+    // Extract postal code from context if available
+    const context = item.context || [];
+    const postcodeInfo = context.find((c) => c.id.includes("postcode"));
+    if (postcodeInfo) {
+      setPostalCode(postcodeInfo.text);
+    }
+
+    // Store city coordinates for street search
+    if (item.center) {
+      setSelectedCityCoords({
+        longitude: item.center[0],
+        latitude: item.center[1],
+      });
+      console.log("[AddStore] City selected:", item.text, item.center);
+    }
   };
 
   // Get user's location for search proximity on mount
@@ -154,16 +232,32 @@ export default function AddStoreScreen({ navigation }) {
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
     setStreet(text);
+
+    // In manual mode, skip autocomplete
+    if (manualAddressMode) {
+      setSuggestions([]);
+      return;
+    }
+
     if (text.length < 3) {
       setSuggestions([]);
       return;
     }
+
+    // Require city selection before street search
+    if (!selectedCityCoords) {
+      console.log("[AddStore] No city selected, skipping street search");
+      setSuggestions([]);
+      return;
+    }
+
     setLoadingSuggestions(true);
 
-    const mapboxToken =
-      "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
-
     try {
+      // Use selected city coords for proximity
+      const proximityParam = `&proximity=${selectedCityCoords.longitude},${selectedCityCoords.latitude}`;
+      console.log("[AddStore] Using city coords:", city, selectedCityCoords);
+
       // Use Mapbox with French language preference for better French results
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
@@ -171,10 +265,32 @@ export default function AddStoreScreen({ navigation }) {
           `&autocomplete=true` +
           `&limit=10` +
           `&language=fr` +
-          `&types=address,poi,place,locality,neighborhood`,
+          `&types=address,poi,place,locality,neighborhood` +
+          proximityParam,
       );
       const result = await response.json();
-      setSuggestions(result.features || []);
+
+      // Sort results by distance to selected city (closest first)
+      let features = result.features || [];
+      if (features.length > 0) {
+        features = [...features].sort((a, b) => {
+          const distA = getDistanceInKm(
+            selectedCityCoords.latitude,
+            selectedCityCoords.longitude,
+            a.center[1],
+            a.center[0],
+          );
+          const distB = getDistanceInKm(
+            selectedCityCoords.latitude,
+            selectedCityCoords.longitude,
+            b.center[1],
+            b.center[0],
+          );
+          return distA - distB;
+        });
+      }
+
+      setSuggestions(features);
     } catch (error) {
       console.error("Mapbox search error:", error);
       setSuggestions([]);
@@ -840,6 +956,7 @@ export default function AddStoreScreen({ navigation }) {
         <View style={styles.container}>
           <Text style={styles.label}>{t("store_name")}</Text>
           <TextInput
+            testID="add-store-name-input"
             style={getInputStyle("name")}
             placeholder={t("store_name")}
             value={name}
@@ -848,6 +965,7 @@ export default function AddStoreScreen({ navigation }) {
 
           <Text style={styles.label}>{t("street_number")}</Text>
           <TextInput
+            testID="add-store-street-number-input"
             style={styles.input}
             placeholder={t("street_number")}
             value={streetNumber}
@@ -859,6 +977,7 @@ export default function AddStoreScreen({ navigation }) {
           <View style={styles.streetInputRow}>
             <View style={{ position: "relative", zIndex: 1000, flex: 1 }}>
               <TextInput
+                testID="add-store-street-input"
                 style={getInputStyle("street")}
                 placeholder={t("street")}
                 value={street}
@@ -887,6 +1006,7 @@ export default function AddStoreScreen({ navigation }) {
               )}
             </View>
             <TouchableOpacity
+              testID="add-store-map-picker-button"
               style={styles.mapPickerButton}
               onPress={() => setShowMapPicker(true)}
             >
@@ -897,18 +1017,70 @@ export default function AddStoreScreen({ navigation }) {
               />
             </TouchableOpacity>
           </View>
+          {!manualAddressMode && (
+            <TouchableOpacity
+              style={styles.manualEntryLink}
+              onPress={() => {
+                setManualAddressMode(true);
+                setSuggestions([]);
+                setCitySuggestions([]);
+              }}
+            >
+              <Text style={styles.manualEntryText}>
+                {t("cant_find_address")}{" "}
+                <Text style={styles.manualEntryLinkText}>
+                  {t("enter_manually")}
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          )}
+          {manualAddressMode && (
+            <TouchableOpacity
+              style={styles.manualEntryLink}
+              onPress={() => setManualAddressMode(false)}
+            >
+              <Text style={styles.manualEntryLinkText}>
+                {t("back_to_search")}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.label}>{t("city")}</Text>
-          <TextInput
-            style={getInputStyle("city")}
-            placeholder={t("city")}
-            value={city}
-            onChangeText={setCity}
-          />
+          <View style={{ position: "relative", zIndex: 900 }}>
+            <TextInput
+              testID="add-store-city-input"
+              style={getInputStyle("city")}
+              placeholder={t("city")}
+              value={city}
+              onChangeText={fetchCitySuggestions}
+            />
+            {citySuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  style={{ maxHeight: 200 }}
+                  nestedScrollEnabled={true}
+                >
+                  {citySuggestions.map((item, index) => (
+                    <TouchableOpacity
+                      key={`city-${item.id}-${index}`}
+                      style={styles.suggestionItem}
+                      onPress={() => handleCitySelect(item)}
+                    >
+                      <Text style={styles.suggestionText}>
+                        {item.place_name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
 
           <Text style={styles.label}>{t("postal_code")}</Text>
           <View style={styles.inputRow}>
             <TextInput
+              testID="add-store-postal-code-input"
               style={[getInputStyle("postalCode"), { flex: 1 }]}
               placeholder={t("postal_code")}
               value={postalCode}
@@ -925,6 +1097,7 @@ export default function AddStoreScreen({ navigation }) {
 
           <Text style={styles.label}>{t("description")}</Text>
           <TextInput
+            testID="add-store-description-input"
             style={[getInputStyle("description"), styles.textArea]}
             placeholder={t("description")}
             value={description}
@@ -998,6 +1171,7 @@ export default function AddStoreScreen({ navigation }) {
 
           <Text style={styles.label}>{t("categories")}</Text>
           <TouchableOpacity
+            testID="add-store-categories-button"
             style={[
               styles.categoryButton,
               hasAttemptedSubmit &&
@@ -1107,6 +1281,7 @@ export default function AddStoreScreen({ navigation }) {
               </>
             )}
             <TouchableOpacity
+              testID="add-store-add-image-button"
               style={styles.addImageButton}
               onPress={handlePickImage}
             >
@@ -1116,6 +1291,7 @@ export default function AddStoreScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
+            testID="add-store-submit-button"
             style={[
               styles.addButton,
               isAddingStore && styles.addButtonDisabled,
@@ -1182,10 +1358,11 @@ export default function AddStoreScreen({ navigation }) {
                 <FlatList
                   data={data}
                   keyExtractor={(item) => item.value.toString()}
-                  renderItem={({ item }) => {
+                  renderItem={({ item, index }) => {
                     const isSelected = selectedCategories.includes(item.value);
                     return (
                       <TouchableOpacity
+                        testID={`add-store-category-item-${index}`}
                         onPress={() => handleSelectCategory(item)}
                         style={[
                           styles.categoryItem,
@@ -1205,6 +1382,7 @@ export default function AddStoreScreen({ navigation }) {
                   }}
                 />
                 <TouchableOpacity
+                  testID="add-store-categories-close-button"
                   onPress={() => setModalVisible(false)}
                   style={styles.cancelButton}
                 >
@@ -1756,6 +1934,19 @@ const styles = StyleSheet.create({
   streetInputRow: {
     flexDirection: "row",
     alignItems: "flex-start",
+  },
+  manualEntryLink: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  manualEntryText: {
+    fontSize: 13,
+    color: AppColors.gray,
+  },
+  manualEntryLinkText: {
+    fontSize: 13,
+    color: AppColors.primary,
+    textDecorationLine: "underline",
   },
   mapPickerButton: {
     padding: 10,

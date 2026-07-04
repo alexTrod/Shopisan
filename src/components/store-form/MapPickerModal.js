@@ -97,8 +97,9 @@ const MapPickerModal = ({
 
   const handleRegionDidChange = (feature) => {
     // Extract center from map region change
-    if (feature?.geometry?.coordinates) {
-      setCenterCoordinate(feature.geometry.coordinates);
+    // onMapIdle provides properties.center [lng, lat], not geometry.coordinates
+    if (feature?.properties?.center) {
+      setCenterCoordinate(feature.properties.center);
     }
   };
 

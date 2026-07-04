@@ -139,6 +139,9 @@ export default {
     street: "Street",
     city: "City",
     postal_code: "Postal Code",
+    cant_find_address: "Can't find your address?",
+    enter_manually: "Enter manually",
+    back_to_search: "Back to search",
     description: "Description",
     store_email: "Store Email",
     website: "Website",
@@ -213,6 +216,10 @@ export default {
     or_email_directly: "Or email us directly at support@shopisan.com",
     add_a_store: "Add a store",
     recover_password: "Recover password",
+    delete_account: "Delete Account",
+    delete_account_confirm:
+      "Are you sure you want to delete your account? This will permanently delete your profile, all your stores, and all your posts. This action cannot be undone.",
+    delete_account_failed: "Failed to delete account. Please try again.",
 
     // Change Email Screen
     change_email_title: "Change Email & Name",
@@ -506,6 +513,9 @@ export default {
     street: "Rue",
     city: "Ville",
     postal_code: "Code postal",
+    cant_find_address: "Vous ne trouvez pas votre adresse ?",
+    enter_manually: "Saisir manuellement",
+    back_to_search: "Retour à la recherche",
     description: "Description",
     store_email: "Email du magasin",
     website: "Site web",
@@ -581,6 +591,11 @@ export default {
     or_email_directly: "Ou envoyez-nous un email à support@shopisan.com",
     add_a_store: "Ajouter un magasin",
     recover_password: "Récupérer le mot de passe",
+    delete_account: "Supprimer le compte",
+    delete_account_confirm:
+      "Êtes-vous sûr de vouloir supprimer votre compte ? Cela supprimera définitivement votre profil, tous vos magasins et toutes vos publications. Cette action est irréversible.",
+    delete_account_failed:
+      "Échec de la suppression du compte. Veuillez réessayer.",
 
     // Change Email Screen
     change_email_title: "Modifier l'email et le nom",
