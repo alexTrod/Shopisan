@@ -26,6 +26,7 @@ import {
   query as firestoreQuery,
   orderBy,
   limit,
+  where,
   serverTimestamp,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -53,6 +54,12 @@ import { ensureCityExists } from "../../../utils/cityManagement";
 import OpeningHoursPicker from "../../../components/opening-hours-picker";
 import MapPickerModal from "../../../components/store-form/MapPickerModal";
 import { Ionicons } from "@expo/vector-icons";
+import { CITIES_CONFIG } from "../../../config/citiesConfig";
+
+// Build country filter for Mapbox from supported countries
+const SUPPORTED_COUNTRIES_PARAM = CITIES_CONFIG.SUPPORTED_COUNTRIES.map((c) =>
+  c.toLowerCase(),
+).join(",");
 
 MapboxGL.setAccessToken(
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ",
@@ -132,8 +139,14 @@ export default function AddStoreScreen({ navigation }) {
   const [selectedCityCoords, setSelectedCityCoords] = useState(null);
   const [loadingCitySuggestions, setLoadingCitySuggestions] = useState(false);
 
+  // Country code from selected address (default FR for backwards compatibility)
+  const [selectedCountryCode, setSelectedCountryCode] = useState("FR");
+
   // Manual address entry mode (bypasses autocomplete)
   const [manualAddressMode, setManualAddressMode] = useState(false);
+
+  // Show hint when typing street without city selected
+  const [showCityRequiredHint, setShowCityRequiredHint] = useState(false);
 
   // Handle map picker confirmation
   const handleMapPickerConfirm = (mapboxFeature) => {
@@ -178,7 +191,7 @@ export default function AddStoreScreen({ navigation }) {
     try {
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
-          `access_token=${mapboxToken}&types=place,locality&country=fr&limit=5&language=fr`,
+          `access_token=${mapboxToken}&types=place,locality&country=${SUPPORTED_COUNTRIES_PARAM}&limit=5&language=fr`,
       );
       const data = await response.json();
       setCitySuggestions(data.features || []);
@@ -193,12 +206,24 @@ export default function AddStoreScreen({ navigation }) {
   const handleCitySelect = (item) => {
     setCitySuggestions([]);
     setCity(item.text);
+    setShowCityRequiredHint(false);
 
-    // Extract postal code from context if available
+    // Extract postal code and country from context if available
     const context = item.context || [];
     const postcodeInfo = context.find((c) => c.id.includes("postcode"));
     if (postcodeInfo) {
       setPostalCode(postcodeInfo.text);
+    }
+
+    // Extract country code from context
+    const countryInfo = context.find((c) => c.id.includes("country"));
+    if (countryInfo?.short_code) {
+      const countryCode = countryInfo.short_code.toUpperCase();
+      // Only set if it's a supported country
+      if (CITIES_CONFIG.SUPPORTED_COUNTRIES.includes(countryCode)) {
+        setSelectedCountryCode(countryCode);
+        console.log("[AddStore] Country detected:", countryCode);
+      }
     }
 
     // Store city coordinates for street search
@@ -248,8 +273,10 @@ export default function AddStoreScreen({ navigation }) {
     if (!selectedCityCoords) {
       console.log("[AddStore] No city selected, skipping street search");
       setSuggestions([]);
+      setShowCityRequiredHint(true);
       return;
     }
+    setShowCityRequiredHint(false);
 
     setLoadingSuggestions(true);
 
@@ -266,6 +293,7 @@ export default function AddStoreScreen({ navigation }) {
           `&limit=10` +
           `&language=fr` +
           `&types=address,poi,place,locality,neighborhood` +
+          `&country=${SUPPORTED_COUNTRIES_PARAM}` +
           proximityParam,
       );
       const result = await response.json();
@@ -307,18 +335,28 @@ export default function AddStoreScreen({ navigation }) {
     const context = item.context || [];
     const cityInfo = context.find((c) => c.id.includes("place"));
     const postalCodeInfo = context.find((c) => c.id.includes("postcode"));
+    const countryInfo = context.find((c) => c.id.includes("country"));
 
     const streetNumber = item.address || "";
     const streetName = item.text || "";
 
-    const city = cityInfo ? cityInfo.text : "";
+    const cityName = cityInfo ? cityInfo.text : "";
     const postalCode = postalCodeInfo ? postalCodeInfo.text : "";
 
     setStreet(streetName);
     setStreetNumber(streetNumber);
-    setCity(city);
+    setCity(cityName);
     setPostalCode(postalCode);
     setQuery(`${streetNumber} ${streetName}`.trim());
+
+    // Extract and set country code
+    if (countryInfo?.short_code) {
+      const countryCode = countryInfo.short_code.toUpperCase();
+      if (CITIES_CONFIG.SUPPORTED_COUNTRIES.includes(countryCode)) {
+        setSelectedCountryCode(countryCode);
+        console.log("[AddStore] Country from address:", countryCode);
+      }
+    }
 
     if (item.center) {
       setSelectedLocation({
@@ -580,7 +618,7 @@ export default function AddStoreScreen({ navigation }) {
         }
       }
 
-      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
+      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}`;
       console.log("[AddStore] Full address:", fullAddress);
 
       const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
@@ -630,10 +668,24 @@ export default function AddStoreScreen({ navigation }) {
         return;
       }
 
-      const location = data.results[0].geometry.location;
+      const result = data.results[0];
+      const location = result.geometry.location;
       const latitude = Number(location.lat);
       const longitude = Number(location.lng);
       console.log("[AddStore] Geocoding successful:", latitude, longitude);
+
+      // Extract country from geocoding response for manual entry mode
+      let detectedCountryCode = selectedCountryCode;
+      const countryComponent = result.address_components?.find((c) =>
+        c.types.includes("country"),
+      );
+      if (countryComponent?.short_name) {
+        const code = countryComponent.short_name.toUpperCase();
+        if (CITIES_CONFIG.SUPPORTED_COUNTRIES.includes(code)) {
+          detectedCountryCode = code;
+          console.log("[AddStore] Country detected from geocoding:", code);
+        }
+      }
 
       console.log("[AddStore] Getting owner ID...");
       let ownerId = null;
@@ -655,6 +707,54 @@ export default function AddStoreScreen({ navigation }) {
       console.log("[AddStore] Owner ID:", ownerId);
 
       const storesRef = collection(firestore, "stores");
+
+      // Deduplication check: prevent duplicate stores from timeout + retry
+      console.log("[AddStore] Checking for recent duplicate...");
+      try {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const duplicateQuery = firestoreQuery(
+          storesRef,
+          where("name", "==", name),
+          where("cityName", "==", city),
+          where("owner_id", "==", ownerId || user.id),
+        );
+        const duplicateSnapshot = await withTimeout(
+          getDocs(duplicateQuery),
+          10000,
+          "DUPLICATE_CHECK_TIMEOUT",
+        );
+
+        if (!duplicateSnapshot.empty) {
+          // Check if any match was created recently (within last 5 minutes)
+          const recentDuplicate = duplicateSnapshot.docs.find((doc) => {
+            const storeData = doc.data();
+            const createdAt = storeData.created?.toDate?.();
+            return createdAt && createdAt > fiveMinutesAgo;
+          });
+
+          if (recentDuplicate) {
+            console.log(
+              "[AddStore] Duplicate store detected, preventing creation",
+            );
+            setIsAddingStore(false);
+            Toast.show({
+              type: "success",
+              text1: t("store_created_success") || "Store already submitted!",
+              text2:
+                t("store_pending_validation") ||
+                "Your store is pending validation.",
+            });
+            navigation.goBack();
+            return;
+          }
+        }
+      } catch (dedupeError) {
+        // Don't block on deduplication check failure, just log and continue
+        console.warn(
+          "[AddStore] Deduplication check failed:",
+          dedupeError.message,
+        );
+      }
 
       // Only fetch the store with highest ID instead of all stores (20s timeout)
       console.log("[AddStore] Fetching max store ID...");
@@ -690,7 +790,7 @@ export default function AddStoreScreen({ navigation }) {
               city: {
                 name: city,
                 postal_code: postalCode,
-                country_id: "FR",
+                country_id: detectedCountryCode,
               },
               geopoint: {
                 latitude,
@@ -754,7 +854,13 @@ export default function AddStoreScreen({ navigation }) {
       }
 
       // Fire-and-forget: update city in background (don't block UI)
-      ensureCityExists(city, postalCode, latitude, longitude, "FR")
+      ensureCityExists(
+        city,
+        postalCode,
+        latitude,
+        longitude,
+        detectedCountryCode,
+      )
         .then((cityResult) => {
           if (cityResult.success) {
             console.log(cityResult.message);
@@ -963,90 +1069,8 @@ export default function AddStoreScreen({ navigation }) {
             onChangeText={setName}
           />
 
-          <Text style={styles.label}>{t("street_number")}</Text>
-          <TextInput
-            testID="add-store-street-number-input"
-            style={styles.input}
-            placeholder={t("street_number")}
-            value={streetNumber}
-            onChangeText={setStreetNumber}
-            keyboardType="numeric"
-          />
-
-          <Text style={styles.label}>{t("street")}</Text>
-          <View style={styles.streetInputRow}>
-            <View style={{ position: "relative", zIndex: 1000, flex: 1 }}>
-              <TextInput
-                testID="add-store-street-input"
-                style={getInputStyle("street")}
-                placeholder={t("street")}
-                value={street}
-                onChangeText={fetchAddressSuggestions}
-              />
-              {suggestions.length > 0 && (
-                <View style={styles.suggestionsContainer}>
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    style={{ maxHeight: 200 }}
-                    nestedScrollEnabled={true}
-                  >
-                    {suggestions.map((item, index) => (
-                      <TouchableOpacity
-                        key={`${item.id}-${index}`}
-                        style={styles.suggestionItem}
-                        onPress={() => handleAddressSelect(item)}
-                      >
-                        <Text style={styles.suggestionText}>
-                          {item.place_name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              testID="add-store-map-picker-button"
-              style={styles.mapPickerButton}
-              onPress={() => setShowMapPicker(true)}
-            >
-              <Ionicons
-                name="map-outline"
-                size={22}
-                color={AppColors.primary}
-              />
-            </TouchableOpacity>
-          </View>
-          {!manualAddressMode && (
-            <TouchableOpacity
-              style={styles.manualEntryLink}
-              onPress={() => {
-                setManualAddressMode(true);
-                setSuggestions([]);
-                setCitySuggestions([]);
-              }}
-            >
-              <Text style={styles.manualEntryText}>
-                {t("cant_find_address")}{" "}
-                <Text style={styles.manualEntryLinkText}>
-                  {t("enter_manually")}
-                </Text>
-              </Text>
-            </TouchableOpacity>
-          )}
-          {manualAddressMode && (
-            <TouchableOpacity
-              style={styles.manualEntryLink}
-              onPress={() => setManualAddressMode(false)}
-            >
-              <Text style={styles.manualEntryLinkText}>
-                {t("back_to_search")}
-              </Text>
-            </TouchableOpacity>
-          )}
-
           <Text style={styles.label}>{t("city")}</Text>
-          <View style={{ position: "relative", zIndex: 900 }}>
+          <View style={{ position: "relative", zIndex: 1000 }}>
             <TextInput
               testID="add-store-city-input"
               style={getInputStyle("city")}
@@ -1078,22 +1102,100 @@ export default function AddStoreScreen({ navigation }) {
           </View>
 
           <Text style={styles.label}>{t("postal_code")}</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              testID="add-store-postal-code-input"
-              style={[getInputStyle("postalCode"), { flex: 1 }]}
-              placeholder={t("postal_code")}
-              value={postalCode}
-              onChangeText={setPostalCode}
-              keyboardType="numeric"
-            />
+          <TextInput
+            testID="add-store-postal-code-input"
+            style={getInputStyle("postalCode")}
+            placeholder={t("postal_code")}
+            value={postalCode}
+            onChangeText={setPostalCode}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.label}>{t("street_number")}</Text>
+          <TextInput
+            testID="add-store-street-number-input"
+            style={styles.input}
+            placeholder={t("street_number")}
+            value={streetNumber}
+            onChangeText={setStreetNumber}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.label}>{t("street")}</Text>
+          <View style={styles.streetInputRow}>
+            <View style={{ position: "relative", zIndex: 900, flex: 1 }}>
+              <TextInput
+                testID="add-store-street-input"
+                style={[getInputStyle("street"), { marginBottom: 0 }]}
+                placeholder={t("street")}
+                value={street}
+                onChangeText={fetchAddressSuggestions}
+              />
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    style={{ maxHeight: 200 }}
+                    nestedScrollEnabled={true}
+                  >
+                    {suggestions.map((item, index) => (
+                      <TouchableOpacity
+                        key={`${item.id}-${index}`}
+                        style={styles.suggestionItem}
+                        onPress={() => handleAddressSelect(item)}
+                      >
+                        <Text style={styles.suggestionText}>
+                          {item.place_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               style={styles.locationButton}
               onPress={handleUseCurrentLocation}
             >
-              <LocationIcon width={20} height={20} color={AppColors.primary} />
+              <LocationIcon width={26} height={26} color={AppColors.primary} />
             </TouchableOpacity>
           </View>
+          {showCityRequiredHint && !manualAddressMode && (
+            <Text style={styles.hintText}>
+              {t("select_city_for_suggestions")}
+            </Text>
+          )}
+          {!manualAddressMode && (
+            <TouchableOpacity
+              style={styles.manualEntryBanner}
+              onPress={() => {
+                setManualAddressMode(true);
+                setSuggestions([]);
+                setCitySuggestions([]);
+                setShowCityRequiredHint(false);
+              }}
+            >
+              <Text style={styles.manualEntryBannerText}>
+                {t("cant_find_address")} {t("enter_manually")}
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color="#666666" />
+            </TouchableOpacity>
+          )}
+          {manualAddressMode && (
+            <View style={styles.manualModeActiveBanner}>
+              <View style={styles.manualModeActiveHeader}>
+                <Ionicons name="information-circle" size={20} color="#888888" />
+                <Text style={styles.manualModeActiveText}>
+                  {t("manual_entry_active")}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setManualAddressMode(false)}>
+                <Text style={styles.backToSearchLink}>
+                  {t("back_to_search")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <Text style={styles.label}>{t("description")}</Text>
           <TextInput
@@ -1917,6 +2019,10 @@ const styles = StyleSheet.create({
   },
   locationButton: {
     marginLeft: 8,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
   timeInputContainer: {
     flexDirection: "row",
@@ -1933,20 +2039,59 @@ const styles = StyleSheet.create({
   },
   streetInputRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
-  manualEntryLink: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+  manualEntryBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F5F5F5",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
   },
-  manualEntryText: {
-    fontSize: 13,
-    color: AppColors.gray,
+  manualEntryBannerText: {
+    fontSize: 14,
+    color: "#333333",
+    fontWeight: "500",
+    flex: 1,
   },
-  manualEntryLinkText: {
-    fontSize: 13,
+  manualModeActiveBanner: {
+    backgroundColor: "#F5F5F5",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+  },
+  manualModeActiveHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  manualModeActiveText: {
+    fontSize: 14,
+    color: "#333333",
+    marginLeft: 10,
+    fontWeight: "500",
+  },
+  backToSearchLink: {
+    fontSize: 14,
     color: AppColors.primary,
     textDecorationLine: "underline",
+    marginTop: 2,
+  },
+  hintText: {
+    fontSize: 12,
+    color: AppColors.warning,
+    marginTop: 4,
+    marginBottom: 4,
   },
   mapPickerButton: {
     padding: 10,

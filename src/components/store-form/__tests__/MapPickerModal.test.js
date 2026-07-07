@@ -145,8 +145,8 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: {
-              coordinates: [2.35, 48.85], // [longitude, latitude]
+            properties: {
+              center: [2.35, 48.85], // [longitude, latitude]
             },
           });
         });
@@ -205,7 +205,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -243,7 +243,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -269,7 +269,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -293,7 +293,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -320,7 +320,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -356,7 +356,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -394,7 +394,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -429,7 +429,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
@@ -499,7 +499,7 @@ describe("MapPickerModal", () => {
       if (MapPickerModalTestHelpers.onMapIdle) {
         act(() => {
           MapPickerModalTestHelpers.onMapIdle({
-            geometry: { coordinates: [2.35, 48.85] },
+            properties: { center: [2.35, 48.85] },
           });
         });
       }
