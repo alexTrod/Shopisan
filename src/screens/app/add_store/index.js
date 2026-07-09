@@ -203,7 +203,6 @@ export default function AddStoreScreen({ navigation }) {
   const handleCitySelect = (item) => {
     setCitySuggestions([]);
     setCity(item.text);
-    setShowCityRequiredHint(false);
 
     // Extract postal code and country from context if available
     const context = item.context || [];
