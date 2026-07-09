@@ -145,9 +145,6 @@ export default function AddStoreScreen({ navigation }) {
   // Manual address entry mode (bypasses autocomplete)
   const [manualAddressMode, setManualAddressMode] = useState(false);
 
-  // Show hint when typing street without city selected
-  const [showCityRequiredHint, setShowCityRequiredHint] = useState(false);
-
   // Handle map picker confirmation
   const handleMapPickerConfirm = (mapboxFeature) => {
     setShowMapPicker(false);
@@ -269,21 +266,20 @@ export default function AddStoreScreen({ navigation }) {
       return;
     }
 
-    // Require city selection before street search
-    if (!selectedCityCoords) {
-      console.log("[AddStore] No city selected, skipping street search");
-      setSuggestions([]);
-      setShowCityRequiredHint(true);
-      return;
-    }
-    setShowCityRequiredHint(false);
-
     setLoadingSuggestions(true);
 
     try {
       // Use selected city coords for proximity
-      const proximityParam = `&proximity=${selectedCityCoords.longitude},${selectedCityCoords.latitude}`;
-      console.log("[AddStore] Using city coords:", city, selectedCityCoords);
+      const proximityParam = selectedCityCoords
+        ? `&proximity=${selectedCityCoords.longitude},${selectedCityCoords.latitude}`
+        : "";
+      if (selectedCityCoords) {
+        console.log(
+          "[AddStore] Using city coords for proximity:",
+          city,
+          selectedCityCoords,
+        );
+      }
 
       // Use Mapbox with French language preference for better French results
       const response = await fetch(
@@ -298,9 +294,9 @@ export default function AddStoreScreen({ navigation }) {
       );
       const result = await response.json();
 
-      // Sort results by distance to selected city (closest first)
+      // Sort results by distance to selected city (closest first) - only if city selected
       let features = result.features || [];
-      if (features.length > 0) {
+      if (features.length > 0 && selectedCityCoords) {
         features = [...features].sort((a, b) => {
           const distA = getDistanceInKm(
             selectedCityCoords.latitude,
@@ -1155,16 +1151,11 @@ export default function AddStoreScreen({ navigation }) {
             </View>
             <TouchableOpacity
               style={styles.locationButton}
-              onPress={handleUseCurrentLocation}
+              onPress={() => setShowMapPicker(true)}
             >
               <LocationIcon width={26} height={26} color={AppColors.primary} />
             </TouchableOpacity>
           </View>
-          {showCityRequiredHint && !manualAddressMode && (
-            <Text style={styles.hintText}>
-              {t("select_city_for_suggestions")}
-            </Text>
-          )}
           {!manualAddressMode && (
             <TouchableOpacity
               style={styles.manualEntryBanner}
@@ -1172,7 +1163,6 @@ export default function AddStoreScreen({ navigation }) {
                 setManualAddressMode(true);
                 setSuggestions([]);
                 setCitySuggestions([]);
-                setShowCityRequiredHint(false);
               }}
             >
               <Text style={styles.manualEntryBannerText}>
@@ -2086,12 +2076,6 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
     textDecorationLine: "underline",
     marginTop: 2,
-  },
-  hintText: {
-    fontSize: 12,
-    color: AppColors.warning,
-    marginTop: 4,
-    marginBottom: 4,
   },
   mapPickerButton: {
     padding: 10,
