@@ -22,6 +22,7 @@ const Button = ({
   allowFontScaling = true,
   adjustsFontSizeToFit = true,
   numberOfLines = 1,
+  testID,
 }) => {
   const getStyles = useMemo(() => {
     return {
@@ -30,8 +31,8 @@ const Button = ({
         ...(disabled
           ? styles.disableContainer
           : variant === "primary"
-          ? styles.primaryContainer
-          : styles.secondaryContainer),
+            ? styles.primaryContainer
+            : styles.secondaryContainer),
         ...(withShadow && styles.shadow),
       },
     };
@@ -42,6 +43,7 @@ const Button = ({
       style={[getStyles.container, containerStyle]}
       disabled={disabled}
       onPress={onPress}
+      testID={testID}
       {...touchableOpacityProps}
     >
       {loading ? (
@@ -49,7 +51,7 @@ const Button = ({
       ) : (
         <CustomText
           color={disabled ? AppColors.white : buttonTextColor}
-          textStyles={{ fontFamily: 'Roboto-Medium', ...textStyle }}
+          textStyles={{ fontFamily: "Roboto-Medium", ...textStyle }}
           textProps={textProps}
           size={size}
           allowFontScaling={allowFontScaling}

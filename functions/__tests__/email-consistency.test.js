@@ -172,17 +172,21 @@ describe("Email Consistency Tests", () => {
       expect(hasUsername).toBeTruthy();
     });
 
-    it("sendStoreCreationEmail should use username with fallback to storeName", () => {
+    it("sendStoreCreationEmail should use username with generic fallback (NOT storeName)", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // Check that template uses username || storeName fallback
-      const hasFallback = indexContent.includes(
+      // Check that template does NOT fallback to storeName (bug fix)
+      const hasBuggyFallback = indexContent.includes(
         "username: username || storeName",
       );
-      expect(hasFallback).toBe(true);
+      expect(hasBuggyFallback).toBe(false);
+
+      // Should use generic greeting instead
+      const hasGenericFallback = indexContent.includes("cher commerçant");
+      expect(hasGenericFallback).toBe(true);
     });
 
     it("sendStoreCreationEmail should have same email fallback logic as onStoreValidated", () => {

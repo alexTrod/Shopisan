@@ -1,17 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
 import Header from "../../../components/header";
-import CustomText from '../../../components/text';
+import CustomText from "../../../components/text";
 import { height, width } from "../../../utils/dimension";
-import { View, TouchableOpacity, StyleSheet, ScrollView, Linking } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Linking,
+  Alert,
+} from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import { signOut } from "../../../Redux/Actions/UserActions";
+import { signOut, deleteAccount } from "../../../Redux/Actions/UserActions";
 import ChevronRight from "../../../../assets/icons/chevron-right";
 import InstagramIcon from "../../../../assets/icons/instagram-icon";
 import GlobeIcon from "../../../../assets/icons/globe-icon";
 import LogoutIcon from "../../../../assets/icons/logout-icon";
+import TrashIcon from "../../../../assets/icons/trash-icon";
 import { useTranslation } from "../../../utils/useTranslation";
 import { ScreenNames } from "../../../Routes/routes";
 import EmailVerificationBanner from "../../../components/email-verification";
@@ -21,8 +29,9 @@ import { doc, updateDoc } from "firebase/firestore";
 import { firestore, auth } from "../../../../firebaseconfig";
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
-  const user = useSelector(state => state.user.userData);
+  const user = useSelector((state) => state.user.userData);
   const { t, locale } = useTranslation();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handlePress = (screen) => {
     if (screen) {
@@ -34,16 +43,35 @@ export default function Profile({ navigation }) {
     dispatch(signOut());
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(t("delete_account"), t("delete_account_confirm"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("delete_account"),
+        style: "destructive",
+        onPress: async () => {
+          setIsDeleting(true);
+          try {
+            await dispatch(deleteAccount(user?.id, user?.email));
+          } catch (error) {
+            setIsDeleting(false);
+            Alert.alert(t("error"), t("delete_account_failed"));
+          }
+        },
+      },
+    ]);
+  };
+
   const handleLanguageChange = async (selectedValue) => {
     dispatch(setLocale(selectedValue));
 
     // Update language in user's Firestore profile
     if (auth.currentUser) {
       try {
-        const userRef = doc(firestore, 'users', auth.currentUser.uid);
+        const userRef = doc(firestore, "users", auth.currentUser.uid);
         await updateDoc(userRef, { language: selectedValue });
       } catch (error) {
-        console.warn('Failed to update language in profile:', error);
+        console.warn("Failed to update language in profile:", error);
       }
     }
   };
@@ -57,22 +85,26 @@ export default function Profile({ navigation }) {
       <Header
         showLeft={true}
         showBack
-        title={t('profile_title')}
-        containerStyle={{ width: width(90), alignSelf: "center"}}
+        title={t("profile_title")}
+        containerStyle={{ width: width(90), alignSelf: "center" }}
       />
-      
+
       {/* Email Verification Banner */}
       <EmailVerificationBanner />
-      
-      <ScrollView 
+
+      <ScrollView
         style={{ paddingHorizontal: 20, marginTop: 30 }}
         nestedScrollEnabled={true}
         keyboardShouldPersistTaps="handled"
       >
         {/* Account Section */}
         <View style={styles.sectionContainer}>
-          <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            {t('account')}
+          <CustomText
+            size={2.6}
+            color={AppColors.primary}
+            style={{ marginLeft: 4, fontWeight: "bold" }}
+          >
+            {t("account")}
           </CustomText>
           <View style={{ height: 20 }} />
           {[
@@ -88,7 +120,11 @@ export default function Profile({ navigation }) {
                 <CustomText size={1.8} color={AppColors.black}>
                   {t(option.titleKey)}
                 </CustomText>
-                <ChevronRight width={20} height={20} color={AppColors.grey_300} />
+                <ChevronRight
+                  width={20}
+                  height={20}
+                  color={AppColors.grey_300}
+                />
               </View>
             </TouchableOpacity>
           ))}
@@ -126,7 +162,11 @@ export default function Profile({ navigation }) {
 
         {/* Store Section */}
         <View style={styles.sectionContainer}>
-          <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
+          <CustomText
+            size={2.6}
+            color={AppColors.primary}
+            style={{ marginLeft: 4, fontWeight: "bold" }}
+          >
             Store
           </CustomText>
           <View style={{ height: 20 }} />
@@ -136,7 +176,7 @@ export default function Profile({ navigation }) {
           >
             <View style={styles.optionContent}>
               <CustomText size={1.8} color={AppColors.black}>
-                {t('add_a_store')}
+                {t("add_a_store")}
               </CustomText>
               <ChevronRight width={20} height={20} color={AppColors.grey_300} />
             </View>
@@ -145,8 +185,12 @@ export default function Profile({ navigation }) {
 
         {/* Feedback Section */}
         <View style={styles.sectionContainer}>
-          <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
-            {t('feedback')}
+          <CustomText
+            size={2.6}
+            color={AppColors.primary}
+            style={{ marginLeft: 4, fontWeight: "bold" }}
+          >
+            {t("feedback")}
           </CustomText>
           <View style={{ height: 20 }} />
 
@@ -157,7 +201,7 @@ export default function Profile({ navigation }) {
           >
             <View style={styles.optionContent}>
               <CustomText size={1.8} color={AppColors.black}>
-                {t('contact_support')}
+                {t("contact_support")}
               </CustomText>
               <ChevronRight width={20} height={20} color={AppColors.grey_300} />
             </View>
@@ -167,13 +211,21 @@ export default function Profile({ navigation }) {
           <View style={styles.socialLinksContainer}>
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => Linking.openURL('https://www.instagram.com/shopisanapp/')}
+              onPress={() =>
+                Linking.openURL("https://www.instagram.com/shopisanapp/")
+              }
             >
               <InstagramIcon width={24} height={24} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => Linking.openURL(locale === 'fr' ? 'https://shopisan.com/fr' : 'https://shopisan.com')}
+              onPress={() =>
+                Linking.openURL(
+                  locale === "fr"
+                    ? "https://shopisan.com/fr"
+                    : "https://shopisan.com",
+                )
+              }
             >
               <GlobeIcon width={24} height={24} color={AppColors.primary} />
             </TouchableOpacity>
@@ -186,10 +238,36 @@ export default function Profile({ navigation }) {
           activeOpacity={0.8}
         >
           <LogoutIcon width={20} height={20} color={AppColors.white} />
-          <CustomText size={2} color={AppColors.white} style={{ marginLeft: 10, fontWeight: '600' }}>
-            {user ? t('log_out') : t('go_to_signup')}
+          <CustomText
+            size={2}
+            color={AppColors.white}
+            style={{ marginLeft: 10, fontWeight: "600" }}
+          >
+            {user ? t("log_out") : t("go_to_signup")}
           </CustomText>
         </TouchableOpacity>
+
+        {user && (
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.8}
+            disabled={isDeleting}
+          >
+            <TrashIcon
+              width={20}
+              height={20}
+              color={AppColors.error || "#dc3545"}
+            />
+            <CustomText
+              size={2}
+              color={AppColors.error || "#dc3545"}
+              style={{ marginLeft: 10, fontWeight: "600" }}
+            >
+              {isDeleting ? "..." : t("delete_account")}
+            </CustomText>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </ScreenWrapper>
   );
@@ -241,9 +319,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   socialLinksContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
     gap: 20,
   },
@@ -252,8 +330,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: AppColors.white_100,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
@@ -261,19 +339,32 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
     backgroundColor: AppColors.primary,
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 10,
     shadowColor: AppColors.primary,
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 4,
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: AppColors.white_100,
+    borderWidth: 1,
+    borderColor: AppColors.error || "#dc3545",
+    marginTop: 10,
+    marginBottom: 40,
   },
 });

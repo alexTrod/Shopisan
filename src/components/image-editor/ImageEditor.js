@@ -225,7 +225,10 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
   };
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <GestureHandlerRootView
+      testID="image-editor-container"
+      style={styles.container}
+    >
       {/* Editor area */}
       <View style={styles.editorArea}>
         <View
@@ -285,6 +288,7 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
       {/* Action buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
+          testID="image-editor-cancel-button"
           style={[styles.button, styles.cancelButton]}
           onPress={onCancel}
           disabled={processing}
@@ -295,6 +299,7 @@ const ImageEditor = ({ imageUri, onDone, onCancel, outputSize = 800, t }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          testID="image-editor-done-button"
           style={[
             styles.button,
             styles.doneButton,

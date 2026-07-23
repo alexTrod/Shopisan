@@ -10,7 +10,10 @@
     "postinstall": "patch-package",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "e2e": "maestro test .maestro/flows",
+    "e2e:login": "maestro test .maestro/flows/login.yaml",
+    "e2e:add-store": "maestro test .maestro/flows/add-store.yaml"
   },
   "jest": {
     "preset": "jest-expo",
@@ -32,7 +35,7 @@
     "@react-navigation/native": "^7.1.6",
     "@react-navigation/native-stack": "^7.3.10",
     "@reduxjs/toolkit": "^2.6.1",
-    "@rnmapbox/maps": "^10.1.31",
+    "@rnmapbox/maps": "10.1.31",
     "axios": "^1.9.0",
     "expo": "~52.0.48",
     "expo-asset": "~11.0.5",

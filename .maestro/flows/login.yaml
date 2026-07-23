@@ -1,0 +1,74 @@
+appId: com.ecomerce.shopisan
+---
+- launchApp:
+    clearState: true
+
+# Handle Expo Dev Client launcher if present
+- runFlow:
+    when:
+      visible: "Development servers"
+    commands:
+      - tapOn: "http://10.0.2.2:8081"
+
+# Handle developer menu Continue button
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+# Handle dev menu - tap outside or wait for it to close
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - pressKey: back
+
+# Handle Recently opened - tap on app
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Shopisan_v1"
+
+# Handle dev menu Continue again if needed
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+# Wait for signup screen to load - look for "Log in" link
+- extendedWaitUntil:
+    visible: "Log in"
+    timeout: 20000
+
+# Navigate to login screen
+- tapOn: "Log in"
+
+# Wait for signin screen to load
+- extendedWaitUntil:
+    visible:
+      id: "signin-email-input"
+    timeout: 5000
+
+# Enter email
+- tapOn:
+    id: "signin-email-input"
+- inputText: "lkeze18@gmail.com"
+
+# Enter password
+- tapOn:
+    id: "signin-password-input"
+- inputText: "luka1234"
+
+# Hide keyboard and tap login
+- hideKeyboard
+- tapOn:
+    id: "signin-login-button"
+
+# Assert successful login - main tab bar visible
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 15000

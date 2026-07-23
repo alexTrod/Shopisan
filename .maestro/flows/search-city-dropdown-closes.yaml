@@ -1,0 +1,76 @@
+appId: com.ecomerce.shopisan
+---
+# Test: Search City Dropdown Closes After Selection
+# Purpose: Verify "No suggestions found" doesn't appear after city selection
+# Bug: Race condition caused dropdown to stay visible showing stale state
+
+# Login first (reuse existing login flow)
+- runFlow: login.yaml
+
+# Wait for home screen with search bar
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 10000
+
+# Tap on search input
+- tapOn:
+    id: "search-input"
+
+# Wait for input to be focused
+- extendedWaitUntil:
+    visible:
+      id: "search-input"
+    timeout: 3000
+
+# Type city name to trigger suggestions
+- inputText: "Paris"
+
+# Wait for suggestions to appear (city suggestions from API)
+- extendedWaitUntil:
+    visible: "Paris"
+    timeout: 8000
+
+# Tap on first city suggestion
+- tapOn:
+    text: "Paris"
+    index: 0
+
+# Hide keyboard if still visible
+- hideKeyboard
+
+# CRITICAL ASSERTION 1: "No suggestions found" should NOT appear
+# If race condition exists, this text appears after selection
+- assertNotVisible:
+    text: "No suggestions found"
+
+# CRITICAL ASSERTION 2: "Search anyway" button should NOT be visible
+# This also indicates the stale dropdown state
+- assertNotVisible:
+    text: "Search anyway"
+
+# Test magnifying glass button after selection
+# Should NOT reopen dropdown with "No suggestions found"
+- tapOn:
+    id: "search-button"
+
+# Wait a moment for any async operations
+- extendedWaitUntil:
+    visible:
+      id: "search-input"
+    timeout: 2000
+
+# CRITICAL ASSERTION 3: Still no "No suggestions found" after button press
+- assertNotVisible:
+    text: "No suggestions found"
+
+# Clear search and try again to verify fix is consistent
+- tapOn:
+    text: "close-circle"
+    optional: true
+
+# Verify search input is empty
+- assertVisible:
+    id: "search-input"
+
+# Test passed - dropdown closes properly after city selection

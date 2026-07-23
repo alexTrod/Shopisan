@@ -20,6 +20,9 @@
         "android": {
           "gradleCommand": ":app:assembleRelease",
           "buildType": "apk"
+        },
+        "ios": {
+          "simulator": true
         }
       },
       "preview3": {

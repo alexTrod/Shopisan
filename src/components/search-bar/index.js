@@ -7,7 +7,13 @@
  * - Geocoding with timeout
  */
 
-import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useContext,
+  useCallback,
+} from "react";
 import {
   View,
   TextInput,
@@ -17,16 +23,16 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { AppColors } from '../../utils';
-import { height, width } from '../../utils/dimension';
-import { useTranslation } from '../../utils/useTranslation';
-import { StoreContext } from '../../context/StoreContext';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { AppColors } from "../../utils";
+import { height, width } from "../../utils/dimension";
+import { useTranslation } from "../../utils/useTranslation";
+import { StoreContext } from "../../context/StoreContext";
 
 // New services
-import searchService from '../../services/SearchService';
-import { LOCATION_CONFIG } from '../../config/location';
+import searchService from "../../services/SearchService";
+import { LOCATION_CONFIG } from "../../config/location";
 
 const SearchBar = ({
   placeholder,
@@ -41,9 +47,18 @@ const SearchBar = ({
   returnKeyType = "search",
 }) => {
   const { t } = useTranslation();
-  const { searchQuery, setSearchQuery, performSearch, searchCompleted, setSearchCompleted } = useContext(StoreContext);
+  const {
+    searchQuery,
+    setSearchQuery,
+    performSearch,
+    searchCompleted,
+    setSearchCompleted,
+  } = useContext(StoreContext);
 
-  const defaultPlaceholder = placeholder || t('search_placeholder') || 'Search stores or cities (press Enter to search)';
+  const defaultPlaceholder =
+    placeholder ||
+    t("search_placeholder") ||
+    "Search stores or cities (press Enter to search)";
 
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -63,8 +78,15 @@ const SearchBar = ({
         setLoading(isLoading);
 
         // Show suggestions only if we have results and not in selection mode
-        if (newSuggestions.length > 0 && !searchCompleted && lastActionRef.current !== 'select') {
+        if (
+          newSuggestions.length > 0 &&
+          !searchCompleted &&
+          lastActionRef.current !== "select"
+        ) {
           setShowSuggestions(true);
+        } else if (lastActionRef.current === "select") {
+          // Ensure dropdown stays closed during selection (ref is always current)
+          setShowSuggestions(false);
         }
       }
     });
@@ -79,11 +101,16 @@ const SearchBar = ({
   // Handle query changes with debounced search
   useEffect(() => {
     // Don't fetch suggestions if search was completed
-    if (searchCompleted || isSelecting || lastActionRef.current === 'select' || lastActionRef.current === 'search') {
+    if (
+      searchCompleted ||
+      isSelecting ||
+      lastActionRef.current === "select" ||
+      lastActionRef.current === "search"
+    ) {
       return;
     }
 
-    const trimmedQuery = searchQuery?.trim() || '';
+    const trimmedQuery = searchQuery?.trim() || "";
 
     if (trimmedQuery.length < LOCATION_CONFIG.MIN_SEARCH_LENGTH) {
       setSuggestions([]);
@@ -94,98 +121,117 @@ const SearchBar = ({
 
     // Trigger debounced search
     searchService.search(trimmedQuery);
-
   }, [searchQuery, searchCompleted, isSelecting]);
 
   /**
    * Handle text input change
    */
-  const handleTextChange = useCallback((text) => {
-    // Reset flags when user starts typing again
-    if (lastActionRef.current === 'select' || lastActionRef.current === 'search' || isSelecting || searchCompleted) {
-      lastActionRef.current = null;
-      setIsSelecting(false);
-      setSearchCompleted(false);
-    }
-    setSearchQuery(text);
-  }, [isSelecting, searchCompleted, setSearchQuery, setSearchCompleted]);
+  const handleTextChange = useCallback(
+    (text) => {
+      // Reset flags when user starts typing again
+      if (
+        lastActionRef.current === "select" ||
+        lastActionRef.current === "search" ||
+        isSelecting ||
+        searchCompleted
+      ) {
+        lastActionRef.current = null;
+        setIsSelecting(false);
+        setSearchCompleted(false);
+      }
+      setSearchQuery(text);
+    },
+    [isSelecting, searchCompleted, setSearchQuery, setSearchCompleted],
+  );
 
   /**
    * Handle suggestion press
    */
-  const handleSuggestionPress = useCallback(async (suggestion) => {
-    // Immediately close dropdown
-    setShowSuggestions(false);
-    setSuggestions([]);
-    setIsSelecting(true);
-    lastActionRef.current = 'select';
-    setSearchQuery(suggestion.label);
+  const handleSuggestionPress = useCallback(
+    async (suggestion) => {
+      // Cancel pending search to prevent race condition
+      searchService.cancelPendingSearch();
 
-    try {
-      if (suggestion.type === 'city') {
-        await handleCitySelect(suggestion);
-      } else if (suggestion.type === 'store') {
-        handleStoreSelect(suggestion);
+      // Immediately close dropdown
+      setShowSuggestions(false);
+      setSuggestions([]);
+      setIsSelecting(true);
+      lastActionRef.current = "select";
+      setSearchQuery(suggestion.label);
+
+      try {
+        if (suggestion.type === "city") {
+          await handleCitySelect(suggestion);
+        } else if (suggestion.type === "store") {
+          handleStoreSelect(suggestion);
+        }
+      } catch (error) {
+        console.error("Error in handleSuggestionPress:", error);
+        setIsSelecting(false);
+        lastActionRef.current = null;
       }
-    } catch (error) {
-      console.error('Error in handleSuggestionPress:', error);
-      setIsSelecting(false);
-      lastActionRef.current = null;
-    }
-  }, [handleCitySelect, handleStoreSelect, setSearchQuery]);
+    },
+    [handleCitySelect, handleStoreSelect, setSearchQuery],
+  );
 
   /**
    * Handle city selection with geocoding
    */
-  const handleCitySelect = useCallback(async (citySuggestion) => {
-    try {
-      setLoading(true);
+  const handleCitySelect = useCallback(
+    async (citySuggestion) => {
+      try {
+        setLoading(true);
 
-      // Use coordinates if already available
-      let coords = citySuggestion.coordinates;
+        // Use coordinates if already available
+        let coords = citySuggestion.coordinates;
 
-      if (!coords?.latitude || !coords?.longitude) {
-        // Geocode the city with timeout
-        coords = await searchService.geocodeCity(citySuggestion.label);
-      }
+        if (!coords?.latitude || !coords?.longitude) {
+          // Geocode the city with timeout
+          coords = await searchService.geocodeCity(citySuggestion.label);
+        }
 
-      if (coords) {
-        lastActionRef.current = 'select';
-        setSearchCompleted(true);
-        setSuggestions([]);
-        setShowSuggestions(false);
-        onCitySelect?.(citySuggestion.label, coords);
-      } else {
-        Alert.alert("Error", "Could not find coordinates for this city.");
+        if (coords) {
+          lastActionRef.current = "select";
+          setSearchCompleted(true);
+          setSuggestions([]);
+          setShowSuggestions(false);
+          onCitySelect?.(citySuggestion.label, coords);
+        } else {
+          Alert.alert("Error", "Could not find coordinates for this city.");
+          setIsSelecting(false);
+          lastActionRef.current = null;
+        }
+      } catch (error) {
+        console.error("Error handling city selection:", error);
+        Alert.alert("Error", "Failed to process city selection.");
         setIsSelecting(false);
         lastActionRef.current = null;
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error handling city selection:', error);
-      Alert.alert("Error", "Failed to process city selection.");
-      setIsSelecting(false);
-      lastActionRef.current = null;
-    } finally {
-      setLoading(false);
-    }
-  }, [onCitySelect, setSearchCompleted]);
+    },
+    [onCitySelect, setSearchCompleted],
+  );
 
   /**
    * Handle store selection
    */
-  const handleStoreSelect = useCallback((storeSuggestion) => {
-    if (storeSuggestion.location) {
-      lastActionRef.current = 'select';
-      setSearchCompleted(true);
-      setSuggestions([]);
-      setShowSuggestions(false);
-      onStoreSelect?.(storeSuggestion);
-    } else {
-      Alert.alert("Error", "Store location not available.");
-      setIsSelecting(false);
-      lastActionRef.current = null;
-    }
-  }, [onStoreSelect, setSearchCompleted]);
+  const handleStoreSelect = useCallback(
+    (storeSuggestion) => {
+      if (storeSuggestion.location) {
+        lastActionRef.current = "select";
+        setSearchCompleted(true);
+        setSuggestions([]);
+        setShowSuggestions(false);
+        onStoreSelect?.(storeSuggestion);
+      } else {
+        Alert.alert("Error", "Store location not available.");
+        setIsSelecting(false);
+        lastActionRef.current = null;
+      }
+    },
+    [onStoreSelect, setSearchCompleted],
+  );
 
   /**
    * Handle search submission
@@ -193,7 +239,7 @@ const SearchBar = ({
   const handleSearchSubmit = useCallback(async () => {
     if (!searchQuery.trim()) return;
 
-    lastActionRef.current = 'search';
+    lastActionRef.current = "search";
     setSearchCompleted(true);
     setShowSuggestions(false);
     setSuggestions([]);
@@ -210,7 +256,16 @@ const SearchBar = ({
    * Show suggestions manually
    */
   const handleShowSuggestions = useCallback(async () => {
-    if (!searchQuery.trim() || searchQuery.trim().length < LOCATION_CONFIG.MIN_SEARCH_LENGTH) return;
+    // Don't show suggestions if selection just completed
+    if (searchCompleted || isSelecting || lastActionRef.current === "select") {
+      return;
+    }
+
+    if (
+      !searchQuery.trim() ||
+      searchQuery.trim().length < LOCATION_CONFIG.MIN_SEARCH_LENGTH
+    )
+      return;
 
     setLoading(true);
     try {
@@ -219,24 +274,24 @@ const SearchBar = ({
         setShowSuggestions(true);
       }
     } catch (error) {
-      console.error('Error fetching suggestions:', error);
+      console.error("Error fetching suggestions:", error);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, searchCompleted, isSelecting]);
 
   /**
    * Clear search
    */
   const clearSearch = useCallback(() => {
-    setSearchQuery('');
+    setSearchQuery("");
     setSuggestions([]);
     setShowSuggestions(false);
     lastActionRef.current = null;
     setIsSelecting(false);
     setSearchCompleted(false);
     searchService.clear();
-    onSearch?.('');
+    onSearch?.("");
   }, [setSearchQuery, setSearchCompleted, onSearch]);
 
   /**
@@ -271,6 +326,7 @@ const SearchBar = ({
             style={styles.searchIcon}
           />
           <TextInput
+            testID="search-input"
             style={styles.searchInput}
             placeholder={defaultPlaceholder}
             placeholderTextColor={AppColors.grey_200}
@@ -292,7 +348,12 @@ const SearchBar = ({
           {searchQuery.length > 0 && (
             <>
               <TouchableOpacity
-                onPress={suggestions.length > 0 ? handleSearchSubmit : handleShowSuggestions}
+                testID="search-button"
+                onPress={
+                  suggestions.length > 0
+                    ? handleSearchSubmit
+                    : handleShowSuggestions
+                }
                 style={styles.searchButton}
               >
                 <Ionicons
@@ -302,8 +363,15 @@ const SearchBar = ({
                 />
               </TouchableOpacity>
               {showClearButton && (
-                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                  <Ionicons name="close-circle" size={20} color={AppColors.grey_200} />
+                <TouchableOpacity
+                  onPress={clearSearch}
+                  style={styles.clearButton}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={AppColors.grey_200}
+                  />
                 </TouchableOpacity>
               )}
             </>
@@ -331,7 +399,9 @@ const SearchBar = ({
                   >
                     <View style={styles.suggestionContent}>
                       <Ionicons
-                        name={suggestion.type === "city" ? "location" : "business"}
+                        name={
+                          suggestion.type === "city" ? "location" : "business"
+                        }
                         size={16}
                         color={AppColors.grey_200}
                         style={styles.suggestionIcon}
@@ -348,7 +418,10 @@ const SearchBar = ({
                 ))}
               </ScrollView>
             ) : (
-              <View style={styles.noSuggestionsContainer}>
+              <View
+                testID="no-suggestions-container"
+                style={styles.noSuggestionsContainer}
+              >
                 <Text style={styles.noSuggestionsText}>
                   No suggestions found for "{searchQuery}"
                 </Text>
@@ -369,21 +442,21 @@ const SearchBar = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
+    position: "relative",
     zIndex: 9999,
   },
   searchContainer: {
     backgroundColor: AppColors.white,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -403,7 +476,7 @@ const styles = StyleSheet.create({
   searchButton: {
     marginLeft: 8,
     padding: 4,
-    backgroundColor: AppColors.primary_faded || '#f0f8ff',
+    backgroundColor: AppColors.primary_faded || "#f0f8ff",
     borderRadius: 16,
   },
   clearButton: {
@@ -417,7 +490,7 @@ const styles = StyleSheet.create({
   suggestionsContainer: {
     backgroundColor: AppColors.white,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -433,8 +506,8 @@ const styles = StyleSheet.create({
     borderBottomColor: AppColors.grey_300,
   },
   suggestionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     minWidth: 0,
   },
@@ -449,12 +522,12 @@ const styles = StyleSheet.create({
   },
   noSuggestionsContainer: {
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   noSuggestionsText: {
     fontSize: height(2),
     color: AppColors.grey_200,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 15,
   },
   searchAnywayButton: {
@@ -466,7 +539,7 @@ const styles = StyleSheet.create({
   searchAnywayText: {
     color: AppColors.white,
     fontSize: height(1.8),
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 

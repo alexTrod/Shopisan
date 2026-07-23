@@ -29,9 +29,10 @@ const Input = (
     label,
     prefix,
     suffix,
+    testID,
     ...restProps
   },
-  ref
+  ref,
 ) => {
   return (
     <View style={[styles.mainContainer, containerStyles]}>
@@ -56,8 +57,8 @@ const Input = (
                   marginRight: height(0.5),
                   paddingRight: height(0.8),
                   paddingLeft: height(0.5),
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  alignItems: "center",
+                  justifyContent: "center",
                   minWidth: height(4),
                 }}
               >
@@ -86,13 +87,16 @@ const Input = (
                   onBlur={onBlur}
                   secureTextEntry={secureTextEntry}
                   allowFontScaling={true}
+                  testID={testID}
                   {...restProps}
                 />
               )}
               name={name}
             />
             {suffix && (
-              <View style={{ marginLeft: height(0.5), marginRight: height(0.5) }}>
+              <View
+                style={{ marginLeft: height(0.5), marginRight: height(0.5) }}
+              >
                 {suffix}
               </View>
             )}

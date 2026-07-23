@@ -100,6 +100,16 @@ Translation files: `src/translations/index.js` (EN & FR sections)
 - Geocoding: Google Geocoding API with caching
 - Distance: Haversine formula calculations
 
+## Admin Scripts
+
+```bash
+# Delete users and all related data (Auth, Firestore docs, stores, posts)
+node scripts/delete-users.js email1@example.com email2@example.com
+
+# Requires serviceAccountKey.json in project root
+# Get from: Firebase Console > Project Settings > Service Accounts > Generate new private key
+```
+
 ## Testing
 
 ```bash
@@ -107,6 +117,24 @@ npm test               # Run Jest tests
 npm test -- --watch    # Watch mode
 npm test -- --coverage # Coverage report
 ```
+
+## E2E Testing (Maestro)
+
+```bash
+# Install Maestro CLI (one-time)
+curl -Ls "https://get.maestro.mobile.dev" | bash
+
+# Run all E2E tests
+npm run e2e
+
+# Run login flow only
+npm run e2e:login
+
+# Run with env vars (CI)
+maestro test --env EMAIL=user@example.com --env PASSWORD=pass .maestro/flows/login.yaml
+```
+
+Test files: `.maestro/flows/`
 
 ## Environment
 

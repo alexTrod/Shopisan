@@ -636,7 +636,10 @@ exports.sendStoreCreationEmail = functions.https.onCall(
       const template = handlebars.compile(emailTemplate.template);
       const htmlContent = template({
         storeName,
-        username: username || storeName, // Use username if provided, fallback to storeName
+        // Always use username for greeting, never storeName
+        // If username missing, use a generic greeting based on language
+        username:
+          username || (lang === "fr" ? "cher commerçant" : "valued merchant"),
         appUrl: "https://shopisan-bad76.web.app",
         verificationUrl: "https://shopisan-bad76.web.app",
         instagramUrl: "https://instagram.com/shopisanapp",
@@ -1545,19 +1548,58 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // Also delete any stores owned by this user
+    // Also delete any stores owned by this user (and their posts)
     if (authUid) {
       const storesRef = admin.firestore().collection("stores");
       const storesSnapshot = await storesRef
         .where("owner_id", "==", authUid)
         .get();
       if (!storesSnapshot.empty) {
-        const batch = admin.firestore().batch();
+        const postsRef = admin.firestore().collection("posts");
+
+        // Delete posts for each store first
+        for (const storeDoc of storesSnapshot.docs) {
+          const storeId = storeDoc.data().id;
+          if (storeId) {
+            const postsSnapshot = await postsRef
+              .where("store.id", "==", storeId)
+              .get();
+            if (!postsSnapshot.empty) {
+              const postsBatch = admin.firestore().batch();
+              postsSnapshot.docs.forEach((postDoc) => {
+                postsBatch.delete(postDoc.ref);
+                console.log(`Deleting post ${postDoc.id} for store ${storeId}`);
+              });
+              await postsBatch.commit();
+            }
+          }
+        }
+
+        // Now delete stores
+        const storesBatch = admin.firestore().batch();
         storesSnapshot.docs.forEach((doc) => {
-          batch.delete(doc.ref);
+          storesBatch.delete(doc.ref);
           console.log(`Deleting store ${doc.id} owned by user ${authUid}`);
         });
-        await batch.commit();
+        await storesBatch.commit();
+      }
+    }
+
+    // Delete passwordResets document for this user's email
+    if (normalizedEmail) {
+      try {
+        const passwordResetsRef = admin
+          .firestore()
+          .collection("passwordResets")
+          .doc(normalizedEmail);
+        const passwordResetDoc = await passwordResetsRef.get();
+        if (passwordResetDoc.exists) {
+          await passwordResetsRef.delete();
+          console.log(`Deleted passwordResets document for ${normalizedEmail}`);
+        }
+      } catch (error) {
+        console.log("Error deleting passwordResets:", error.message);
+        // Continue - not critical
       }
     }
 
