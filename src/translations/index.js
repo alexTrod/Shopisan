@@ -343,8 +343,13 @@ export default {
     enter_number_error: "Please enter a number",
     unable_to_open_image_picker: "Unable to open image picker.",
 
+    // UI
+    show_more: "Show more",
+    show_less: "Show less",
+
     // Posts Management
     manage_posts: "Manage Posts",
+    add_post: "Add Post",
     create_post: "Create Post",
     edit_post: "Edit Post",
     delete_post: "Delete Post",
@@ -727,8 +732,13 @@ export default {
     enter_number_error: "Veuillez entrer un nombre",
     unable_to_open_image_picker: "Impossible d'ouvrir le sélecteur d'images.",
 
+    // UI
+    show_more: "Voir plus",
+    show_less: "Voir moins",
+
     // Posts Management
     manage_posts: "Gérer les annonces",
+    add_post: "Ajouter une annonce",
     create_post: "Créer une annonce",
     edit_post: "Modifier l'annonce",
     delete_post: "Supprimer l'annonce",

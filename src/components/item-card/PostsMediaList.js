@@ -17,13 +17,21 @@ import { useTranslation } from "../../utils/useTranslation";
 const THUMBNAIL_SIZE = width(28);
 const THUMBNAIL_GAP = 8;
 
-const PostsMediaList = ({ media = [] }) => {
+const PostsMediaList = ({ media = [], showEmptyState = true }) => {
   const { t, locale } = useTranslation();
   const [allPostsModalVisible, setAllPostsModalVisible] = useState(false);
   const [selectedPostIndex, setSelectedPostIndex] = useState(0);
 
   if (media.length === 0) {
-    return null;
+    if (!showEmptyState) return null;
+    return (
+      <View style={styles.postsSection}>
+        <Text style={styles.sectionTitle}>{t("posted_announcements")}</Text>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>{t("no_posts_yet")}</Text>
+        </View>
+      </View>
+    );
   }
 
   // Normalize items to handle both old media[] format and new flat format
@@ -234,6 +242,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1A1A1A",
     marginBottom: 12,
+  },
+  emptyState: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+  emptyStateText: {
+    fontSize: height(1.7),
+    color: "#999",
+    fontStyle: "italic",
   },
 
   // Thumbnail Grid Styles
