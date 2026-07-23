@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { G, Path, Defs, ClipPath } from "react-native-svg";
 
-function UKFlag({ height, width }, props) {
+function UKFlag({ height, width, ...props }) {
   return (
     <Svg
       width={width}

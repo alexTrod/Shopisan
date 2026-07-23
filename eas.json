@@ -4,6 +4,12 @@
     "appVersionSource": "remote"
   },
     "build": {
+      "development": {
+        "distribution": "internal",
+        "android": {
+          "buildType": "apk"
+        }
+      },
       "preview": {
         "android": {
            "gradleCommand": ":app:assembleDebug",
@@ -12,7 +18,11 @@
       },
       "preview2": {
         "android": {
-          "gradleCommand": ":app:assembleRelease"
+          "gradleCommand": ":app:assembleRelease",
+          "buildType": "apk"
+        },
+        "ios": {
+          "simulator": true
         }
       },
       "preview3": {
@@ -21,7 +31,11 @@
       "preview4": {
         "distribution": "internal"
       },
-      "production": {}
+      "production": {
+        "android": {
+          "buildType": "apk"
+        }
+      }
     }
   
   

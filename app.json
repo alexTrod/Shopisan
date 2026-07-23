@@ -2,6 +2,7 @@
   "expo": {
     "name": "Shopisan_v1",
     "slug": "Shopisan_v1",
+    "owner": "shopisan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ecomerce.shopisan"
+      "bundleIdentifier": "com.ecomerce.shopisan",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Shopisan needs your location to find nearby stores.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Shopisan needs your location to find nearby stores."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,14 +40,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-asset",
       "expo-font",
+      "expo-localization",
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+          "locationWhenInUsePermission": "Shopisan needs your location to find nearby stores."
         }
-      ],
-      "expo-localization"
+      ]
     ],
     "extra": {
       "eas": {

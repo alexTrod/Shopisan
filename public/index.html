@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopisan</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #6B2D5C 0%, #8B4D7C 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .logo { font-size: 64px; margin-bottom: 20px; }
+    h1 { color: #6B2D5C; margin-bottom: 10px; font-size: 32px; font-weight: bold; }
+    .tagline { color: #666; margin-bottom: 30px; line-height: 1.6; font-size: 18px; }
+    .message { color: #333; margin-bottom: 30px; line-height: 1.6; }
+    .button {
+      display: inline-block;
+      background: #6B2D5C;
+      color: white;
+      padding: 16px 32px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 10px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(107, 45, 92, 0.3);
+    }
+    .button:hover {
+      background: #8B4D7C;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(107, 45, 92, 0.4);
+    }
+    .buttons { margin-top: 20px; }
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      font-size: 14px;
+      color: #666;
+    }
+    .footer a {
+      color: #6B2D5C;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    .social-links {
+      margin-top: 15px;
+    }
+    .social-links a {
+      margin: 0 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="https://shopisan-bad76.web.app/logo.png" alt="Shopisan" style="width: 100px; height: 100px; border-radius: 20px;" onerror="this.style.display='none'; this.parentElement.innerHTML='&#x1F6CD;';">
+    </div>
+    <h1>Shopisan</h1>
+    <p class="tagline" id="tagline"></p>
+
+    <p class="message" id="message"></p>
+
+    <div class="buttons">
+      <a href="https://apps.apple.com/app/shopisan" class="button" id="downloadBtn"></a>
+    </div>
+
+    <div class="footer">
+      <p id="footerText"></p>
+      <div class="social-links">
+        <a href="https://instagram.com/shopisanapp">Instagram</a> |
+        <a href="mailto:support@shopisan.com" id="contactLink"></a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const translations = {
+      en: {
+        tagline: "Discover local shops near you",
+        message: "Support local businesses and discover unique shops in your neighborhood. Download the Shopisan app to get started!",
+        downloadBtn: "Download on App Store",
+        footerText: "Already have the app? Open it to sign in to your account.",
+        contactLink: "Contact Us"
+      },
+      fr: {
+        tagline: "Decouvrez les commerces pres de chez vous",
+        message: "Soutenez les commerces locaux et decouvrez des boutiques uniques dans votre quartier. Telechargez l'application Shopisan pour commencer !",
+        downloadBtn: "Telecharger sur l'App Store",
+        footerText: "Vous avez deja l'application ? Ouvrez-la pour acceder a votre compte.",
+        contactLink: "Nous contacter"
+      }
+    };
+
+    // Detect browser language
+    const userLang = navigator.language || navigator.userLanguage;
+    const lang = userLang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+
+    // Apply translations
+    document.getElementById('tagline').textContent = translations[lang].tagline;
+    document.getElementById('message').textContent = translations[lang].message;
+    document.getElementById('downloadBtn').textContent = translations[lang].downloadBtn;
+    document.getElementById('footerText').textContent = translations[lang].footerText;
+    document.getElementById('contactLink').textContent = translations[lang].contactLink;
+
+    // Update html lang attribute
+    document.documentElement.lang = lang;
+  </script>
+</body>
+</html>

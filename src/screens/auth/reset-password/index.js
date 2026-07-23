@@ -1,46 +1,46 @@
-import React, { useRef, useState } from "react";
-import { Image, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Image, TouchableOpacity, View, Modal, Text } from "react-native";
 import { useForm } from "react-hook-form";
-
-import styles from "./styles";
+import { yupResolver } from "@hookform/resolvers/yup";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { LargeText, SmallText } from "../../../components/text";
 import Spacer from "../../../components/spacer";
 import { InputField } from "../../../components/input";
-import { EvilIcons, Feather } from "@expo/vector-icons";
 import Button from "../../../components/button";
-import ResetFormValidation from "./valdiation";
 import { AppColors } from "../../../utils";
 import { height, width } from "../../../utils/dimension";
-import { yupResolver } from "@hookform/resolvers/yup";
 import { ScreenNames } from "../../../Routes/routes";
+import Toast from "react-native-toast-message";
+import i18n from "../../../translations/i18n";
+import ResetFormValidation from "./validation";
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+
+import styles from "./styles";
 
 export default function ResetPassword({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const passwordRef = useRef(null);
-  const confirmPasswordRef = useRef(null);
-  const [passwordHide, setPasswordHide] = useState(true);
-  const [ConfirmpasswordHide, setConfirmpasswordHide] = useState(true);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { isValid, errors },
-  } = useForm({
+  const { control, handleSubmit, formState: { isValid, errors } } = useForm({
     mode: "all",
-    resolver: yupResolver(ResetFormValidation), // Replace with your validation schema
+    resolver: yupResolver(ResetFormValidation),
   });
 
-  const loginHandler = async () => {
+  const resetHandler = async (values) => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigation?.navigate(ScreenNames.LOGIN);
+    const auth = getAuth();
+    try {
+      await sendPasswordResetEmail(auth, values.email);
       setModalVisible(true);
-    }, 2000);
-    // dispatch(setIsLoggedIn(true));
-  };
+    } catch (error) {
+      Toast.show({
+        text1: "Error",
+        text2: error.message,
+        type: "error",
+      });
+    }
+    setLoading(false);
+  };  
 
   return (
     <ScreenWrapper
@@ -49,32 +49,26 @@ export default function ResetPassword({ navigation }) {
       scrollEnabled
       backgroundColor={AppColors.white}
     >
-      <View style={styles.mainViewContainer}>
-        {/* <LogoIcon height={height(20)} width={height(20)} /> */}
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Image
+          source={require("../../../../assets/LogoIcon.png")}
+          style={{ height: height(5), width: height(5), marginBottom: height(2) }}
+        />
 
-        <View style={styles.inputContainer}>
-          <LargeText
-            textAlign="center"
-            textProps={{ fontFamily: "bold" }}
-            textStyles={{ fontFamily: "bold" }}
-            size={5}
-          >
+        <View style={{ width: "90%", alignSelf: "center" }}>
+          <LargeText textAlign="center" size={5} textProps={{ fontFamily: "bold" }}>
             Reset Password
           </LargeText>
           <Spacer vertical={height(1)} />
           <SmallText textAlign="center" size={2}>
-            Create a strong password
+            Enter your email to receive a password reset link.
           </SmallText>
           <Spacer vertical={height(2)} />
+
           <InputField
-            ref={passwordRef}
-            prefix={
-              <EvilIcons
-                name={"lock"}
-                size={height(4)}
-                color={AppColors.wihte5}
-              />
-            }
+            control={control}
+            name="email"
+            keyboardType="email-address"
             containerStyles={{ width: "90%", alignSelf: "center" }}
             textFieldContainer={{
               width: "100%",
@@ -83,78 +77,47 @@ export default function ResetPassword({ navigation }) {
               borderWidth: width(0.2),
             }}
             textFieldInnerContainer={{ width: "100%" }}
-            label=""
-            control={control}
-            onSubmit={() => confirmPasswordRef?.current?.focus()}
-            name="password"
-            placeholder="Enter Password"
-            error={errors.password}
-            secureTextEntry={passwordHide}
-            suffix={
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    setPasswordHide(!passwordHide);
-                  }}
-                >
-                  <Feather
-                    name={passwordHide ? "eye-off" : "eye"}
-                    color={AppColors.secondary}
-                    size={height(2)}
-                  />
-                </TouchableOpacity>
-              </>
-            }
-          />
-          <InputField
-            ref={confirmPasswordRef}
-            prefix={
-              <EvilIcons
-                name={"lock"}
-                size={height(4)}
-                color={AppColors.wihte5}
-              />
-            }
-            containerStyles={{ width: "90%", alignSelf: "center" }}
-            textFieldContainer={{
-              width: "100%",
-              backgroundColor: AppColors.white,
-              borderColor: AppColors.secondary,
-              borderWidth: width(0.2),
-            }}
-            textFieldInnerContainer={{ width: "100%" }}
-            label=""
-            secureTextEntry={ConfirmpasswordHide}
-            suffix={
-              <TouchableOpacity
-                onPress={() => {
-                  setConfirmpasswordHide(!ConfirmpasswordHide);
-                }}
-              >
-                <Feather
-                  name={ConfirmpasswordHide ? "eye-off" : "eye"}
-                  color={AppColors.secondary}
-                  size={height(2)}
-                />
-              </TouchableOpacity>
-            }
-            control={control}
-            name="confirmPassword"
-            placeholder="Enter Confirm Password"
-            error={errors.confirmPassword}
+            placeholder="Enter your email"
+            error={errors.email}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <Spacer vertical={height(2)} />
+
           <Button
             loading={loading}
-            disabled={!isValid}
             textStyle={{ fontWeight: "bold" }}
             containerStyle={styles.button}
-            onPress={handleSubmit(loginHandler)}
+            onPress={() => handleSubmit(resetHandler)()}
           >
             Reset
           </Button>
         </View>
+
+        {/* Popup Modal */}
+        <Modal
+          visible={modalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View style={{ width: "80%", padding: 20, backgroundColor: AppColors.white, borderRadius: 10, alignItems: "center" }}>
+              <LargeText textAlign="center" size={4}>
+                Email Sent
+              </LargeText>
+              <Spacer vertical={height(1)} />
+              <SmallText textAlign="center" size={2}>
+                A password reset email has been sent to your email address.
+              </SmallText>
+              <Spacer vertical={height(2)} />
+              <Button onPress={() => setModalVisible(false)} textStyle={{ fontWeight: "bold" }}>
+                Close
+              </Button>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScreenWrapper>
   );

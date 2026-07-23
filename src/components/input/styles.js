@@ -15,20 +15,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: width(2),
-    paddingVertical: height(0.5),
+    paddingVertical: height(1),
     marginBottom: height(0.5),
+    minHeight: height(7),
+    overflow: 'hidden',
   },
   textFieldInnerContainer: {
     width: "90%",
-    alignSelf: "flex-end",
+    alignSelf: "center",
     alignItems: "center",
     justifyContent: "space-between",
     flexDirection: "row",
   },
   textInput: {
-    width: "85%",
     height: Platform.OS === "ios" ? height(6) : height(6.5),
     color: AppColors.black,
+    fontSize: height(2),
+    lineHeight: height(2.5),
   },
   error: {
     color: AppColors.red,
@@ -36,7 +39,8 @@ const styles = StyleSheet.create({
   rowContainer: {
     flexDirection: "row",
     alignItems: "center",
-    width: "90%",
+    width: "100%",
+    justifyContent: "space-between",
   },
 });
 export default styles;

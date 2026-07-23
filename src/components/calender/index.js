@@ -35,7 +35,6 @@ const CalenderComp = (
   ref
 ) => {
   const [isVisible, setIsVisible] = useState(false);
-  console.log(isVisible);
   return (
     <View style={[styles.mainContainer, containerStyles]}>
       {label && (

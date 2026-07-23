@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: height(2),
     color: AppColors.primary,
-    fontFamily: "Mulish-Bold",
+    fontFamily: "Roboto-Medium",
   },
 });
 

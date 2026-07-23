@@ -1,0 +1,41 @@
+{
+  "functions": [
+    {
+      "codebase": "default",
+      "source": "functions"
+    },
+    {
+      "source": "shopisan_communication",
+      "codebase": "shopisan_communication",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/verify-email",
+        "destination": "/verify-email.html"
+      },
+      {
+        "source": "/confirm-email-change",
+        "destination": "/confirm-email-change.html"
+      }
+    ]
+  }
+}

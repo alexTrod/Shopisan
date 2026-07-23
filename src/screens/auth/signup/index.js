@@ -1,374 +1,458 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Image, Switch, TouchableOpacity, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { Image, TouchableOpacity, View, Text } from "react-native";
 import { useForm } from "react-hook-form";
-
-import LoginFormValidation from "./valdiation"; // Correct the import path as needed
+import SignUpFormValidation from "./validation";
 import styles from "./styles";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { height, width } from "../../../utils/dimension";
 import { AppColors } from "../../../utils";
 import { InputField } from "../../../components/input";
-import CustomText, { LargeText, SmallText } from "../../../components/text";
-import {
-  AntDesign,
-  EvilIcons,
-  Feather,
-  FontAwesome6,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import CustomText from "../../../components/text";
+import { FontAwesome6, MaterialCommunityIcons, Feather, Ionicons } from "@expo/vector-icons";
 import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 import ScreenWrapper from "../../../components/screen-wrapper";
 import Spacer from "../../../components/spacer";
-// import { login } from "../../../Redux/Actions/Auth";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Unlock_outline from "../../../../assets/icons/unlock";
-// import Toast from "react-native-toast-message";
-// import { doc, getDoc } from "firebase/firestore";
-// import { firestore } from "../../../../firebaseconfig";
+import PersonIcon from "../../../../assets/icons/person-icon";
+import MailIcon from "../../../../assets/icons/mail-icon";
+import EyeIcon from "../../../../assets/icons/eye-icon";
+import EyeOffIcon from "../../../../assets/icons/eye-off-icon";
+import { functions } from "../../../../firebaseconfig";
+import { httpsCallable } from "firebase/functions";
+import Toast from "react-native-toast-message";
+import i18n from "../../../translations/i18n";
+import { signUp, setNoAuthenticationWanted, signUpMerchantWithStore } from "../../../Redux/Actions/UserActions";
+import { useTranslation } from "../../../utils/useTranslation";
+import StepIndicator from "./components/StepIndicator";
+import { StoreForm } from "../../../components/store-form";
 
 export default function SignUp({ navigation }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const locale = useSelector(state => state.locale?.currentLocale) || 'en';
+
+  if (locale) {
+    i18n.locale = locale;
+  }
+
   const dispatch = useDispatch();
+  const errorMessage = useSelector(state => state.user.signUpError);
+  const [emailError, setEmailError] = useState(null);
+
+  // Merchant wizard state
+  const [currentStep, setCurrentStep] = useState(1);
+  const [userData, setUserData] = useState(null);
 
   const passwordRef = useRef(null);
   const confirmPasswordRef = useRef(null);
   const emailRef = useRef(null);
   const [passwordHide, setPasswordHide] = useState(true);
-  const [ConfirmpasswordHide, setConfirmpasswordHide] = useState(true);
-  const [active, setActive] = useState(1);
+  const [confirmPasswordHide, setConfirmPasswordHide] = useState(true);
+  const [userType, setUserType] = useState("shopper");
 
-  const {
-    control,
-    handleSubmit,
-    formState: { isValid, errors },
-  } = useForm({
-    mode: "all",
-    resolver: yupResolver(LoginFormValidation), // Replace with your validation schema
+  const { control, handleSubmit, formState: { errors } } = useForm({
+    mode: "onBlur",
+    resolver: yupResolver(SignUpFormValidation),
   });
 
-  // const checkUser = async (email, password) => {
-  //   console.log("checking user", email, password);
-  //   let res;
-  //   try {
-  //     const docRef = doc(firestore, "DevelopmentUsers", email.trim());
-  //     const userDoc = await getDoc(docRef);
-  //     res = userDoc.data();
-  //   } catch (err) {
-  //     console.log(err);
-  //     setLoading(false);
-  //     return;
-  //   }
-  //   if (res) {
-  //     if (res.password === password) {
-  //       dispatch(login(res));
-  //     } else {
-  //       console.log("wrong password");
-  //       Toast.show({
-  //         text1: "Wrong password",
-  //         type: "error",
-  //         text2: "Your password is incorrect",
-  //       });
-  //     }
-  //   } else {
-  //     console.log("user not found");
-  //     Toast.show({
-  //       text1: "User not found",
-  //       type: "error",
-  //       text2: "No user with this email exists",
-  //     });
-  //   }
-  //   setLoading(false);
-  // };
-  const loginHandler = async (values) => {
-    setLoading(true);
-    // checkUser(values.email, values.password);
+  // Check if email exists using Cloud Function
+  const checkEmailExists = async (email) => {
+    try {
+      const checkEmail = httpsCallable(functions, 'checkEmailExists');
+      const result = await checkEmail({ email });
+      return { exists: result.data.exists };
+    } catch (error) {
+      console.error('Email check error:', error);
+      return { exists: false, error: 'check-failed' };
+    }
   };
 
-  const [isEnabled, setIsEnabled] = useState(false);
-  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  const signupHandler = async (values) => {
+    // Clear any previous email error
+    setEmailError(null);
+
+    // Merchant flow - go to Step 2 (store creation)
+    if (userType === 'merchant') {
+      setLoading(true);
+
+      // Check if email already exists before proceeding
+      const email = values.email.trim().toLowerCase();
+      const emailCheck = await checkEmailExists(email);
+
+      if (emailCheck.exists) {
+        setEmailError(t('email_already_in_use') || "The email address is already in use.");
+        setLoading(false);
+        return;
+      }
+
+      // Store user data and move to step 2
+      setUserData({
+        email: email,
+        username: values.username,
+        password: values.password,
+      });
+      setLoading(false);
+      setCurrentStep(2);
+      return;
+    }
+
+    // Shopper flow remains unchanged
+    setLoading(true);
+    try {
+      await dispatch(signUp(values.email, values.username, values.password, userType, locale));
+      Toast.show({
+        text1: t('success') || "Success",
+        text2: t('account_created_successfully') || "Account created successfully",
+        type: "success",
+      });
+    } catch (error) {
+      Toast.show({
+        text1: t('error') || "Error",
+        text2: error.message,
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle store form submission (Step 2)
+  const handleStoreSubmit = async (storeData) => {
+    if (!userData) {
+      Toast.show({
+        text1: t('error') || 'Error',
+        text2: t('user_data_missing') || 'User data is missing. Please go back and fill in your details.',
+        type: "error",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await dispatch(signUpMerchantWithStore({
+        email: userData.email,
+        username: userData.username,
+        password: userData.password,
+        language: locale,
+        store: storeData,
+      }));
+
+      Toast.show({
+        text1: t('success') || "Success",
+        text2: t('merchant_registration_complete') || "Your account and store have been registered!",
+        type: "success",
+      });
+
+      // Navigation will happen automatically via auth state change
+    } catch (error) {
+      console.error('Merchant signup error:', error);
+      Toast.show({
+        text1: t('error') || "Error",
+        text2: error.message || t('registration_failed') || "Registration failed. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle back from Step 2 to Step 1
+  const handleBackToStep1 = () => {
+    setCurrentStep(1);
+  };
+
+  const goToSignIn = () => {
+    navigation.navigate(ScreenNames.SIGN_IN);
+  };
+
+  // Render Step 1 form fields (Account info)
+  const renderStep1Form = () => (
+    <>
+      {(errorMessage || emailError) && (
+        <View style={{
+          backgroundColor: "#FFE8E8",
+          padding: 10,
+          marginVertical: 10,
+          borderRadius: 5,
+          width: "90%",
+          alignSelf: "center",
+          borderWidth: 1,
+          borderColor: AppColors.red,
+        }}>
+          <CustomText color={AppColors.red_100_full} size={1.6}>
+            {emailError || errorMessage}
+          </CustomText>
+        </View>
+      )}
+
+      <Spacer vertical={height(1)} />
+      <InputField
+        control={control}
+        prefix={
+          <PersonIcon
+            height={height(3)}
+            width={height(3)}
+            color={AppColors.black}
+          />
+        }
+        name="username"
+        keyboardType="default"
+        containerStyles={{
+          width: "90%",
+          alignSelf: "center",
+        }}
+        textFieldContainer={{
+          width: "100%",
+          backgroundColor: AppColors.white,
+          borderColor: AppColors.secondary,
+          borderWidth: width(0.2),
+        }}
+        textFieldInnerContainer={{ width: "100%" }}
+        onSubmit={() => emailRef.current?.focus()}
+        keytype="next"
+        placeholder={i18n.t("username_placeholder")}
+        error={errors.username}
+      />
+      <InputField
+        control={control}
+        ref={emailRef}
+        prefix={
+          <MailIcon
+            height={height(3)}
+            width={height(3)}
+            color={AppColors.black}
+          />
+        }
+        name="email"
+        keyboardType="email-address"
+        containerStyles={{
+          width: "90%",
+          alignSelf: "center",
+        }}
+        textFieldContainer={{
+          width: "100%",
+          backgroundColor: AppColors.white,
+          borderColor: AppColors.secondary,
+          borderWidth: width(0.2),
+        }}
+        textFieldInnerContainer={{ width: "100%" }}
+        onSubmit={() => passwordRef.current?.focus()}
+        keytype="next"
+        placeholder={i18n.t("email_placeholder")}
+        error={errors.email}
+      />
+      <InputField
+        ref={passwordRef}
+        control={control}
+        prefix={
+          <Unlock_outline
+            height={height(3)}
+            width={height(3)}
+          />
+        }
+        name="password"
+        containerStyles={{ width: "90%", alignSelf: "center" }}
+        textFieldContainer={{
+          width: "100%",
+          backgroundColor: AppColors.white,
+          borderColor: AppColors.secondary,
+          borderWidth: width(0.2),
+        }}
+        textFieldInnerContainer={{ width: "100%" }}
+        onSubmit={() => confirmPasswordRef.current?.focus()}
+        placeholder={i18n.t("pwd_placeholder")}
+        error={errors.password}
+        secureTextEntry={passwordHide}
+        suffix={
+          <TouchableOpacity onPress={() => setPasswordHide(!passwordHide)}>
+            {passwordHide ? (
+              <EyeOffIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            ) : (
+              <EyeIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            )}
+          </TouchableOpacity>
+        }
+      />
+      <InputField
+        ref={confirmPasswordRef}
+        control={control}
+        prefix={
+          <Unlock_outline
+            height={height(3)}
+            width={height(3)}
+          />
+        }
+        name="confirmPassword"
+        containerStyles={{ width: "90%", alignSelf: "center" }}
+        textFieldContainer={{
+          width: "100%",
+          backgroundColor: AppColors.white,
+          borderColor: AppColors.secondary,
+          borderWidth: width(0.2),
+        }}
+        textFieldInnerContainer={{ width: "100%" }}
+        placeholder={i18n.t("confirm_pwd_placeholder") || "Enter your password again"}
+        error={errors.confirmPassword}
+        secureTextEntry={confirmPasswordHide}
+        suffix={
+          <TouchableOpacity onPress={() => setConfirmPasswordHide(!confirmPasswordHide)}>
+            {confirmPasswordHide ? (
+              <EyeOffIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            ) : (
+              <EyeIcon height={height(2.5)} width={height(2.5)} color="#888888" />
+            )}
+          </TouchableOpacity>
+        }
+      />
+      <Button
+        loading={loading}
+        textStyle={{ fontFamily: "Roboto-Medium" }}
+        containerStyle={styles.button}
+        onPress={handleSubmit(signupHandler)}
+      >
+        {userType === 'merchant'
+          ? (t('next_step') || 'Next: Add Your Store')
+          : t('register')
+        }
+      </Button>
+    </>
+  );
+
+  // Render Step 2 form (Store form for merchants)
+  const renderStep2Form = () => (
+    <StoreForm
+      t={t}
+      onSubmit={handleStoreSubmit}
+      submitButtonText={t('complete_registration') || 'Complete Registration'}
+      mode="wizard"
+      showMerchantFields={true}
+      disabled={loading}
+    />
+  );
 
   return (
     <ScreenWrapper
       statusBarColor={AppColors.transparent}
       barStyle="dark-content"
       transclucent
-      scrollEnabled
+      scrollEnabled={currentStep === 1}
       backgroundImage={require("../../../../assets/bgImg.png")}
       backgroundColor={AppColors.white}
     >
-      <View style={styles.mainViewContainer}>
-        {/* <LogoIcon height={height(20)} width={height(20)} /> */}
+      <View style={[styles.mainViewContainer, currentStep === 2 && { flex: 1 }]}>
+        {/* Logo - always visible */}
         <Image
           source={require("../../../../assets/LogoIcon.png")}
-          style={{ height: height(10), width: height(10) }}
+          style={{ height: height(5), width: height(5) }}
         />
 
-        <View style={styles.inputContainer}>
-          <View style={{ width: "90%", alignSelf: "center" }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                width: "100%",
-              }}
-            >
-              <CustomText
-                onPress={() => {
-                  // navigation.navigate(ScreenNames.LOGIN);
-                }}
-                textAlign="center"
-                color={active === 0 ? AppColors.primary : AppColors.grey_100}
-                textProps={{ fontFamily: "Mulish-Bold" }}
-                textStyles={{ fontFamily: "Mulish-Bold" }}
-                size={2.2}
-              >
-                Register
-              </CustomText>
-              <CustomText
-                textAlign="center"
-                color={active === 1 ? AppColors.primary : AppColors.grey_100}
-                textProps={{ fontFamily: "Mulish-Bold" }}
-                textStyles={{ fontFamily: "Mulish-Bold" }}
-                size={2.2}
-              >
-                Store Register
-              </CustomText>
-            </View>
-            <CustomText
-              textAlign="left"
-              color={AppColors.grey_200}
-              textProps={{ fontFamily: "Mulish-Regular", marginTop: height(1) }}
-              textStyles={{ fontFamily: "Mulish-Regular" }}
-              size={1.7}
-            >
-              Enter your details below
-            </CustomText>
-          </View>
-          <Spacer vertical={height(2)} />
-          <InputField
-            control={control}
-            prefix={
-              <FontAwesome6
-                name="user"
-                size={height(3)}
-                style={{ marginRight: height(1) }}
-                color={AppColors.black}
-              />
-            }
-            name="username"
-            keyboardType="default"
-            containerStyles={{
-              width: "90%",
-              alignSelf: "center",
-              backgroundColor: AppColors.white,
-            }}
-            textFieldContainer={{
-              width: "100%",
-              backgroundColor: AppColors.white,
-              borderColor: AppColors.secondary,
-              borderWidth: width(0.2),
-            }}
-            textFieldInnerContainer={{ width: "100%" }}
-            onSubmit={() => emailRef?.current?.focus()}
-            keytype="next"
-            label=""
-            placeholder="Enter Username"
-            error={errors.username}
-          />
-          <InputField
-            control={control}
-            prefix={
-              <MaterialCommunityIcons
-                name="email-outline"
-                size={height(3)}
-                style={{ marginRight: height(1) }}
-                color={AppColors.black}
-              />
-            }
-            name="email"
-            keyboardType="email-address"
-            containerStyles={{
-              width: "90%",
-              alignSelf: "center",
-              backgroundColor: AppColors.white,
-            }}
-            textFieldContainer={{
-              width: "100%",
-              backgroundColor: AppColors.white,
-              borderColor: AppColors.secondary,
-              borderWidth: width(0.2),
-            }}
-            textFieldInnerContainer={{ width: "100%" }}
-            onSubmit={() => passwordRef?.current?.focus()}
-            keytype="next"
-            label=""
-            placeholder="Enter email"
-            error={errors.email}
-          />
-          <InputField
-            ref={passwordRef}
-            prefix={
-              <Unlock_outline
-                height={height(3)}
-                width={height(3)}
-                style={{ marginRight: height(1) }}
-              />
-            }
-            containerStyles={{ width: "90%", alignSelf: "center" }}
-            textFieldContainer={{
-              width: "100%",
-              backgroundColor: AppColors.white,
-              borderColor: AppColors.secondary,
-              borderWidth: width(0.2),
-            }}
-            textFieldInnerContainer={{ width: "100%" }}
-            label=""
-            control={control}
-            onSubmit={() => confirmPasswordRef?.current?.focus()}
-            name="password"
-            placeholder="Enter Password"
-            error={errors.password}
-            secureTextEntry={passwordHide}
-            suffix={
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    setPasswordHide(!passwordHide);
-                  }}
-                >
-                  <Feather
-                    name={passwordHide ? "eye-off" : "eye"}
-                    color={AppColors.secondary}
-                    size={height(2)}
-                  />
-                </TouchableOpacity>
-              </>
-            }
-          />
-          <InputField
-            ref={confirmPasswordRef}
-            prefix={
-              <Unlock_outline
-                height={height(3)}
-                width={height(3)}
-                style={{ marginRight: height(1) }}
-              />
-            }
-            containerStyles={{ width: "90%", alignSelf: "center" }}
-            textFieldContainer={{
-              width: "100%",
-              backgroundColor: AppColors.white,
-              borderColor: AppColors.secondary,
-              borderWidth: width(0.2),
-            }}
-            textFieldInnerContainer={{ width: "100%" }}
-            label=""
-            secureTextEntry={ConfirmpasswordHide}
-            suffix={
+        <View style={[styles.inputContainer, currentStep === 2 && { flex: 1, width: '100%' }]}>
+          {/* User type toggle - always visible */}
+          <View style={styles.userTypeContainer}>
+            <View style={{
+              flexDirection: 'row',
+              borderWidth: 1,
+              borderColor: AppColors.primary,
+              borderRadius: height(2),
+              overflow: 'hidden',
+              alignSelf: 'center',
+              marginBottom: height(2),
+            }}>
               <TouchableOpacity
-                onPress={() => {
-                  setConfirmpasswordHide(!ConfirmpasswordHide);
+                style={{
+                  flex: 1,
+                  backgroundColor: userType === 'shopper' ? AppColors.primary : 'transparent',
+                  paddingVertical: height(1.5),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderTopLeftRadius: height(2),
+                  borderBottomLeftRadius: height(2),
                 }}
+                onPress={() => { setUserType('shopper'); setEmailError(null); setCurrentStep(1); }}
+                activeOpacity={0.8}
+                disabled={currentStep === 2}
               >
-                <Feather
-                  name={ConfirmpasswordHide ? "eye-off" : "eye"}
-                  color={AppColors.secondary}
-                  size={height(2)}
-                />
+                <CustomText
+                  color={userType === 'shopper' ? AppColors.white : AppColors.primary}
+                  textProps={{ fontFamily: 'Roboto-Medium' }}
+                  size={1.7}
+                >
+                  {t('sign_up_as_shopper')}
+                </CustomText>
               </TouchableOpacity>
-            }
-            control={control}
-            name="confirmPassword"
-            placeholder="Enter Confirm Password"
-            error={errors.confirmPassword}
-          />
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "90%",
-              alignSelf: "center",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Switch
-                trackColor={{
-                  false: AppColors.primary,
-                  true: AppColors.primary,
-                }} // Set track color to match your image
-                thumbColor={isEnabled ? AppColors.white : AppColors.white} // White thumb regardless of state
-                ios_backgroundColor={AppColors.primary} // Default background color for iOS
-                onValueChange={toggleSwitch}
-                value={isEnabled}
-                style={styles.switch}
-              />
-              <CustomText
-                color={AppColors.black}
-                textProps={{
-                  fontFamily: "Mulish-SemiBold",
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: userType === 'merchant' ? AppColors.primary : 'transparent',
+                  paddingVertical: height(1.5),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderTopRightRadius: height(2),
+                  borderBottomRightRadius: height(2),
                 }}
-                textStyles={{ fontFamily: "Mulish-SemiBold" }}
-                size={1.7}
+                onPress={() => { setUserType('merchant'); setEmailError(null); }}
+                activeOpacity={0.8}
+                disabled={currentStep === 2}
               >
-                Remember
-              </CustomText>
+                <CustomText
+                  color={userType === 'merchant' ? AppColors.white : AppColors.primary}
+                  textProps={{ fontFamily: 'Roboto-Medium' }}
+                  size={1.7}
+                >
+                  {t('sign_up_as_merchant')}
+                </CustomText>
+              </TouchableOpacity>
             </View>
-            <CustomText
-              color={AppColors.pink}
-              // onPress={() => navigation?.navigate(ScreenNames.FORGOT_PASSWORD)}
-              textAlign="right"
-              size={1.7}
-              textProps={{
-                fontFamily: "Mulish-Bold",
-              }}
-              textStyles={{ fontFamily: "Mulish-Bold" }}
-            >
-              Forgot Password!
-            </CustomText>
           </View>
 
-          <Spacer vertical={height(5)} />
-          <Button
-            disabled={!isValid}
-            loading={loading}
-            textStyle={{ fontFamily: "Mulish-Bold" }}
-            containerStyle={styles.button}
-            onPress={handleSubmit(loginHandler)}
-          >
-            Register
-          </Button>
+          {/* Step indicator for merchants - always visible when merchant */}
+          {userType === 'merchant' && (
+            <StepIndicator
+              currentStep={currentStep}
+              totalSteps={2}
+              labels={[t('step_account') || 'Account', t('step_store') || 'Store']}
+              onStepPress={(step) => setCurrentStep(step)}
+            />
+          )}
+
+          {/* Form content - changes based on step */}
+          {userType === 'merchant' && currentStep === 2 ? renderStep2Form() : renderStep1Form()}
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
-          <CustomText
-            color={AppColors.black}
-            textStyles={{ fontFamily: "Mulish-Regular" }}
-            size={1.5}
-            textAlign="center"
-          >
-            Already have an Account?
-          </CustomText>
-          <CustomText
-            onPress={() => {
-              // navigation?.navigate(ScreenNames.LOGIN);
-            }}
-            color={AppColors.primary}
-            textStyles={{ marginLeft: height(0.5), fontFamily: "Mulish-Bold" }}
-            textDecorationLine="underline"
-            size={2}
-            textAlign="center"
-          >
-            Log in
-          </CustomText>
-        </View>
+        {/* Bottom section - only show on Step 1 */}
+        {currentStep === 1 && (
+          <View style={{ alignItems: "center", flexDirection: "column", justifyContent: "space-between", flex: 1, width:'100%'}}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <CustomText color={AppColors.black} textStyles={{ fontFamily: "Roboto-Regular" }} size={1.5} textAlign="center">
+                {t('already_have_account')}
+              </CustomText>
+              <CustomText
+                onPress={goToSignIn}
+                color={AppColors.primary}
+                textStyles={{ marginLeft: height(0.5), fontFamily: "Roboto-Medium" }}
+                textDecorationLine="underline"
+                size={2}
+                textAlign="center"
+              >
+                {t('log_in')}
+              </CustomText>
+            </View>
+            <View style={{ backgroundColor: AppColors.white }} />
+            <View style={{ width: '100%', marginTop: height(3) }}>
+              <Button
+                textStyle={{ fontFamily: "Roboto-Medium", color: AppColors.primary}}
+                containerStyle={[styles.buttonSecondary, { width: '100%', borderRadius: 0 }]}
+                onPress={async () => {
+                  await dispatch(setNoAuthenticationWanted(true));
+                }}
+              >
+                {t('create_account_later')}
+              </Button>
+            </View>
+          </View>
+        )}
       </View>
     </ScreenWrapper>
   );

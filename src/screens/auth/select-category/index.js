@@ -9,7 +9,7 @@ import { AntDesign } from "@expo/vector-icons";
 import Button from "../../../components/button";
 import SelectCategoryStyles from "./SelectCategoryStyles";
 import { useDispatch } from "react-redux";
-import { login } from "../../../Redux/Actions/Auth";
+import { signin } from "../../../Redux/Actions/UserActions";
 import { firestore } from "../../../../firebaseconfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Toast from "react-native-toast-message";
@@ -21,12 +21,12 @@ export default function SelectCategory({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("fr");
   const [categoryName, setCategoryName] = useState("Mode femme");
-  console.log(countries);
+
   useEffect(() => {
     setLoading(false);
   }, []);
 
-  const loginHandler = async () => {
+  const signinHandler = async () => {
     setLoading(true);
     const docRef = await doc(
       firestore,
@@ -57,8 +57,7 @@ export default function SelectCategory({ navigation, route }) {
             userData.email.trim()
           );
           await getDoc(docRef).then((res) => {
-            console.log(res);
-            dispatch(login(res.data()));
+            dispatch(signin(res.data()));
           });
         })
         .catch((err) => {
@@ -67,9 +66,9 @@ export default function SelectCategory({ navigation, route }) {
         });
     }
   };
-  // const loginHandler = async (values) => {
+  // const signinHandler = async (values) => {
 
-  //   // dispatch(login(true));
+  //   // dispatch(signin(true));
   //   // setLoading(true);
   // };
 
@@ -85,7 +84,7 @@ export default function SelectCategory({ navigation, route }) {
         <CustomText
           color={AppColors.primary}
           textAlign="left"
-          textStyles={{ fontFamily: "Mulish-Bold", marginBottom: height(5) }}
+          textStyles={{ fontFamily: "Roboto-Medium", marginBottom: height(5) }}
           size={2.2}
         >
           Choice of category
@@ -134,7 +133,7 @@ export default function SelectCategory({ navigation, route }) {
                   }
                   textAlign="left"
                   textStyles={{
-                    fontFamily: "Mulish-Bold",
+                    fontFamily: "Roboto-Medium",
                     marginLeft: height(1),
                   }}
                   size={1.8}
@@ -147,11 +146,11 @@ export default function SelectCategory({ navigation, route }) {
         />
         <Button
           loading={loading}
-          textStyle={{ fontFamily: "Mulish-Bold" }}
+          textStyle={{ fontFamily: "Roboto-Medium" }}
           containerStyle={SelectCategoryStyles.button}
-          // onPress={handleSubmit(loginHandler)}
+          // onPress={handleSubmit(signinHandler)}
           onPress={() => {
-            loginHandler();
+            signinHandler();
           }}
         >
           Register

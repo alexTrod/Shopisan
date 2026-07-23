@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
 
-function GreeceFlag({ height, width }, props) {
+function GreeceFlag({ height, width, ...props }) {
   return (
     <Svg
       width={width}

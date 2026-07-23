@@ -1,0 +1,157 @@
+appId: com.ecomerce.shopisan
+---
+- launchApp:
+    clearState: true
+
+# === DEV CLIENT HANDLING ===
+- runFlow:
+    when:
+      visible: "Development servers"
+    commands:
+      - tapOn: "http://10.0.2.2:8081"
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - pressKey: back
+
+# === LOGIN ===
+- extendedWaitUntil:
+    visible: "Log in"
+    timeout: 20000
+
+- tapOn: "Log in"
+
+- extendedWaitUntil:
+    visible:
+      id: "signin-email-input"
+    timeout: 5000
+
+- tapOn:
+    id: "signin-email-input"
+- inputText: "lkeze18@gmail.com"
+
+- tapOn:
+    id: "signin-password-input"
+- inputText: "luka1234"
+
+- hideKeyboard
+- tapOn:
+    id: "signin-login-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 15000
+
+# === NAVIGATE TO ADD STORE ===
+- extendedWaitUntil:
+    visible:
+      id: "home-fab-add-store"
+    timeout: 10000
+
+- tapOn:
+    id: "home-fab-add-store"
+
+- extendedWaitUntil:
+    visible:
+      id: "add-store-name-input"
+    timeout: 10000
+
+# === USE MAP PIN TO SELECT LOCATION ===
+# Scroll to map picker button
+- tapOn:
+    id: "add-store-map-picker-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "map-picker-confirm-button"
+    timeout: 10000
+
+# Swipe map to move pin location
+- swipe:
+    direction: LEFT
+    startPoint: "50%, 50%"
+    endPoint: "30%, 50%"
+    duration: 500
+
+- swipe:
+    direction: UP
+    startPoint: "50%, 50%"
+    endPoint: "50%, 30%"
+    duration: 500
+
+# Confirm pin location
+- tapOn:
+    id: "map-picker-confirm-button"
+
+# Wait for form with address auto-filled
+- extendedWaitUntil:
+    visible:
+      id: "add-store-name-input"
+    timeout: 15000
+
+# === FILL ALL REMAINING REQUIRED FIELDS ===
+
+# Store Name
+- tapOn:
+    id: "add-store-name-input"
+- inputText: "Test Store Maestro"
+- hideKeyboard
+
+# Description
+- scrollUntilVisible:
+    element:
+      id: "add-store-description-input"
+    direction: DOWN
+    timeout: 5000
+
+- tapOn:
+    id: "add-store-description-input"
+- inputText: "Test store created by Maestro E2E"
+- hideKeyboard
+
+# Categories (required - at least 1)
+- scrollUntilVisible:
+    element:
+      id: "add-store-categories-button"
+    direction: DOWN
+    timeout: 5000
+
+- tapOn:
+    id: "add-store-categories-button"
+
+- extendedWaitUntil:
+    visible: "Tout sélectionner"
+    timeout: 5000
+
+# Select first category
+- tapOn:
+    id: "add-store-category-item-0"
+
+# Close modal
+- tapOn:
+    id: "add-store-categories-close-button"
+
+# === SUBMIT STORE ===
+- scrollUntilVisible:
+    element:
+      id: "add-store-submit-button"
+    direction: DOWN
+    timeout: 5000
+
+- tapOn:
+    id: "add-store-submit-button"
+
+# === VERIFY SUCCESS ===
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 30000

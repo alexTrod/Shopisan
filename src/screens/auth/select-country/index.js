@@ -40,7 +40,7 @@ export default function SelectCountry({ navigation, route }) {
   //   }
   //   if (res) {
   //     if (res.password === password) {
-  //       dispatch(login(res));
+  //       dispatch(signin(res));
   //     } else {
   //       console.log("wrong password");
   //       Toast.show({
@@ -59,7 +59,7 @@ export default function SelectCountry({ navigation, route }) {
   //   }
   //   setLoading(false);
   // };
-  const loginHandler = async (values) => {
+  const signinHandler = async (values) => {
     // setLoading(true);
   };
 
@@ -75,7 +75,7 @@ export default function SelectCountry({ navigation, route }) {
         <CustomText
           color={AppColors.primary}
           textAlign="left"
-          textStyles={{ fontFamily: "Mulish-Bold", marginBottom: height(5) }}
+          textStyles={{ fontFamily: "Roboto-Medium", marginBottom: height(5) }}
           size={2.2}
         >
           Choice of country
@@ -149,7 +149,7 @@ export default function SelectCountry({ navigation, route }) {
                   }
                   textAlign="left"
                   textStyles={{
-                    fontFamily: "Mulish-Bold",
+                    fontFamily: "Roboto-Medium",
                     marginLeft: height(1),
                   }}
                   size={1.8}
@@ -162,7 +162,7 @@ export default function SelectCountry({ navigation, route }) {
         />
         <Button
           loading={loading}
-          textStyle={{ fontFamily: "Mulish-Bold" }}
+          textStyle={{ fontFamily: "Roboto-Medium" }}
           containerStyle={styles.button}
           onPress={() => {
             let data = {

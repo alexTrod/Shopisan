@@ -1,7 +1,7 @@
 import * as React from "react";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
-function ProfileUnfilled({ height, width }, props) {
+function ProfileUnfilled({ height, width, ...props }) {
   return (
     <Svg
       width={width}

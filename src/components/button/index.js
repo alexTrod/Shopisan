@@ -19,6 +19,10 @@ const Button = ({
   colors = [AppColors.primary, AppColors.primary2],
   loading = false,
   size = 2, // Default size is
+  allowFontScaling = true,
+  adjustsFontSizeToFit = true,
+  numberOfLines = 1,
+  testID,
 }) => {
   const getStyles = useMemo(() => {
     return {
@@ -27,35 +31,37 @@ const Button = ({
         ...(disabled
           ? styles.disableContainer
           : variant === "primary"
-          ? styles.primaryContainer
-          : styles.secondaryContainer),
+            ? styles.primaryContainer
+            : styles.secondaryContainer),
         ...(withShadow && styles.shadow),
       },
     };
   }, [variant, withShadow, disabled]);
 
   return (
-    <View style={[getStyles.container, containerStyle]}>
-      <TouchableOpacity
-        disabled={disabled}
-        onPress={onPress}
-        {...touchableOpacityProps}
-        // style={getStyles.touchableOpacity}
-      >
+    <TouchableOpacity
+      style={[getStyles.container, containerStyle]}
+      disabled={disabled}
+      onPress={onPress}
+      testID={testID}
+      {...touchableOpacityProps}
+    >
+      {loading ? (
+        <ActivityIndicator color={AppColors.white} size={"small"} />
+      ) : (
         <CustomText
           color={disabled ? AppColors.white : buttonTextColor}
-          textStyles={textStyle}
+          textStyles={{ fontFamily: "Roboto-Medium", ...textStyle }}
           textProps={textProps}
           size={size}
+          allowFontScaling={allowFontScaling}
+          adjustsFontSizeToFit={adjustsFontSizeToFit}
+          numberOfLines={numberOfLines}
         >
-          {loading ? (
-            <ActivityIndicator color={AppColors.white} size={"small"} />
-          ) : (
-            children
-          )}
+          {children}
         </CustomText>
-      </TouchableOpacity>
-    </View>
+      )}
+    </TouchableOpacity>
   );
 };
 

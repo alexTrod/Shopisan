@@ -1,5 +1,5 @@
 // Auth types
-export const LOGIN = 'LOGIN';
+export const SIGNIN = 'SIGNIN';
 export const LOGOUT = 'LOGOUT';
 export const ISLOADING = 'ISLOADING';
 //App types

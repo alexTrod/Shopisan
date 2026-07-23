@@ -29,9 +29,10 @@ const Input = (
     label,
     prefix,
     suffix,
+    testID,
     ...restProps
   },
-  ref
+  ref,
 ) => {
   return (
     <View style={[styles.mainContainer, containerStyles]}>
@@ -53,8 +54,12 @@ const Input = (
                 style={{
                   borderRightColor: "#D8D8D8",
                   borderRightWidth: 2,
-                  marginRight: height(1),
-                  width: height(4),
+                  marginRight: height(0.5),
+                  paddingRight: height(0.8),
+                  paddingLeft: height(0.5),
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: height(4),
                 }}
               >
                 {prefix}
@@ -63,34 +68,39 @@ const Input = (
             <Controller
               control={control}
               render={({ field: { onChange, onBlur, value } }) => (
-                <>
-                  <TextInput
-                    placeholder={placeholder}
-                    placeholderTextColor={AppColors.snowWhite}
-                    autoCapitalize={autoCapitalize}
-                    blurOnSubmit={false}
-                    ref={ref}
-                    editable={editable}
-                    value={value}
-                    keyboardType={keyboardType}
-                    onSubmitEditing={onSubmit}
-                    maxLength={maxLength}
-                    multiline={multiline}
-                    style={[styles.textInput, textInputStyle]}
-                    returnKeyType={keytype}
-                    onChangeText={onChange}
-                    textAlignVertical={textAlignVertical}
-                    onBlur={onBlur}
-                    secureTextEntry={secureTextEntry}
-                    {...restProps}
-                  />
-                </>
+                <TextInput
+                  placeholder={placeholder}
+                  placeholderTextColor={AppColors.snowWhite}
+                  autoCapitalize={autoCapitalize}
+                  blurOnSubmit={false}
+                  ref={ref}
+                  editable={editable}
+                  value={value}
+                  keyboardType={keyboardType}
+                  onSubmitEditing={onSubmit}
+                  maxLength={maxLength}
+                  multiline={multiline}
+                  style={[styles.textInput, textInputStyle, { flex: 1 }]}
+                  returnKeyType={keytype}
+                  onChangeText={onChange}
+                  textAlignVertical={textAlignVertical}
+                  onBlur={onBlur}
+                  secureTextEntry={secureTextEntry}
+                  allowFontScaling={true}
+                  testID={testID}
+                  {...restProps}
+                />
               )}
               name={name}
             />
+            {suffix && (
+              <View
+                style={{ marginLeft: height(0.5), marginRight: height(0.5) }}
+              >
+                {suffix}
+              </View>
+            )}
           </View>
-
-          {suffix && suffix}
         </View>
       </View>
       {error?.message && (
