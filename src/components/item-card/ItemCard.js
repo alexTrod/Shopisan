@@ -21,8 +21,6 @@ import HeartUnfilled from "../../../assets/icons/heart-unfilled";
 import CheckmarkCircleIcon from "../../../assets/icons/checkmark-circle-icon";
 import ClockIcon from "../../../assets/icons/clock-icon";
 import StarIcon from "../../../assets/icons/star-icon";
-import AddCircleIcon from "../../../assets/icons/add-circle-icon";
-import PostFormModal from "../post-form-modal";
 import { height, width } from "../../utils/dimension";
 import { AppColors } from "../../utils";
 import { useDispatch, useSelector } from "react-redux";
@@ -60,7 +58,6 @@ const ItemCard = React.memo(
     const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
     const [modalVisible, setModalVisible] = useState(false);
     const [showCityModal, setShowCityModal] = useState(false);
-    const [showPostModal, setShowPostModal] = useState(false);
     const [posts, setPosts] = useState([]);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const dispatch = useDispatch();
@@ -404,30 +401,6 @@ const ItemCard = React.memo(
         {/* Action buttons for no-image cards - rendered outside TouchableOpacity */}
         {!hasImages && renderActionButtons(false)}
 
-        {/* Add Post button for store owners */}
-        {isOwner && (
-          <TouchableOpacity
-            style={styles.addPostButton}
-            onPress={() => setShowPostModal(true)}
-          >
-            <AddCircleIcon width={20} height={20} color={AppColors.white} />
-            <Text style={styles.addPostButtonText}>{t("add_post")}</Text>
-          </TouchableOpacity>
-        )}
-
-        <PostFormModal
-          visible={showPostModal}
-          onClose={() => setShowPostModal(false)}
-          storeId={id}
-          storeName={title}
-          onPostCreated={async () => {
-            setShowPostModal(false);
-            // Refresh posts after creation
-            const storePosts = await PostService.getPostsForDisplay(id);
-            setPosts(storePosts || []);
-          }}
-        />
-
         <ItemDetailModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
@@ -440,6 +413,7 @@ const ItemCard = React.memo(
             openingHours: openingHours || null,
             images: images || [],
             imageUrl: imageUrl || null,
+            owner_id,
           }}
         />
       </View>
@@ -653,22 +627,6 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white,
     borderRadius: 50,
     padding: 5,
-  },
-  addPostButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: AppColors.primary,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 8,
-  },
-  addPostButtonText: {
-    color: AppColors.white,
-    fontFamily: "Roboto-Medium",
-    fontSize: 14,
   },
 });
 

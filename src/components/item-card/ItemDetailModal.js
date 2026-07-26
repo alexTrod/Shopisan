@@ -32,6 +32,8 @@ import ImageGallery from "./ImageGallery";
 import OpeningHoursDisplay from "./OpeningHoursDisplay";
 import PostsCarousel from "./PostsCarousel";
 import useStoreRatings from "./hooks/useStoreRatings";
+import AddCircleIcon from "../../../assets/icons/add-circle-icon";
+import PostFormModal from "../post-form-modal";
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
   const navigation = useNavigation();
@@ -50,7 +52,10 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
   const detailsAnimation = useRef(new Animated.Value(0)).current;
+
+  const isOwner = user?.userType === "merchant" && user.id === item?.owner_id;
 
   const {
     averageRating,
@@ -357,8 +362,31 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </View>
             )}
 
+            {/* Add Post button for store owners */}
+            {isOwner && (
+              <TouchableOpacity
+                style={styles.addPostButton}
+                onPress={() => setShowPostModal(true)}
+              >
+                <AddCircleIcon width={20} height={20} color={AppColors.white} />
+                <Text style={styles.addPostButtonText}>{t("add_post")}</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Posts Carousel - Always visible */}
             <PostsCarousel posts={postMedia} />
+
+            <PostFormModal
+              visible={showPostModal}
+              onClose={() => setShowPostModal(false)}
+              storeId={item?.id}
+              storeName={item?.title}
+              onPostCreated={async () => {
+                setShowPostModal(false);
+                // Refresh posts after creation
+                await fetchPostMedia();
+              }}
+            />
           </ScrollView>
         </View>
       </View>
@@ -539,6 +567,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
+  },
+  addPostButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: AppColors.primary,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  addPostButtonText: {
+    color: AppColors.white,
+    fontFamily: "Roboto-Medium",
+    fontSize: 14,
   },
 });
 
