@@ -27,6 +27,10 @@ import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
 import { isOwnerType, ownsStore } from "../../../utils/userTypes";
+import {
+  buildStoreAddress,
+  readStoreAddress,
+} from "../../../utils/storeAddress";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
 import LocationIcon from "../../../../assets/icons/location-icon";
 import CloseIcon from "../../../../assets/icons/close-icon";
@@ -159,20 +163,16 @@ export default function HandleStoreScreen({ route, navigation }) {
 
           setStoreData(store);
 
+          const storeAddress = readStoreAddress(store);
+
           setName(store.name);
-          setStreet(store.address[0]?.location?.address?.street || "");
-          setStreetNumber(
-            store.address[0]?.location?.address?.streetNumber || "",
-          );
-          setAddressQuery(store.address[0]?.location?.address?.street || "");
+          setStreet(storeAddress.street);
+          setStreetNumber(storeAddress.streetNumber);
+          setAddressQuery(storeAddress.street);
           setCity(store.cityName || "");
-          setPostalCode(store.address[0]?.location?.city?.postal_code || "");
-          setLatitude(
-            store.address[0]?.location?.geopoint?.latitude?.toString() || "",
-          );
-          setLongitude(
-            store.address[0]?.location?.geopoint?.longitude?.toString() || "",
-          );
+          setPostalCode(storeAddress.postalCode);
+          setLatitude(storeAddress.latitude?.toString() || "");
+          setLongitude(storeAddress.longitude?.toString() || "");
           setDescription(store.description?.fr || "");
 
           setStoreCategories(
@@ -309,22 +309,17 @@ export default function HandleStoreScreen({ route, navigation }) {
         name,
         owner_id: storeData?.owner_id ?? null,
 
-        address: [
-          {
-            location: {
-              address: { street: `${street}`, streetNumber: streetNumber },
-              city: {
-                name: city,
-                postal_code: postalCode,
-                country_id: "FR",
-              },
-              geopoint: {
-                latitude,
-                longitude,
-              },
-            },
-          },
-        ],
+        address: buildStoreAddress({
+          street,
+          streetNumber,
+          city,
+          postalCode,
+          // Preserve the country the store was created with rather than
+          // forcing FR on every edit.
+          countryId: readStoreAddress(storeData).countryId,
+          latitude,
+          longitude,
+        }),
 
         latitude,
         longitude,

@@ -34,6 +34,7 @@ import { firestore, functions } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
 import { isOwnerType } from "../../../utils/userTypes";
+import { buildStoreAddress } from "../../../utils/storeAddress";
 import { ScreenNames } from "../../../Routes/routes";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
@@ -796,22 +797,15 @@ export default function AddStoreScreen({ navigation }) {
         id: newStoreId,
         name,
         owner_id: ownerId,
-        address: [
-          {
-            location: {
-              address: { street: `${street}`, streetNumber: streetNumber },
-              city: {
-                name: city,
-                postal_code: postalCode,
-                country_id: detectedCountryCode,
-              },
-              geopoint: {
-                latitude,
-                longitude,
-              },
-            },
-          },
-        ],
+        address: buildStoreAddress({
+          street,
+          streetNumber,
+          city,
+          postalCode,
+          countryId: detectedCountryCode,
+          latitude,
+          longitude,
+        }),
 
         latitude,
         longitude,

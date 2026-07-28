@@ -22,6 +22,7 @@ import {
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { ensureCityExists } from "../../utils/cityManagement";
+import { buildStoreAddress } from "../../utils/storeAddress";
 
 // Mapbox token
 const MAPBOX_TOKEN =
@@ -569,22 +570,14 @@ export const useStoreForm = ({
     return {
       name,
       owner_id: ownerId,
-      address: [
-        {
-          location: {
-            address: { street: `${street}`, streetNumber: streetNumber },
-            city: {
-              name: city,
-              postal_code: postalCode,
-              country_id: "FR",
-            },
-            geopoint: {
-              latitude,
-              longitude,
-            },
-          },
-        },
-      ],
+      address: buildStoreAddress({
+        street,
+        streetNumber,
+        city,
+        postalCode,
+        latitude,
+        longitude,
+      }),
       latitude,
       longitude,
       cityName: city,
