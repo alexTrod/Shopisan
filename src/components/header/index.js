@@ -6,11 +6,9 @@ import { height, width } from "../../utils/dimension";
 import CustomText from "../text";
 import SettingsIcon from "../../../assets/icons/settings-icon";
 import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { signOut } from "../../Redux/Actions/UserActions";
-import { doc, updateDoc } from 'firebase/firestore';
-import { firestore } from '../../../firebaseconfig';
-import Toast from "react-native-toast-message";
+import { ScreenNames } from "../../Routes/routes";
 import Button from "../button";
 
 const Header = ({
@@ -22,41 +20,13 @@ const Header = ({
   rightIcon = false,
   onRightPress,
   showLeft = true,
-  navigation
+  navigation,
 }) => {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const dispatch = useDispatch();
-  const user = useSelector(state => state?.Auth?.user);
 
   const toggleSettings = () => {
     //setSettingsVisible(!settingsVisible);
-  };
-
-  const handleSwitchUserType = async () => {
-    try {
-      const newUserType = user?.userType === 'merchant' ? 'shopper' : 'merchant';
-      
-      // Update user type in Firestore
-      const userRef = doc(firestore, 'users', user.email);
-      await updateDoc(userRef, {
-        userType: newUserType
-      });
-
-      // Show success message
-      Toast.show({
-        text1: 'Success',
-        text2: `Switched to ${newUserType} mode`,
-        type: 'success',
-      });
-      
-      toggleSettings(); // Close modal after successful switch
-    } catch (error) {
-      Toast.show({
-        text1: 'Error',
-        text2: error.message,
-        type: 'error',
-      });
-    }
   };
 
   return (
@@ -102,28 +72,8 @@ const Header = ({
                 <AntDesign name="close" size={24} color={AppColors.black} />
               </Pressable>
             </View>
-            
+
             <View style={styles.settingsContent}>
-              {user?.userType === 'merchant' && (
-                <Button
-                  onPress={() => {
-                    // Handle store management
-                    toggleSettings();
-                    navigation?.navigate('StoreManagement');
-                  }}
-                  containerStyle={styles.settingButton}
-                >
-                  Manage Stores
-                </Button>
-              )}
-
-              <Button
-                onPress={handleSwitchUserType}
-                containerStyle={styles.settingButton}
-              >
-                Switch to {user?.userType === 'merchant' ? 'Shopper' : 'Merchant'} Mode
-              </Button>
-
               <Button
                 onPress={() => {
                   dispatch(signOut());
@@ -151,8 +101,8 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: AppColors.white,
@@ -163,20 +113,20 @@ const styles = StyleSheet.create({
     minHeight: height(40),
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: height(3),
   },
   settingsContent: {
-    width: '100%',
+    width: "100%",
     paddingVertical: height(2),
   },
   settingButton: {
     marginVertical: height(1),
     backgroundColor: AppColors.primary,
     borderRadius: width(2),
-    padding:20,
+    padding: 20,
   },
   logoutButton: {
     backgroundColor: AppColors.red,

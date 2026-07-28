@@ -9,7 +9,6 @@ import { checkAuthStatus } from "./src/Redux/Actions/UserActions";
 import BottomTabs from "./src/Routes/bottom-tab";
 import { ScreenNames } from "./src/Routes/routes";
 import SignUp from "./src/screens/auth/signup";
-import MerchantSignupWizard from "./src/screens/auth/signup/MerchantSignupWizard";
 import SignIn from "./src/screens/auth/signin";
 import ResetPassword from "./src/screens/auth/reset-password";
 import CustomText from "./src/components/text";
@@ -294,10 +293,6 @@ const App = () => {
         ) : (
           <>
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
-            <Stack.Screen
-              name="MerchantSignupWizard"
-              component={MerchantSignupWizard}
-            />
             <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
             <Stack.Screen
               name={ScreenNames.FORGOT_PASSWORD}
