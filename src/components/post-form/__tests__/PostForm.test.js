@@ -495,19 +495,35 @@ describe("PostForm", () => {
       );
     });
 
-    it("should show the currency symbol only inside the picker", async () => {
-      // The euro sign is never rendered next to the price input; the input
-      // shows the "0.00" placeholder and the button shows the code.
+    it("should prefix the price input with the currency symbol", async () => {
+      const { getByText } = renderForm();
+
+      expect(getByText("€")).toBeTruthy();
+    });
+
+    it("should move the prefix symbol with the selected currency", async () => {
       const { getByText, queryByText } = renderForm();
 
+      await act(async () => {
+        fireEvent.press(getByText("EUR"));
+      });
+      await act(async () => {
+        fireEvent.press(getByText("British Pound"));
+      });
+
+      expect(getByText("£")).toBeTruthy();
       expect(queryByText("€")).toBeNull();
+    });
+
+    it("should list every currency with its symbol in the picker", async () => {
+      const { getByText } = renderForm();
 
       await act(async () => {
         fireEvent.press(getByText("EUR"));
       });
 
-      expect(getByText("€")).toBeTruthy();
       expect(getByText("Euro")).toBeTruthy();
+      expect(getByText("$")).toBeTruthy();
     });
 
     it("should switch currency from the picker and keep only code and symbol", async () => {

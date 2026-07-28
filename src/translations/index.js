@@ -113,7 +113,7 @@ export default {
     posted_announcements: "Posted Announcements",
     see_all_posts: "See all posts",
     no_post_description: "No description.",
-    price: "Price:",
+    price: "Price",
     select_currency: "Select Currency",
 
     // Auth & Errors
@@ -500,7 +500,7 @@ export default {
     posted_announcements: "Annonces postées",
     see_all_posts: "Voir toutes les annonces",
     no_post_description: "Pas de description.",
-    price: "Prix:",
+    price: "Prix",
     select_currency: "Sélectionner la devise",
 
     // Auth & Errors

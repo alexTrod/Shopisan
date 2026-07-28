@@ -214,7 +214,8 @@ const PostCard = ({ item, t, locale }) => {
       {/* Price */}
       {item.price !== null && item.price !== undefined && (
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>{t("price")}</Text>
+          {/* The `price` key is a bare noun; punctuation belongs to layout. */}
+          <Text style={styles.priceLabel}>{t("price")}:</Text>
           <Text style={styles.priceValue}>{item.price} €</Text>
         </View>
       )}

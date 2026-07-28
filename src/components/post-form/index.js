@@ -249,6 +249,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, loading }) => {
           {t("price")} ({currency.code}) - {t("optional")}
         </Text>
         <View style={styles.priceInputContainer}>
+          <Text style={styles.currencySymbolPrefix}>{currency.symbol}</Text>
           <TextInput
             style={styles.priceInput}
             placeholder="0.00"
@@ -442,6 +443,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#f8f8f8",
     marginBottom: 15,
+  },
+  currencySymbolPrefix: {
+    paddingLeft: 12,
+    fontSize: 16,
+    color: AppColors.primary,
+    fontWeight: "600",
   },
   priceInput: {
     flex: 1,
