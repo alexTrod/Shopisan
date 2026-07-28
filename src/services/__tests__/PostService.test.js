@@ -226,6 +226,7 @@ describe("PostService", () => {
 
   describe("createPost", () => {
     const mockStoreId = "store123";
+    const mockOwnerId = "owner123";
 
     beforeEach(() => {
       addDoc.mockResolvedValue({ id: "newPost123" });
@@ -258,6 +259,7 @@ describe("PostService", () => {
       await postService.createPost(mockStoreId, {
         imageUris: ["file:///test.jpg"],
         description: { en: "Test post" },
+        ownerId: mockOwnerId,
       });
 
       // Cloudflare called before Firestore
@@ -283,6 +285,7 @@ describe("PostService", () => {
         imageUris: ["file:///test.jpg"],
         description: {},
         price: "29.99",
+        ownerId: mockOwnerId,
       });
 
       expect(addDoc).toHaveBeenCalledWith(
@@ -306,6 +309,7 @@ describe("PostService", () => {
         imageUris: ["file:///test.jpg"],
         description: {},
         price: "",
+        ownerId: mockOwnerId,
       });
 
       expect(addDoc).toHaveBeenCalledWith(
@@ -328,10 +332,41 @@ describe("PostService", () => {
       const result = await postService.createPost(mockStoreId, {
         imageUris: ["file:///test.jpg"],
         description: { en: "Test" },
+        ownerId: mockOwnerId,
       });
 
       expect(result.id).toBe("newPost123");
       expect(result.images).toContain("https://cdn.com/img.jpg");
+    });
+
+    it("should require an owner id", async () => {
+      await expect(
+        postService.createPost(mockStoreId, {
+          imageUris: ["file:///test.jpg"],
+          description: { en: "Test" },
+        }),
+      ).rejects.toThrow("Missing store owner");
+    });
+
+    it("should denormalize owner_id onto the post", async () => {
+      global.fetch.mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            result: { variants: ["https://cdn.com/img.jpg"] },
+          }),
+      });
+
+      await postService.createPost(mockStoreId, {
+        imageUris: ["file:///test.jpg"],
+        description: { en: "Test" },
+        ownerId: mockOwnerId,
+      });
+
+      expect(addDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ owner_id: mockOwnerId }),
+      );
     });
   });
 

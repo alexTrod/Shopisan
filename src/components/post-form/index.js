@@ -19,11 +19,22 @@ import CloseCircleIcon from "../../../assets/icons/close-circle-icon";
 import { useTranslation } from "../../utils/useTranslation";
 import ImageEditor from "../image-editor";
 
+// Currencies relevant to app stores (mainly European)
+const CURRENCIES = [
+  { code: "EUR", symbol: "€", name: "Euro", flag: "🇪🇺" },
+  { code: "USD", symbol: "$", name: "US Dollar", flag: "🇺🇸" },
+  { code: "GBP", symbol: "£", name: "British Pound", flag: "🇬🇧" },
+  { code: "CHF", symbol: "CHF", name: "Swiss Franc", flag: "🇨🇭" },
+  { code: "XOF", symbol: "CFA", name: "West African CFA", flag: "🇸🇳" },
+  { code: "XAF", symbol: "FCFA", name: "Central African CFA", flag: "🇨🇲" },
+  { code: "MAD", symbol: "MAD", name: "Moroccan Dirham", flag: "🇲🇦" },
+];
+
 /**
  * PostForm - Form for creating/editing posts
  * @param {Object} props
  * @param {Object} [props.initialData] - Initial data for editing
- * @param {Function} props.onSubmit - Called with { imageUris, existingImages, description, price }
+ * @param {Function} props.onSubmit - Called with { imageUris, existingImages, description, price, currency }
  * @param {Function} props.onCancel - Cancel handler
  * @param {boolean} props.loading - Loading state
  */
@@ -40,6 +51,8 @@ const PostForm = ({ initialData, onSubmit, onCancel, loading }) => {
   const [descriptionEn, setDescriptionEn] = useState("");
   const [descriptionFr, setDescriptionFr] = useState("");
   const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState({ code: "EUR", symbol: "€" });
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
 
   // Initialize from initial data (edit mode)
   useEffect(() => {
@@ -52,9 +65,20 @@ const PostForm = ({ initialData, onSubmit, onCancel, loading }) => {
         setDescriptionFr(initialData.description.fr || "");
       }
 
-      // Set price
+      // Set price and currency
       if (initialData.price !== null && initialData.price !== undefined) {
         setPrice(String(initialData.price));
+      }
+      if (initialData.currency) {
+        // Handle both object format and legacy string format
+        if (typeof initialData.currency === "object") {
+          setCurrency(initialData.currency);
+        } else {
+          setCurrency({
+            code: initialData.currency,
+            symbol: initialData.currency,
+          });
+        }
       }
     }
   }, [initialData]);
@@ -128,6 +152,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, loading }) => {
       existingImages,
       description,
       price: price.trim() || null,
+      currency,
     });
   };
 
@@ -221,15 +246,23 @@ const PostForm = ({ initialData, onSubmit, onCancel, loading }) => {
 
         {/* Price (optional) */}
         <Text style={styles.label}>
-          {t("price")} ({t("optional")})
+          {t("price")} ({currency.code}) - {t("optional")}
         </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="0.00"
-          value={price}
-          onChangeText={setPrice}
-          keyboardType="decimal-pad"
-        />
+        <View style={styles.priceInputContainer}>
+          <TextInput
+            style={styles.priceInput}
+            placeholder="0.00"
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="decimal-pad"
+          />
+          <TouchableOpacity
+            style={styles.currencyButton}
+            onPress={() => setShowCurrencyPicker(true)}
+          >
+            <Text style={styles.currencyLabel}>{currency.code}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Actions */}
@@ -272,6 +305,53 @@ const PostForm = ({ initialData, onSubmit, onCancel, loading }) => {
             t={t}
           />
         )}
+      </Modal>
+
+      {/* Currency Picker Modal */}
+      <Modal
+        visible={showCurrencyPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCurrencyPicker(false)}
+      >
+        <View style={styles.currencyModalOverlay}>
+          <View style={styles.currencyModalContent}>
+            <View style={styles.currencyModalHeader}>
+              <Text style={styles.currencyModalTitle}>
+                {t("select_currency") || "Select Currency"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowCurrencyPicker(false)}
+                style={styles.currencyModalClose}
+              >
+                <Text style={styles.currencyModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={CURRENCIES}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.currencyItem,
+                    currency.code === item.code && styles.currencyItemSelected,
+                  ]}
+                  onPress={() => {
+                    setCurrency({ code: item.code, symbol: item.symbol });
+                    setShowCurrencyPicker(false);
+                  }}
+                >
+                  <Text style={styles.currencyFlag}>{item.flag}</Text>
+                  <View style={styles.currencyInfo}>
+                    <Text style={styles.currencyCode}>{item.code}</Text>
+                    <Text style={styles.currencyName}>{item.name}</Text>
+                  </View>
+                  <Text style={styles.currencySymbol}>{item.symbol}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -354,6 +434,31 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: "top",
   },
+  priceInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    backgroundColor: "#f8f8f8",
+    marginBottom: 15,
+  },
+  priceInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  currencyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: "#ccc",
+  },
+  currencyLabel: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.primary,
+  },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -384,6 +489,70 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  // Currency picker modal styles
+  currencyModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  currencyModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "60%",
+    paddingBottom: 30,
+  },
+  currencyModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  currencyModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  currencyModalClose: {
+    padding: 4,
+  },
+  currencyModalCloseText: {
+    fontSize: 20,
+    color: "#666",
+  },
+  currencyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  currencyItemSelected: {
+    backgroundColor: "#f0f8ff",
+  },
+  currencyFlag: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  currencyInfo: {
+    flex: 1,
+  },
+  currencyCode: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  currencyName: {
+    fontSize: 14,
+    color: "#666",
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AppColors.primary,
   },
 });
 

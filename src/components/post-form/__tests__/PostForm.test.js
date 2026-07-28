@@ -330,6 +330,7 @@ describe("PostForm", () => {
         existingImages: [],
         description: {},
         price: "49.99",
+        currency: { code: "EUR", symbol: "€" },
       });
     });
 

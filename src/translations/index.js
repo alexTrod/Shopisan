@@ -18,7 +18,15 @@ export default {
     forgot_password: "Forgot Password",
     create_account: "Create Account",
     sign_up_as_shopper: "Sign up as a shopper",
-    sign_up_as_merchant: "Sign up as a merchant",
+    sign_up_as_merchant: "Sign up as a store owner",
+
+    // Account type labels
+    user_type_shopper: "Shopper",
+    user_type_owner: "Store Owner",
+    owner_account_required: "Store owner account required",
+    owner_account_required_message:
+      "Only store owner accounts can add a store.",
+    not_your_store: "This store belongs to another account.",
     register: "Register",
     already_have_account: "Already have an account?",
     no_account_yet: "Create an account?",
@@ -106,6 +114,7 @@ export default {
     see_all_posts: "See all posts",
     no_post_description: "No description.",
     price: "Price:",
+    select_currency: "Select Currency",
 
     // Auth & Errors
     login_failed_message: "Incorrect email or password. Please try again.",
@@ -395,7 +404,15 @@ export default {
     forgot_password: "Mot de passe oublié",
     create_account: "Créer un compte",
     sign_up_as_shopper: "S'inscrire en tant qu'acheteur",
-    sign_up_as_merchant: "S'inscrire en tant que commerçant",
+    sign_up_as_merchant: "S'inscrire en tant que propriétaire de magasin",
+
+    // Account type labels
+    user_type_shopper: "Acheteur",
+    user_type_owner: "Propriétaire de magasin",
+    owner_account_required: "Compte propriétaire requis",
+    owner_account_required_message:
+      "Seuls les comptes propriétaires peuvent ajouter un magasin.",
+    not_your_store: "Ce magasin appartient à un autre compte.",
     register: "S'inscrire",
     already_have_account: "Vous avez déjà un compte ?",
     no_account_yet: "Créer un compte ?",
@@ -484,6 +501,7 @@ export default {
     see_all_posts: "Voir toutes les annonces",
     no_post_description: "Pas de description.",
     price: "Prix:",
+    select_currency: "Sélectionner la devise",
 
     // Auth & Errors
     login_failed_message:

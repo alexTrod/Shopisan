@@ -7,3 +7,4 @@ export * from "./fontScaling";
 export * from "./citiesService";
 export * from "./citiesCache";
 export * from "./citiesMigration";
+export * from "./userTypes";

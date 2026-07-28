@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import {
   View,
   Text,
@@ -10,6 +11,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { AppColors } from "../../../utils";
+import { ownsStore } from "../../../utils/userTypes";
+import { selectUserData } from "../../../Redux/Selectors/UserSelectors";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
 import AddCircleIcon from "../../../../assets/icons/add-circle-icon";
 import PostFormModal from "../../../components/post-form-modal";
@@ -18,11 +21,29 @@ import { useStorePosts } from "../../../hooks/useStorePosts";
 import { useTranslation } from "../../../utils/useTranslation";
 
 export default function ManagePostsScreen({ route, navigation }) {
-  const { storeId, storeName } = route.params;
+  const { storeId, storeName, ownerId } = route.params;
   const { t } = useTranslation();
+  const user = useSelector(selectUserData);
 
-  const { posts, loading, deletePost, refreshPosts, hasPosts } =
-    useStorePosts(storeId);
+  // This screen is reachable by deep link with an arbitrary storeId, so verify
+  // ownership here too. firestore.rules is the real enforcement; this stops a
+  // shopper from reaching an editor whose every write would be rejected.
+  const isStoreOwner = ownsStore(user, ownerId);
+
+  useEffect(() => {
+    if (!isStoreOwner) {
+      Alert.alert(
+        t("owner_account_required") || "Store owner account required",
+        t("not_your_store") || "This store belongs to another account.",
+        [{ text: t("close") || "Close", onPress: () => navigation.goBack() }],
+      );
+    }
+  }, [isStoreOwner, navigation, t]);
+
+  const { posts, loading, deletePost, refreshPosts, hasPosts } = useStorePosts(
+    storeId,
+    isStoreOwner,
+  );
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPost, setEditingPost] = useState(null);

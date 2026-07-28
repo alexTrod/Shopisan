@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import PostService from "../../services/PostService";
 import { AppColors } from "../../utils";
+import { ownsStore } from "../../utils/userTypes";
 import { height, width } from "../../utils/dimension";
 import { ScreenNames } from "../../Routes/routes";
 import logging from "../../utils/logging";
@@ -55,7 +56,7 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const [showPostModal, setShowPostModal] = useState(false);
   const detailsAnimation = useRef(new Animated.Value(0)).current;
 
-  const isOwner = user?.userType === "merchant" && user.id === item?.owner_id;
+  const isOwner = ownsStore(user, item?.owner_id);
 
   const {
     averageRating,

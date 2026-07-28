@@ -19,6 +19,7 @@ import { width, height } from "../../utils/dimension";
 import OpeningHoursPicker from "../opening-hours-picker";
 import { useStoreForm } from "./useStoreForm";
 import MapPickerModal from "./MapPickerModal";
+import ImageEditor from "../image-editor";
 
 MapboxGL.setAccessToken(
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ",
@@ -51,6 +52,7 @@ export const StoreForm = ({
     t,
     onSuccess: mode === "standalone" ? onSubmit : undefined,
     mode,
+    showMerchantFields,
   });
 
   const {
@@ -101,6 +103,11 @@ export const StoreForm = ({
     setShowMapPicker,
     handleMapPickerConfirm,
     userProximity,
+    citySuggestions,
+    loadingCitySuggestions,
+    fetchCitySuggestions,
+    handleCitySelect,
+    clearCitySuggestions,
     validationErrors,
     hasAttemptedSubmit,
     isSubmitting,
@@ -108,6 +115,9 @@ export const StoreForm = ({
     handleRemoveImage,
     handleSubmit,
     handleWizardSubmit,
+    imageToEdit,
+    handleImageEdited,
+    handleCancelEdit,
   } = form;
 
   // Handle hardware back button
@@ -197,17 +207,50 @@ export const StoreForm = ({
             editable={!disabled}
           />
 
-          {/* Pick on map - prominent placement */}
-          <TouchableOpacity
-            onPress={() => setShowMapPicker(true)}
-            style={styles.mapPickerButton}
-            disabled={disabled}
+          {/* City - with autocomplete (same order as user flow) */}
+          <Text style={styles.label}>{t("city")}</Text>
+          <View
+            style={{ position: "relative", zIndex: 1100, overflow: "visible" }}
           >
-            <Ionicons name="map" size={20} color="#fff" />
-            <Text style={styles.mapPickerButtonText}>
-              {t("pick_on_map") || "Pick location on map"}
-            </Text>
-          </TouchableOpacity>
+            <TextInput
+              style={getInputStyle("city")}
+              placeholder={t("city")}
+              value={city}
+              onChangeText={manualEntryMode ? setCity : fetchCitySuggestions}
+              editable={!disabled}
+            />
+            {!manualEntryMode && citySuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                <FlatList
+                  data={citySuggestions}
+                  keyExtractor={(item, index) => `city-${item.id}-${index}`}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={true}
+                  style={{ maxHeight: 200 }}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.suggestionItem}
+                      onPress={() => handleCitySelect(item)}
+                    >
+                      <Text style={styles.suggestionText}>
+                        {item.place_name}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.label}>{t("postal_code")}</Text>
+          <TextInput
+            style={getInputStyle("postalCode")}
+            placeholder={t("postal_code")}
+            value={postalCode}
+            onChangeText={setPostalCode}
+            keyboardType="numeric"
+            editable={!disabled}
+          />
 
           <Text style={styles.label}>{t("street_number")}</Text>
           <TextInput
@@ -294,27 +337,6 @@ export const StoreForm = ({
                 {t("pick_on_map") || "Pick on map"}
               </Text>
             </TouchableOpacity>
-          </View>
-
-          <Text style={styles.label}>{t("city")}</Text>
-          <TextInput
-            style={getInputStyle("city")}
-            placeholder={t("city")}
-            value={city}
-            onChangeText={setCity}
-            editable={!disabled}
-          />
-
-          <Text style={styles.label}>{t("postal_code")}</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[getInputStyle("postalCode"), { flex: 1 }]}
-              placeholder={t("postal_code")}
-              value={postalCode}
-              onChangeText={setPostalCode}
-              keyboardType="numeric"
-              editable={!disabled}
-            />
             <TouchableOpacity
               style={styles.locationButton}
               onPress={handleUseCurrentLocation}
@@ -337,17 +359,42 @@ export const StoreForm = ({
 
           {showMerchantFields && (
             <>
-              <Text style={styles.label}>
-                {t("store_email")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("manager_first_name")}</Text>
               <TextInput
-                style={[styles.input, disabled && styles.inputDisabled]}
+                style={getInputStyle("managerFirstName")}
+                placeholder={t("manager_first_name")}
+                value={managerFirstName}
+                onChangeText={setManagerFirstName}
+                editable={!disabled}
+              />
+
+              <Text style={styles.label}>{t("manager_last_name")}</Text>
+              <TextInput
+                style={getInputStyle("managerLastName")}
+                placeholder={t("manager_last_name")}
+                value={managerLastName}
+                onChangeText={setManagerLastName}
+                editable={!disabled}
+              />
+
+              <Text style={styles.label}>{t("store_email")}</Text>
+              <TextInput
+                style={getInputStyle("storeEmail")}
                 placeholder={t("store_email")}
                 value={storeEmail}
                 onChangeText={setStoreEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!disabled}
+              />
+
+              <Text style={styles.label}>{t("phone")}</Text>
+              <TextInput
+                style={getInputStyle("phone")}
+                placeholder={t("phone")}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
                 editable={!disabled}
               />
 
@@ -361,43 +408,6 @@ export const StoreForm = ({
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
-                editable={!disabled}
-              />
-
-              <Text style={styles.label}>
-                {t("phone")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
-              <TextInput
-                style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t("phone")}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                editable={!disabled}
-              />
-
-              <Text style={styles.label}>
-                {t("manager_first_name")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
-              <TextInput
-                style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t("manager_first_name")}
-                value={managerFirstName}
-                onChangeText={setManagerFirstName}
-                editable={!disabled}
-              />
-
-              <Text style={styles.label}>
-                {t("manager_last_name")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
-              <TextInput
-                style={[styles.input, disabled && styles.inputDisabled]}
-                placeholder={t("manager_last_name")}
-                value={managerLastName}
-                onChangeText={setManagerLastName}
                 editable={!disabled}
               />
             </>
@@ -640,6 +650,19 @@ export const StoreForm = ({
           </Modal>
         </View>
       </ScrollView>
+
+      {/* Image Editor - Full screen overlay (not Modal, gestures don't work in Modal) */}
+      {imageToEdit && (
+        <View style={StyleSheet.absoluteFill}>
+          <ImageEditor
+            imageUri={imageToEdit}
+            onDone={handleImageEdited}
+            onCancel={handleCancelEdit}
+            outputSize={800}
+            t={t}
+          />
+        </View>
+      )}
     </View>
   );
 };

@@ -3,7 +3,9 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSelector } from "react-redux";
 import postService from "../services/PostService";
+import { selectUserData } from "../Redux/Selectors/UserSelectors";
 
 /**
  * Hook for managing store posts
@@ -16,6 +18,7 @@ export function useStorePosts(storeId, autoFetch = true) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const isMounted = useRef(true);
+  const user = useSelector(selectUserData);
 
   useEffect(() => {
     isMounted.current = true;
@@ -53,7 +56,7 @@ export function useStorePosts(storeId, autoFetch = true) {
    * Create a new post
    */
   const createPost = useCallback(
-    async ({ imageUris, description, price }) => {
+    async ({ imageUris, description, price, currency }) => {
       if (!storeId) throw new Error("Store ID required");
 
       setLoading(true);
@@ -64,6 +67,10 @@ export function useStorePosts(storeId, autoFetch = true) {
           imageUris,
           description,
           price,
+          currency,
+          // firestore.rules requires owner_id == request.auth.uid, so the
+          // post owner is always the signed-in user.
+          ownerId: user?.id,
         });
 
         if (isMounted.current) {
@@ -82,14 +89,17 @@ export function useStorePosts(storeId, autoFetch = true) {
         }
       }
     },
-    [storeId],
+    [storeId, user?.id],
   );
 
   /**
    * Update an existing post
    */
   const updatePost = useCallback(
-    async (postId, { imageUris, existingImages, description, price }) => {
+    async (
+      postId,
+      { imageUris, existingImages, description, price, currency },
+    ) => {
       setLoading(true);
       setError(null);
 
@@ -99,6 +109,7 @@ export function useStorePosts(storeId, autoFetch = true) {
           existingImages,
           description,
           price,
+          currency,
         });
 
         if (isMounted.current) {

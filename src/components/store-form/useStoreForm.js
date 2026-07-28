@@ -69,7 +69,12 @@ const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
   throw lastError;
 };
 
-export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
+export const useStoreForm = ({
+  t,
+  onSuccess,
+  mode = "standalone",
+  showMerchantFields = false,
+}) => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user.userData);
   const { categories, selectedCategories } = useSelector(
@@ -122,6 +127,11 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
 
   // Map picker state
   const [showMapPicker, setShowMapPicker] = useState(false);
+
+  // City autocomplete state
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [selectedCityCoords, setSelectedCityCoords] = useState(null);
+  const [loadingCitySuggestions, setLoadingCitySuggestions] = useState(false);
 
   // Validation state
   const [validationErrors, setValidationErrors] = useState({});
@@ -252,8 +262,68 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
         latitude: item.center[1],
         longitude: item.center[0],
       });
+      setSelectedCityCoords({
+        longitude: item.center[0],
+        latitude: item.center[1],
+      });
       setShowMap(true);
     }
+  };
+
+  // City autocomplete functions
+  const fetchCitySuggestions = async (text) => {
+    setCity(text);
+    // Clear selected coords when user edits city
+    setSelectedCityCoords(null);
+
+    // In manual mode, skip autocomplete
+    if (manualEntryMode) {
+      setCitySuggestions([]);
+      return;
+    }
+
+    if (text.length < 2) {
+      setCitySuggestions([]);
+      return;
+    }
+    setLoadingCitySuggestions(true);
+
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
+          `access_token=${MAPBOX_TOKEN}&types=place,locality&country=fr,be,ch,lu,mc&limit=5&language=fr`,
+      );
+      const data = await response.json();
+      setCitySuggestions(data.features || []);
+    } catch (error) {
+      console.error("City search error:", error);
+      setCitySuggestions([]);
+    }
+    setLoadingCitySuggestions(false);
+  };
+
+  const handleCitySelect = (item) => {
+    setCitySuggestions([]);
+    setCity(item.text);
+
+    // Extract postal code from context if available
+    const context = item.context || [];
+    const postcodeInfo = context.find((c) => c.id.includes("postcode"));
+    if (postcodeInfo) {
+      setPostalCode(postcodeInfo.text);
+    }
+
+    // Store city coordinates for street search
+    if (item.center) {
+      setSelectedCityCoords({
+        longitude: item.center[0],
+        latitude: item.center[1],
+      });
+    }
+  };
+
+  const clearCitySuggestions = () => {
+    setCitySuggestions([]);
   };
 
   const handleUseCurrentLocation = async () => {
@@ -419,6 +489,17 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
       "postalCode",
       "description",
     ];
+
+    // Add merchant-specific required fields
+    if (showMerchantFields) {
+      requiredFields.push(
+        "managerFirstName",
+        "managerLastName",
+        "storeEmail",
+        "phone",
+      );
+    }
+
     const isRequired = requiredFields.includes(fieldName);
 
     if (isRequired && (!value || value.trim() === "")) {
@@ -436,6 +517,16 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
       { key: "postalCode", value: postalCode },
       { key: "description", value: description },
     ];
+
+    // Add merchant-specific required fields
+    if (showMerchantFields) {
+      requiredFields.push(
+        { key: "managerFirstName", value: managerFirstName },
+        { key: "managerLastName", value: managerLastName },
+        { key: "storeEmail", value: storeEmail },
+        { key: "phone", value: phone },
+      );
+    }
 
     requiredFields.forEach((field) => {
       if (validateField(field.key, field.value)) {
@@ -481,7 +572,7 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
       address: [
         {
           location: {
-            address: { street: `${street}` },
+            address: { street: `${street}`, streetNumber: streetNumber },
             city: {
               name: city,
               postal_code: postalCode,
@@ -628,7 +719,9 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
       const latitude = Number(location.lat);
       const longitude = Number(location.lng);
 
-      const ownerId = user ? (await getOwnerId(user.id)) || null : null;
+      // Fall back to the session uid: firestore.rules requires
+      // owner_id == request.auth.uid, so a null owner is never writable.
+      const ownerId = user ? (await getOwnerId(user.id)) || user.id : null;
 
       // Get next store ID
       const storesRef = collection(firestore, "stores");
@@ -794,6 +887,14 @@ export const useStoreForm = ({ t, onSuccess, mode = "standalone" }) => {
     setShowMapPicker,
     handleMapPickerConfirm,
     userProximity,
+
+    // City autocomplete
+    citySuggestions,
+    loadingCitySuggestions,
+    fetchCitySuggestions,
+    handleCitySelect,
+    clearCitySuggestions,
+    selectedCityCoords,
 
     // Validation
     validationErrors,

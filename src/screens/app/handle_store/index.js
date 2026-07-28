@@ -26,6 +26,7 @@ import {
 import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
+import { isOwnerType, ownsStore } from "../../../utils/userTypes";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
 import LocationIcon from "../../../../assets/icons/location-icon";
 import CloseIcon from "../../../../assets/icons/close-icon";
@@ -137,12 +138,32 @@ export default function HandleStoreScreen({ route, navigation }) {
           const storeSnap = querySnapshot.docs[0];
           const store = storeSnap.data();
 
+          // Reachable by deep link with any storeId, so verify ownership
+          // before populating the editor. firestore.rules rejects the write
+          // regardless; this avoids showing an editor that cannot save.
+          if (!ownsStore(user, store.owner_id)) {
+            Alert.alert(
+              t("owner_account_required") || "Store owner account required",
+              t("not_your_store") || "This store belongs to another account.",
+              [
+                {
+                  text: t("close") || "Close",
+                  onPress: () => navigation.goBack(),
+                },
+              ],
+            );
+            return;
+          }
+
           setStoreDocumentId(storeSnap.id);
 
           setStoreData(store);
 
           setName(store.name);
           setStreet(store.address[0]?.location?.address?.street || "");
+          setStreetNumber(
+            store.address[0]?.location?.address?.streetNumber || "",
+          );
           setAddressQuery(store.address[0]?.location?.address?.street || "");
           setCity(store.cityName || "");
           setPostalCode(store.address[0]?.location?.city?.postal_code || "");
@@ -199,7 +220,7 @@ export default function HandleStoreScreen({ route, navigation }) {
     };
 
     fetchStoreData();
-  }, [storeId, dispatch, navigation]);
+  }, [storeId, dispatch, navigation, user, t]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -291,7 +312,7 @@ export default function HandleStoreScreen({ route, navigation }) {
         address: [
           {
             location: {
-              address: { street: `${street}` },
+              address: { street: `${street}`, streetNumber: streetNumber },
               city: {
                 name: city,
                 postal_code: postalCode,
@@ -316,7 +337,7 @@ export default function HandleStoreScreen({ route, navigation }) {
         openingHours,
         images,
         imageUrl: images[0] || "",
-        ...(user?.userType === "merchant" && {
+        ...(isOwnerType(user) && {
           email: storeEmail || "",
           phone: phone || "",
           managerFirstName: managerFirstName || "",
@@ -904,6 +925,15 @@ export default function HandleStoreScreen({ route, navigation }) {
             </View>
           )}
 
+          <Text style={styles.label}>{t("street_number")}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t("street_number")}
+            value={streetNumber}
+            onChangeText={setStreetNumber}
+            keyboardType="numeric"
+          />
+
           <Text style={styles.label}>{t("city")}</Text>
           <TextInput
             style={styles.input}
@@ -938,7 +968,7 @@ export default function HandleStoreScreen({ route, navigation }) {
             t={t}
           />
 
-          {user?.userType === "merchant" && (
+          {isOwnerType(user) && (
             <>
               <Text style={styles.label}>{t("store_email")}</Text>
               <TextInput
@@ -1102,6 +1132,7 @@ export default function HandleStoreScreen({ route, navigation }) {
               navigation.navigate(ScreenNames.MANAGE_POSTS, {
                 storeId: storeData?.id,
                 storeName: name,
+                ownerId: storeData?.owner_id,
               })
             }
           >

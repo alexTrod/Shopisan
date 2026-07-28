@@ -24,6 +24,7 @@ import {
   selectIsAuthenticated,
   selectUserData,
 } from "../Selectors/UserSelectors";
+import { USER_TYPES, normalizeUserType } from "../../utils/userTypes";
 
 // Flag to prevent race condition during signup - when Firebase Auth creates a user,
 // onAuthStateChanged fires before the Firestore document is created
@@ -191,9 +192,14 @@ export const signUp =
         Date.now() + 7 * 24 * 60 * 60 * 1000,
       ); // 7 days from now
 
+      const normalizedType = normalizeUserType(userType);
+
       const userCollection = collection(firestore, "users");
       await setDoc(doc(userCollection, new_id), {
-        userType,
+        userType: normalizedType,
+        // Raw selection at signup, kept for funnel analytics only. Never used
+        // for permissions, and frozen by firestore.rules like userType.
+        signupIntent: normalizedType,
         id: new_id,
         email: safeEmail,
         username,
@@ -202,7 +208,6 @@ export const signUp =
         is_validated: false, // Email not verified yet
         is_active: true, // Account is active (not archived)
         is_admin: false,
-        is_owner: userType !== "shopper",
         last_login: serverTimestamp(),
         created: serverTimestamp(),
         surname: null,
@@ -224,12 +229,12 @@ export const signUp =
           safeEmail,
           username,
           verificationToken,
-          userType,
+          normalizedType,
           language,
         );
 
         // Send admin notification
-        await sendAdminNotification(safeEmail, username, userType);
+        await sendAdminNotification(safeEmail, username, normalizedType);
 
         dispatch({
           type: "SET_EMAIL_VERIFICATION_STATUS",
@@ -252,11 +257,11 @@ export const signUp =
           id: new_id,
           email: safeEmail,
           username,
-          userType,
+          userType: normalizedType,
+          signupIntent: normalizedType,
           is_validated: false, // Email not verified yet
           is_active: true, // Account is active
           is_admin: false,
-          is_owner: userType !== "shopper",
           name: null,
           surname: null,
           picture_id: null,
@@ -315,7 +320,7 @@ export const resendVerificationEmail =
         email,
         username,
         verificationToken,
-        userType,
+        normalizeUserType(userType),
         language,
       );
 
@@ -515,6 +520,9 @@ const fetchUserData = (uid) => async (dispatch) => {
       type: "AUTH_SUCCESS",
       payload: {
         ...userData,
+        // Accounts created before the user/owner migration still hold
+        // "shopper"/"merchant"; normalize on read so they behave correctly.
+        userType: normalizeUserType(userData.userType),
         ref: uid,
       },
     });
@@ -694,7 +702,8 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
     // Step 3: Create user document in Firestore
     const userCollection = collection(firestore, "users");
     await setDoc(doc(userCollection, userId), {
-      userType: "merchant",
+      userType: USER_TYPES.OWNER,
+      signupIntent: USER_TYPES.OWNER,
       id: userId,
       email: safeEmail,
       username,
@@ -703,7 +712,6 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       is_validated: false, // Email not verified yet
       is_active: true, // Account is active (not archived)
       is_admin: false,
-      is_owner: true,
       last_login: serverTimestamp(),
       created: serverTimestamp(),
       surname: null,
@@ -851,7 +859,7 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       });
 
       // Send admin notification
-      await sendAdminNotification(safeEmail, username, "merchant");
+      await sendAdminNotification(safeEmail, username, USER_TYPES.OWNER);
     } catch (emailError) {
       console.warn(
         "[signUpMerchantWithStore] Email sending failed:",
@@ -875,11 +883,11 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         id: userId,
         email: safeEmail,
         username,
-        userType: "merchant",
+        userType: USER_TYPES.OWNER,
+        signupIntent: USER_TYPES.OWNER,
         is_validated: false, // Email not verified yet
         is_active: true, // Account is active
         is_admin: false,
-        is_owner: true,
         name: null,
         surname: null,
         picture_id: null,

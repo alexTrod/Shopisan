@@ -28,6 +28,7 @@ import {
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
+import { isOwnerType } from "../../../utils/userTypes";
 import logging from "../../../utils/logging";
 import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
@@ -149,6 +150,8 @@ export default function HomeScreen({ navigation, route }) {
 
   const locale = useSelector((state) => state.locale.currentLocale);
   const user = useSelector((state) => state.user.userData);
+  // Shoppers can browse and rate, but not create stores.
+  const canAddStore = isOwnerType(user);
 
   const categories = useSelector(
     (state) => state.categories.categories,
@@ -1071,16 +1074,18 @@ export default function HomeScreen({ navigation, route }) {
                         "Help us grow: add your favorite shops."}
                     </Text>
                     <View style={styles.welcomeButtonsContainer}>
-                      <TouchableOpacity
-                        onPress={handleNavigateAddStore}
-                        style={styles.addStoreButton}
-                      >
-                        <AddIcon width={20} height={20} fill="#fff" />
-                        <Text style={styles.addStoreButtonText}>
-                          {t("add_store_or_explore") ||
-                            "Add your favorite shops"}
-                        </Text>
-                      </TouchableOpacity>
+                      {canAddStore && (
+                        <TouchableOpacity
+                          onPress={handleNavigateAddStore}
+                          style={styles.addStoreButton}
+                        >
+                          <AddIcon width={20} height={20} fill="#fff" />
+                          <Text style={styles.addStoreButtonText}>
+                            {t("add_store_or_explore") ||
+                              "Add your favorite shops"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         onPress={findClosestStore}
@@ -1137,14 +1142,16 @@ export default function HomeScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
 
-        {/* Floating Add New Store Button */}
-        <TouchableOpacity
-          testID="home-fab-add-store"
-          onPress={handleNavigateAddStore}
-          style={styles.fabAdd}
-        >
-          <AddIcon width={32} height={32} fill="#fff" />
-        </TouchableOpacity>
+        {/* Floating Add New Store Button - store owners only */}
+        {canAddStore && (
+          <TouchableOpacity
+            testID="home-fab-add-store"
+            onPress={handleNavigateAddStore}
+            style={styles.fabAdd}
+          >
+            <AddIcon width={32} height={32} fill="#fff" />
+          </TouchableOpacity>
+        )}
 
         {/* Floating Favorite Button */}
         <TouchableOpacity

@@ -14,6 +14,7 @@ import { collection, query, getDocs, where } from "firebase/firestore";
 import { firestore } from "../../../firebaseconfig";
 import PostService from "../../services/PostService";
 import EditIcon from "../../../assets/icons/edit-icon";
+import AddCircleIcon from "../../../assets/icons/add-circle-icon";
 import PinFilled from "../../../assets/icons/pin-filled";
 import InfoIcon from "../../../assets/icons/info-icon";
 import HeartFilled from "../../../assets/icons/heart-filled";
@@ -23,6 +24,7 @@ import ClockIcon from "../../../assets/icons/clock-icon";
 import StarIcon from "../../../assets/icons/star-icon";
 import { height, width } from "../../utils/dimension";
 import { AppColors } from "../../utils";
+import { ownsStore } from "../../utils/userTypes";
 import { useDispatch, useSelector } from "react-redux";
 import { selectFavoriteStores } from "../../Redux/Selectors/UserSelectors";
 import ItemDetailModal from "./ItemDetailModal";
@@ -68,10 +70,20 @@ const ItemCard = React.memo(
 
     const navigation = useNavigation();
     const user = useSelector((state) => state.user.userData);
-    const isOwner = user?.userType === "merchant" && user.id === owner_id;
+    // Ownership is the permission, not account type: firestore.rules keys off
+    // owner_id, and only owner accounts can create stores in the first place.
+    const isOwner = ownsStore(user, owner_id);
 
     const handleEditPress = () => {
       navigation.navigate(ScreenNames.HANDLE_STORE, { storeId: id });
+    };
+
+    const handleAddPostPress = () => {
+      navigation.navigate(ScreenNames.MANAGE_POSTS, {
+        storeId: id,
+        storeName: title,
+        ownerId: owner_id,
+      });
     };
 
     useEffect(() => {
@@ -180,14 +192,24 @@ const ItemCard = React.memo(
         >
           <View style={styles.rightIcons}>
             {isOwner && (
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={handleEditPress}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <EditIcon width={24} height={24} color={iconColor} />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={handleAddPostPress}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <AddCircleIcon width={24} height={24} color={iconColor} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={handleEditPress}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <EditIcon width={24} height={24} color={iconColor} />
+                </TouchableOpacity>
+              </>
             )}
             {is_validated && (
               <TouchableOpacity
