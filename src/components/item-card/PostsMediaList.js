@@ -13,6 +13,7 @@ import LinkIcon from "../../../assets/icons/link-icon";
 import { AppColors } from "../../utils";
 import { height, width } from "../../utils/dimension";
 import { useTranslation } from "../../utils/useTranslation";
+import { formatPostPrice } from "../../utils/price";
 
 const THUMBNAIL_SIZE = width(28);
 const THUMBNAIL_GAP = 8;
@@ -212,11 +213,13 @@ const PostCard = ({ item, t, locale }) => {
       )}
 
       {/* Price */}
-      {item.price !== null && item.price !== undefined && (
+      {formatPostPrice(item.price, item.currency) && (
         <View style={styles.priceContainer}>
           {/* The `price` key is a bare noun; punctuation belongs to layout. */}
           <Text style={styles.priceLabel}>{t("price")}:</Text>
-          <Text style={styles.priceValue}>{item.price} €</Text>
+          <Text style={styles.priceValue}>
+            {formatPostPrice(item.price, item.currency)}
+          </Text>
         </View>
       )}
 

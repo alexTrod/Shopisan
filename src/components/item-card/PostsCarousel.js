@@ -11,6 +11,7 @@ import {
 import { AppColors } from "../../utils";
 import { height, width } from "../../utils/dimension";
 import { useTranslation } from "../../utils/useTranslation";
+import { formatPostPrice } from "../../utils/price";
 
 const CARD_WIDTH = width(85);
 const CARD_MARGIN = 8;
@@ -28,6 +29,7 @@ const PostsCarousel = ({ posts = [] }) => {
         images: item.images,
         description: item.description || {},
         price: item.price,
+        currency: item.currency,
       };
     }
     return {
@@ -35,6 +37,7 @@ const PostsCarousel = ({ posts = [] }) => {
       images: item.image ? [item.image] : [],
       description: item.description || {},
       price: item.price,
+      currency: item.currency,
     };
   });
 
@@ -78,7 +81,12 @@ const PostsCarousel = ({ posts = [] }) => {
               {description}
             </Text>
           )}
-          {item.price && <Text style={styles.postPrice}>{item.price} €</Text>}
+          {/* Not a truthiness check: a price of 0 is "free", not "absent". */}
+          {formatPostPrice(item.price, item.currency) && (
+            <Text style={styles.postPrice}>
+              {formatPostPrice(item.price, item.currency)}
+            </Text>
+          )}
         </View>
       </View>
     );
