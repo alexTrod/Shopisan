@@ -829,7 +829,11 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       website: store.website || "",
       openingHours: store.openingHours || {},
       imageUrl: imageUrl,
-      is_validated: false,
+      // Stores are live on creation. is_validated is legacy: it is written only
+      // so app builds released before this change, which still filter their
+      // store list on it, show new stores too. Distinct from the identically
+      // named field on users, which means "email verified".
+      is_validated: true,
       created: serverTimestamp(),
       email: store.storeEmail || "",
       phone: store.phone || "",

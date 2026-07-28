@@ -588,7 +588,11 @@ export const useStoreForm = ({
       openingHours: openingHours,
       images: images || [],
       imageUrl: images?.[0] || "",
-      is_validated: false,
+      // Stores are live on creation. is_validated is legacy: it is written only
+      // so app builds released before this change, which still filter their
+      // store list on it, show new stores too. Drop it once those builds age
+      // out (same deprecation window as merchant/owner in firestore.rules).
+      is_validated: true,
       created: serverTimestamp(),
       email: storeEmail || "",
       phone: phone || "",

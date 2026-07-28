@@ -753,10 +753,8 @@ export default function AddStoreScreen({ navigation }) {
             setIsAddingStore(false);
             Toast.show({
               type: "success",
-              text1: t("store_created_success") || "Store already submitted!",
-              text2:
-                t("store_pending_validation") ||
-                "Your store is pending validation.",
+              text1: t("store_already_added_title"),
+              text2: t("store_already_added_description"),
             });
             navigation.goBack();
             return;
@@ -818,7 +816,12 @@ export default function AddStoreScreen({ navigation }) {
         openingHours: openingHours,
         images: images,
         imageUrl: images[0] || "",
-        is_validated: false,
+        // Stores are live on creation. is_validated is legacy: it is written
+        // only so app builds released before this change, which still filter
+        // their store list on it, show new stores too. Drop it once those
+        // builds age out (same deprecation window as merchant/owner in
+        // firestore.rules).
+        is_validated: true,
         created: serverTimestamp(),
         ...(isOwnerType(user) && {
           email: storeEmail || "",

@@ -149,7 +149,7 @@ describe("ItemCard - store owner actions", () => {
         owner_id={OWNER_ID}
         onPress={jest.fn()}
         openingHours={{}}
-        is_validated={true}
+        is_verified={true}
         {...props}
       />,
     );
@@ -221,6 +221,78 @@ describe("ItemCard - store owner actions", () => {
       const { queryByTestId } = await renderSettled({ owner_id: "42" });
 
       expect(queryByTestId("add-circle-icon")).toBeNull();
+    });
+  });
+
+  describe("Verification badge", () => {
+    it("should show the badge to a shopper, not just the owner", async () => {
+      // The badge is a public trust signal; owner-only would make it useless.
+      mockUserData = { id: "someone-else", userType: "user" };
+
+      const { getByTestId } = await renderSettled({ is_verified: true });
+
+      expect(getByTestId("checkmark-circle-icon")).toBeTruthy();
+    });
+
+    it("should show the badge to a signed-out visitor", async () => {
+      mockUserData = null;
+
+      const { getByTestId } = await renderSettled({ is_verified: true });
+
+      expect(getByTestId("checkmark-circle-icon")).toBeTruthy();
+    });
+
+    it("should show no badge on an unverified store", async () => {
+      mockUserData = { id: OWNER_ID, userType: "owner" };
+
+      const { queryByTestId } = await renderSettled({ is_verified: false });
+
+      expect(queryByTestId("checkmark-circle-icon")).toBeNull();
+      // The amber pending clock is gone: unverified is a normal, live state.
+      expect(queryByTestId("clock-icon")).toBeNull();
+    });
+
+    it("should show no badge when is_verified is absent entirely", async () => {
+      // Stores written before the badge existed have no such field.
+      mockUserData = { id: OWNER_ID, userType: "owner" };
+
+      const { queryByTestId } = await renderSettled({ is_verified: undefined });
+
+      expect(queryByTestId("checkmark-circle-icon")).toBeNull();
+    });
+
+    it("should show the map pin on an unverified store", async () => {
+      // Previously gated on approval; every store is on the map now.
+      mockUserData = null;
+
+      const { getByTestId } = await renderSettled({ is_verified: false });
+
+      expect(getByTestId("pin-filled")).toBeTruthy();
+    });
+  });
+
+  describe("Suspension indicator", () => {
+    it("should show the suspended indicator to the owner", async () => {
+      // A suspended store vanishes everywhere else; its owner needs to see why.
+      mockUserData = { id: OWNER_ID, userType: "owner" };
+
+      const { getByTestId } = await renderSettled({
+        is_verified: false,
+        is_suspended: true,
+      });
+
+      expect(getByTestId("clock-icon")).toBeTruthy();
+    });
+
+    it("should hide the suspended indicator from everyone else", async () => {
+      mockUserData = { id: "someone-else", userType: "user" };
+
+      const { queryByTestId } = await renderSettled({
+        is_verified: false,
+        is_suspended: true,
+      });
+
+      expect(queryByTestId("clock-icon")).toBeNull();
     });
   });
 

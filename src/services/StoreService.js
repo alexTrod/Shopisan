@@ -8,11 +8,11 @@
  * - Smart expanding radius for finding stores
  */
 
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { firestore } from '../../firebaseconfig';
-import { LOCATION_CONFIG, CACHE_KEYS } from '../config/location';
-import locationManager from './LocationManager';
+import { collection, getDocs } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { firestore } from "../../firebaseconfig";
+import { LOCATION_CONFIG, CACHE_KEYS } from "../config/location";
+import locationManager from "./LocationManager";
 
 class StoreService {
   constructor() {
@@ -42,11 +42,11 @@ class StoreService {
    * Notify all listeners of store updates
    */
   notifyListeners() {
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(this.allStores);
       } catch (e) {
-        console.error('[StoreService] Listener error:', e);
+        console.error("[StoreService] Listener error:", e);
       }
     });
   }
@@ -98,9 +98,8 @@ class StoreService {
 
       // No cache, fetch from Firebase (blocking)
       return await this.fetchFromFirebase();
-
     } catch (error) {
-      console.error('[StoreService] Fetch all stores error:', error);
+      console.error("[StoreService] Fetch all stores error:", error);
       // Return whatever we have (could be empty)
       return this.allStores;
     }
@@ -129,17 +128,26 @@ class StoreService {
    */
   async _doFetchFromFirebase() {
     try {
-      const storesRef = collection(firestore, 'stores');
-      const validatedStoresQuery = query(
-        storesRef,
-        where('is_validated', '==', true)
-      );
+      // Stores are live from the moment they are created -- there is no
+      // approval gate to filter on. The only stores hidden from the app are
+      // suspended ones.
+      const storesRef = collection(firestore, "stores");
 
-      const snapshot = await getDocs(validatedStoresQuery);
-      const stores = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const snapshot = await getDocs(storesRef);
+      // Suspension is filtered here rather than with a Firestore where():
+      // where('is_suspended','==',false) and where('is_suspended','!=',true)
+      // both drop documents that lack the field, so a server-side filter would
+      // hide every store written before suspension existed unless the whole
+      // collection were backfilled first, and would need a new composite index
+      // on top. A truthiness check treats undefined as not-suspended for free.
+      // Nothing leaks by reading them: firestore.rules allows public reads on
+      // /stores already.
+      const stores = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter((store) => !store.is_suspended);
 
       this.allStores = stores;
       this.lastFetchTime = Date.now();
@@ -150,21 +158,33 @@ class StoreService {
       this.saveToCache(stores).catch(() => {});
 
       return stores;
-
     } catch (error) {
-      console.error('[StoreService] Firebase fetch error:', error);
+      console.error("[StoreService] Firebase fetch error:", error);
       throw error;
     }
   }
 
   /**
    * Filter stores by radius
+   *
+   * Ordering here is strictly by distance and must stay that way. Callers read
+   * the result positionally: findStoresWithExpandingRadius passes it straight
+   * through, and the home screen takes [0] as "the nearest shop" and recentres
+   * the map on it. Letting the verification badge reorder this would move the
+   * user's map to a verified store kilometres away and label it the closest.
+   * Verified-first ordering belongs at the display sites -- see
+   * sortByProximityThenVerified in utils/storeUtils.
+   *
    * @param {Object} location - Center location
    * @param {number} radiusKm - Radius in kilometers
    * @param {Array} selectedCategories - Optional category filter
-   * @returns {Array} Filtered and sorted stores
+   * @returns {Array} Filtered stores, nearest first
    */
-  filterStoresByRadius(location, radiusKm = LOCATION_CONFIG.SEARCH_RADIUS_KM, selectedCategories = null) {
+  filterStoresByRadius(
+    location,
+    radiusKm = LOCATION_CONFIG.SEARCH_RADIUS_KM,
+    selectedCategories = null,
+  ) {
     if (!location?.latitude || !location?.longitude) {
       return [];
     }
@@ -173,16 +193,19 @@ class StoreService {
 
     // Apply category filter if specified
     if (selectedCategories && selectedCategories.length > 0) {
-      const categoryStrings = selectedCategories.map(c => String(c));
-      stores = stores.filter(store =>
-        Array.isArray(store.category) &&
-        store.category.some(catId => categoryStrings.includes(String(catId)))
+      const categoryStrings = selectedCategories.map((c) => String(c));
+      stores = stores.filter(
+        (store) =>
+          Array.isArray(store.category) &&
+          store.category.some((catId) =>
+            categoryStrings.includes(String(catId)),
+          ),
       );
     }
 
     // Filter by radius and add distance
     const nearbyStores = stores
-      .map(store => {
+      .map((store) => {
         const geopoint = store?.address?.[0]?.location?.geopoint;
         if (!geopoint) return null;
 
@@ -195,7 +218,7 @@ class StoreService {
           location.latitude,
           location.longitude,
           storeLat,
-          storeLng
+          storeLng,
         );
 
         if (distance > radiusKm) return null;
@@ -207,7 +230,7 @@ class StoreService {
           distance: Math.round(distance * 100) / 100,
         };
       })
-      .filter(store => store !== null)
+      .filter((store) => store !== null)
       .sort((a, b) => a.distance - b.distance);
 
     return nearbyStores;
@@ -220,7 +243,11 @@ class StoreService {
    * @param {Array} selectedCategories - Optional category filter
    * @returns {Object} { stores, radius }
    */
-  findStoresWithExpandingRadius(location, minStores = 1, selectedCategories = null) {
+  findStoresWithExpandingRadius(
+    location,
+    minStores = 1,
+    selectedCategories = null,
+  ) {
     if (!location?.latitude || !location?.longitude) {
       return { stores: [], radius: 0 };
     }
@@ -231,7 +258,7 @@ class StoreService {
       const nearbyStores = this.filterStoresByRadius(
         location,
         radius,
-        selectedCategories
+        selectedCategories,
       );
 
       if (nearbyStores.length >= minStores) {
@@ -241,7 +268,7 @@ class StoreService {
 
     // If no stores found within max radius, return all stores
     const allWithDistance = this.allStores
-      .map(store => {
+      .map((store) => {
         const geopoint = store?.address?.[0]?.location?.geopoint;
         if (!geopoint) return null;
 
@@ -254,7 +281,7 @@ class StoreService {
           location.latitude,
           location.longitude,
           storeLat,
-          storeLng
+          storeLng,
         );
 
         return {
@@ -264,20 +291,23 @@ class StoreService {
           distance: Math.round(distance * 100) / 100,
         };
       })
-      .filter(store => store !== null)
+      .filter((store) => store !== null)
       .sort((a, b) => a.distance - b.distance);
 
     // Apply category filter if specified
     let result = allWithDistance;
     if (selectedCategories && selectedCategories.length > 0) {
-      const categoryStrings = selectedCategories.map(c => String(c));
-      result = result.filter(store =>
-        Array.isArray(store.category) &&
-        store.category.some(catId => categoryStrings.includes(String(catId)))
+      const categoryStrings = selectedCategories.map((c) => String(c));
+      result = result.filter(
+        (store) =>
+          Array.isArray(store.category) &&
+          store.category.some((catId) =>
+            categoryStrings.includes(String(catId)),
+          ),
       );
     }
 
-    return { stores: result, radius: 'all' };
+    return { stores: result, radius: "all" };
   }
 
   /**
@@ -288,9 +318,7 @@ class StoreService {
   calculateAutoZoom(stores) {
     if (!stores || stores.length === 0) return 12;
 
-    const distances = stores
-      .map(s => s.distance || 0)
-      .sort((a, b) => a - b);
+    const distances = stores.map((s) => s.distance || 0).sort((a, b) => a - b);
 
     // For few stores, use max distance; for many, use 80th percentile
     let representativeDistance;
@@ -324,12 +352,12 @@ class StoreService {
           return data;
         } catch (parseError) {
           // Clear corrupt cache
-          console.warn('[StoreService] Corrupt cache, clearing');
+          console.warn("[StoreService] Corrupt cache, clearing");
           await AsyncStorage.removeItem(CACHE_KEYS.STORES_CACHE);
         }
       }
     } catch (error) {
-      console.error('[StoreService] Load from cache error:', error);
+      console.error("[StoreService] Load from cache error:", error);
     }
     return null;
   }
@@ -345,10 +373,10 @@ class StoreService {
       };
       await AsyncStorage.setItem(
         CACHE_KEYS.STORES_CACHE,
-        JSON.stringify(cacheData)
+        JSON.stringify(cacheData),
       );
     } catch (error) {
-      console.error('[StoreService] Save to cache error:', error);
+      console.error("[StoreService] Save to cache error:", error);
     }
   }
 
@@ -363,23 +391,29 @@ class StoreService {
    * Get store by ID
    */
   getStoreById(storeId) {
-    return this.allStores.find(store => store.id === storeId);
+    return this.allStores.find((store) => store.id === storeId);
   }
 
   /**
    * Search stores by name
+   *
+   * Unlike the nearby list, suggestions carry no distance, so verification is
+   * the primary sort key here.
+   *
    * @param {string} query - Search query
    * @param {number} limit - Maximum results
-   * @returns {Array} Matching stores
+   * @returns {Array} Matching stores, verified first
    */
   searchStoresByName(query, limit = 15) {
     if (!query || query.trim().length < 2) return [];
 
     const lowerQuery = query.toLowerCase().trim();
     return this.allStores
-      .filter(store => store?.name?.toLowerCase().includes(lowerQuery))
+      .filter((store) => store?.name?.toLowerCase().includes(lowerQuery))
       .sort((a, b) => {
-        // Prioritize names that start with the query
+        // Verified stores outrank everything else
+        if (!a.is_verified !== !b.is_verified) return a.is_verified ? -1 : 1;
+        // Then prioritize names that start with the query
         const aStarts = a.name.toLowerCase().startsWith(lowerQuery);
         const bStarts = b.name.toLowerCase().startsWith(lowerQuery);
         if (aStarts && !bStarts) return -1;
@@ -387,9 +421,12 @@ class StoreService {
         return a.name.localeCompare(b.name);
       })
       .slice(0, limit)
-      .map(store => ({
+      .map((store) => ({
         id: store.id,
         name: store.name,
+        // Carried through so the suggestion row can render the badge; without
+        // it the sort above would be invisible downstream.
+        is_verified: !!store.is_verified,
         location: store.address?.[0]?.location?.geopoint || null,
       }));
   }
@@ -408,7 +445,7 @@ class StoreService {
     try {
       await AsyncStorage.removeItem(CACHE_KEYS.STORES_CACHE);
     } catch (error) {
-      console.error('[StoreService] Clear cache error:', error);
+      console.error("[StoreService] Clear cache error:", error);
     }
   }
 }

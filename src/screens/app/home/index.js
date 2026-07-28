@@ -457,13 +457,19 @@ export default function HomeScreen({ navigation, route }) {
         const storesQuery = query(
           storesCollection,
           where("id", "==", store.id),
-          where("is_validated", "==", true),
         );
         const querySnapshot = await getDocs(storesQuery);
 
         if (!querySnapshot.empty) {
           const storeDoc = querySnapshot.docs[0];
           const storeData = storeDoc.data();
+
+          // A suspended store is treated as not found: following a link to one
+          // must not reveal what the takedown removed from the map.
+          if (storeData.is_suspended) {
+            console.warn("Store is suspended, not opening :", store.id);
+            return;
+          }
 
           const completeStore = {
             id: storeDoc.id,
@@ -636,7 +642,8 @@ export default function HomeScreen({ navigation, route }) {
           }
         }}
         openingHours={item.openingHours || null}
-        is_validated={item.is_validated}
+        is_verified={item.is_verified}
+        is_suspended={item.is_suspended}
       />
     ),
     [

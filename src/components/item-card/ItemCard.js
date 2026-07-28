@@ -54,7 +54,8 @@ const ItemCard = React.memo(
     owner_id,
     onPress,
     openingHours,
-    is_validated,
+    is_verified,
+    is_suspended,
   }) => {
     const { t, locale } = useTranslation();
     const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
@@ -73,6 +74,9 @@ const ItemCard = React.memo(
     // Ownership is the permission, not account type: firestore.rules keys off
     // owner_id, and only owner accounts can create stores in the first place.
     const isOwner = ownsStore(user, owner_id);
+    // Drives the title's reserved icon spacing, so it has to match exactly what
+    // the two badges below render.
+    const showsBadge = Boolean(is_verified || (isOwner && is_suspended));
 
     const handleEditPress = () => {
       navigation.navigate(ScreenNames.HANDLE_STORE, { storeId: id });
@@ -211,16 +215,14 @@ const ItemCard = React.memo(
                 </TouchableOpacity>
               </>
             )}
-            {is_validated && (
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={onPress}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <PinFilled width={24} height={24} fill={iconColor} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={onPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <PinFilled width={24} height={24} fill={iconColor} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.iconButton}
               onPress={handleInfoPress}
@@ -310,30 +312,38 @@ const ItemCard = React.memo(
                 style={[
                   styles.title,
                   !hasImages && styles.titleNoImage,
-                  isOwner && styles.titleWithIcon,
+                  showsBadge && styles.titleWithIcon,
                 ]}
                 numberOfLines={2}
                 allowFontScaling={true}
                 adjustsFontSizeToFit={false}
               >
                 {title}
-                {isOwner && (
-                  <View
-                    style={{
-                      marginLeft: 4,
-                      flexDirection: "row",
-                      alignItems: "center",
-                    }}
-                  >
-                    {is_validated ? (
-                      <CheckmarkCircleIcon
-                        width={16}
-                        height={16}
-                        color={AppColors.primary}
-                      />
-                    ) : (
-                      <ClockIcon width={16} height={16} color="#f59e0b" />
-                    )}
+                {/* The verification badge is public: it only means anything as
+                    a trust signal if shoppers see it too. */}
+                {is_verified && (
+                  <View style={styles.titleBadge}>
+                    <CheckmarkCircleIcon
+                      testID="verified-badge"
+                      width={16}
+                      height={16}
+                      color={AppColors.primary}
+                      accessibilityLabel={t("store_verified_badge_label")}
+                    />
+                  </View>
+                )}
+                {/* Suspension is owner-only. A suspended store is invisible to
+                    everyone else, but its owner still sees it in their own list
+                    and needs to know why it stopped appearing. */}
+                {isOwner && is_suspended && (
+                  <View style={styles.titleBadge}>
+                    <ClockIcon
+                      testID="suspended-badge"
+                      width={16}
+                      height={16}
+                      color="#dc2626"
+                      accessibilityLabel={t("store_suspended")}
+                    />
                   </View>
                 )}
               </Text>
@@ -545,6 +555,11 @@ const styles = StyleSheet.create({
   },
   titleWithIcon: {
     paddingRight: 80, // Less padding when icon is inline
+  },
+  titleBadge: {
+    marginLeft: 4,
+    flexDirection: "row",
+    alignItems: "center",
   },
   title: {
     fontSize: height(2),
