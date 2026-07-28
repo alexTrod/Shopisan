@@ -156,8 +156,7 @@ const merchantEmailTemplate = {
     <div class="content">
       <p>Bonjour {{username}},</p>
       <p>Merci pour votre inscription sur Shopisan ! Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
-      <p>Votre demande a bien été enregistrée et sera validée sous peu par notre équipe. Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
-      <p>On vous tient au courant très vite par e-mail.</p>
+      <p>Votre boutique est déjà en ligne : elle apparaît dès maintenant sur la carte, dans les listes et dans la recherche. Vous pouvez configurer votre compte et présenter vos produits aux utilisateurs de l'application quand vous le souhaitez.</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
     </div>
     <div class="footer">
@@ -199,8 +198,7 @@ const merchantEmailTemplate = {
     <div class="content">
       <p>Hello {{username}},</p>
       <p>Thank you for registering on Shopisan! We are delighted to welcome you to the community that highlights local businesses.</p>
-      <p>Your request has been successfully received and will be validated shortly by our team. As soon as your registration is confirmed, you will be able to set up your account and start presenting your shop to the app's users.</p>
-      <p>We will keep you updated by email very soon.</p>
+      <p>Your store is already live: it shows up on the map, in listings and in search right away. You can set up your account and present your products to the app's users whenever you like.</p>
       <p>See you soon,<br>The Shopisan Team</p>
     </div>
     <div class="footer">
@@ -244,16 +242,18 @@ const adminNotificationTemplate = `
 </html>
 `;
 
-// Store validation confirmation email templates
-const storeValidationEmailTemplate = {
+// Verification badge email templates. Stores are live from the moment they are
+// created, so this is not a "you may now appear" notice -- it announces the
+// badge, which is a trust signal on an already-visible store.
+const storeVerifiedEmailTemplate = {
   fr: {
-    subject: "Votre boutique est en ligne sur Shopisan !",
+    subject: "Votre boutique est vérifiée sur Shopisan !",
     template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Boutique validée</title>
+  <title>Boutique vérifiée</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
@@ -269,17 +269,16 @@ const storeValidationEmailTemplate = {
 <body>
   <div class="container">
     <div class="header">
-      <h2>Votre boutique est en ligne sur Shopisan !</h2>
+      <h2>Votre boutique est vérifiée sur Shopisan !</h2>
     </div>
     <div class="content">
       <p>Bonjour {{storeName}},</p>
-      <p>Ça y est, c'est officiel : votre inscription sur Shopisan est validée.</p>
-      <p>Votre boutique rejoint dès aujourd'hui la communauté qui met en avant les commerces de proximité. Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
+      <p>Bonne nouvelle : votre boutique est désormais vérifiée sur Shopisan.</p>
+      <p>Un badge de vérification apparaît maintenant à côté de votre nom, partout dans l'application. C'est un gage de confiance pour les personnes qui découvrent votre commerce, et votre boutique remonte plus haut dans les suggestions de recherche.</p>
       <p style="text-align: center;">
-        <a href="{{appUrl}}" class="button">Accéder à mon compte</a>
+        <a href="{{appUrl}}" class="button">Voir ma boutique</a>
       </p>
-      <p>Bienvenue dans l'aventure Shopisan !</p>
-      <p>Nous sommes ravis de vous avoir à bord !</p>
+      <p>Merci de faire vivre les commerces de proximité avec nous !</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
       <p class="contact">Notre équipe est à votre disposition à info@shopisan.com</p>
     </div>
@@ -296,13 +295,13 @@ const storeValidationEmailTemplate = {
     `,
   },
   en: {
-    subject: "Your store is now live on Shopisan!",
+    subject: "Your store is verified on Shopisan!",
     template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Store Validated</title>
+  <title>Store Verified</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
@@ -318,17 +317,16 @@ const storeValidationEmailTemplate = {
 <body>
   <div class="container">
     <div class="header">
-      <h2>Your store is now live on Shopisan!</h2>
+      <h2>Your store is verified on Shopisan!</h2>
     </div>
     <div class="content">
       <p>Hello {{storeName}},</p>
-      <p>It's official: your registration on Shopisan has been validated.</p>
-      <p>Your store is joining today the community that highlights local businesses. All that's left is for you to configure your account to present your products and welcome your first customers through the app.</p>
+      <p>Good news: your store is now verified on Shopisan.</p>
+      <p>A verification badge appears next to your name everywhere in the app. It is a mark of trust for people discovering your business, and your store now ranks higher in search suggestions.</p>
       <p style="text-align: center;">
-        <a href="{{appUrl}}" class="button">Access my account</a>
+        <a href="{{appUrl}}" class="button">View my store</a>
       </p>
-      <p>Welcome to the Shopisan adventure!</p>
-      <p>We are delighted to have you on board!</p>
+      <p>Thank you for keeping local business alive with us!</p>
       <p>See you soon,<br>The Shopisan Team</p>
       <p class="contact">Our team is at your disposal at info@shopisan.com</p>
     </div>
@@ -346,16 +344,18 @@ const storeValidationEmailTemplate = {
   },
 };
 
-// Store rejection email templates
-const storeRejectionEmailTemplate = {
+// Store suspension (takedown) email templates. This is no longer a rejection at
+// the gate -- the store was live and has been pulled, so the copy has to say
+// what happened and how to get it back.
+const storeSuspendedEmailTemplate = {
   fr: {
-    subject: "Demande d'inscription boutique – Non validée",
+    subject: "Votre boutique a été suspendue sur Shopisan",
     template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Demande non validée</title>
+  <title>Boutique suspendue</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
@@ -371,21 +371,19 @@ const storeRejectionEmailTemplate = {
 <body>
   <div class="container">
     <div class="header">
-      <h2>Demande d'inscription boutique – Non validée</h2>
+      <h2>Votre boutique a été suspendue</h2>
     </div>
     <div class="content">
       <p>Bonjour,</p>
-      <p>Nous vous informons qu'une demande d'inscription de votre commerce a été effectuée sur l'application Shopisan.</p>
-      <p>Après vérification, cette demande n'a pas pu être validée à ce stade.</p>
-      <p>Plusieurs raisons peuvent expliquer ce refus, notamment :</p>
+      <p>Nous vous informons que votre boutique <strong>{{storeName}}</strong> a été suspendue sur Shopisan. Elle n'apparaît plus sur la carte, dans les listes ni dans la recherche.</p>
+      <p>Plusieurs raisons peuvent expliquer cette décision, notamment :</p>
       <ul class="reasons">
-        <li>informations incomplètes ou incorrectes,</li>
+        <li>informations incomplètes, incorrectes ou trompeuses,</li>
         <li>activité ne correspondant pas aux critères de la plateforme,</li>
-        <li>justificatifs manquants ou non conformes.</li>
+        <li>signalements reçus concernant le contenu publié.</li>
       </ul>
-      <p>Aucune action n'est requise de votre part si vous ne souhaitez pas donner suite à cette inscription.</p>
-      <p>Si cette demande ne provient pas de vous ou si vous estimez qu'il s'agit d'une erreur, elle sera automatiquement annulée.</p>
-      <p>Si vous souhaitez obtenir plus d'informations ou déposer une nouvelle demande, vous pouvez nous contacter à l'adresse suivante : <a href="mailto:support@shopisan.com">support@shopisan.com</a></p>
+      <p>Vos données et vos publications sont conservées : si la situation est corrigée, votre boutique peut être remise en ligne.</p>
+      <p>Pour comprendre la raison exacte ou demander un réexamen, écrivez-nous à l'adresse suivante : <a href="mailto:support@shopisan.com">support@shopisan.com</a></p>
       <p>Nous vous remercions de votre compréhension.</p>
       <p>Cordialement,<br>L'équipe Shopisan</p>
     </div>
@@ -402,13 +400,13 @@ const storeRejectionEmailTemplate = {
     `,
   },
   en: {
-    subject: "Shop Registration Request – Not Approved",
+    subject: "Your store has been suspended on Shopisan",
     template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Request Not Approved</title>
+  <title>Store Suspended</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
@@ -424,21 +422,19 @@ const storeRejectionEmailTemplate = {
 <body>
   <div class="container">
     <div class="header">
-      <h2>Shop Registration Request – Not Approved</h2>
+      <h2>Your store has been suspended</h2>
     </div>
     <div class="content">
       <p>Hello,</p>
-      <p>We would like to inform you that a registration request for your shop has been submitted on the Shopisan application.</p>
-      <p>After review, this request could not be approved at this stage.</p>
+      <p>We would like to inform you that your store <strong>{{storeName}}</strong> has been suspended on Shopisan. It no longer appears on the map, in listings or in search.</p>
       <p>Several reasons may explain this decision, including:</p>
       <ul class="reasons">
-        <li>incomplete or incorrect information,</li>
+        <li>incomplete, incorrect or misleading information,</li>
         <li>activity not meeting the platform's eligibility criteria,</li>
-        <li>missing or non-compliant supporting documents.</li>
+        <li>reports received about the content published.</li>
       </ul>
-      <p>No action is required on your part if you do not wish to proceed with this registration.</p>
-      <p>If this request was not made by you or if you believe it was submitted in error, it will be automatically cancelled.</p>
-      <p>If you would like more information or wish to submit a new application, please contact us at: <a href="mailto:support@shopisan.com">support@shopisan.com</a></p>
+      <p>Your data and your posts are kept: if the issue is resolved, your store can be put back online.</p>
+      <p>To find out the exact reason or ask for a review, write to us at: <a href="mailto:support@shopisan.com">support@shopisan.com</a></p>
       <p>Thank you for your understanding.</p>
       <p>Kind regards,<br>The Shopisan Team</p>
     </div>
@@ -462,7 +458,7 @@ const storeCreationAdminTemplate = `
 <html>
 <head>
   <meta charset="utf-8">
-  <title>New Store Registration</title>
+  <title>New Store Is Live</title>
   <style>
     body { font-family: Arial, sans-serif; }
     .container { max-width: 500px; margin: 0 auto; padding: 24px; }
@@ -474,7 +470,7 @@ const storeCreationAdminTemplate = `
 <body>
   <div class="container">
     <div class="header">
-      <h2>New Store Pending Validation</h2>
+      <h2>New Store Is Live</h2>
     </div>
     <div class="content">
       <p><strong>Store Name:</strong> {{storeName}}</p>
@@ -484,7 +480,9 @@ const storeCreationAdminTemplate = `
       <p><strong>Date:</strong> {{registrationDate}}</p>
     </div>
     <div class="footer">
-      <p>Please validate this store in the admin dashboard</p>
+      <p>No action needed - the store is already visible in the app.</p>
+      <p>To grant the verification badge: node scripts/verify-store.js &lt;storeId&gt;</p>
+      <p>To take it down: node scripts/suspend-store.js &lt;storeId&gt; --reason="..."</p>
     </div>
   </div>
 </body>
@@ -509,7 +507,7 @@ const merchantVerificationEmailTemplate = {
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
-    .pending-badge { display: inline-block; background-color: #FFA500; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .live-badge { display: inline-block; background-color: #2E9E5B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -528,12 +526,12 @@ const merchantVerificationEmailTemplate = {
         <h3>Votre boutique enregistree</h3>
         <p><strong>Nom :</strong> {{storeName}}</p>
         <p><strong>Ville :</strong> {{storeCity}}</p>
-        <p><span class="pending-badge">En attente de validation</span></p>
+        <p><span class="live-badge">En ligne</span></p>
       </div>
 
-      <p>Votre boutique sera examinee par notre equipe et validee sous peu. Vous recevrez un email de confirmation des que votre boutique sera en ligne.</p>
+      <p>Votre boutique est deja visible sur la carte, dans les listes et dans la recherche.</p>
 
-      <p>En attendant, cliquez sur le bouton ci-dessous pour verifier votre adresse email :</p>
+      <p>Il ne reste qu'une etape : cliquez sur le bouton ci-dessous pour verifier votre adresse email.</p>
 
       <p style="text-align: center;">
         <a href="{{verificationUrl}}" class="button">Verifier mon email</a>
@@ -568,7 +566,7 @@ const merchantVerificationEmailTemplate = {
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
-    .pending-badge { display: inline-block; background-color: #FFA500; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .live-badge { display: inline-block; background-color: #2E9E5B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -587,12 +585,12 @@ const merchantVerificationEmailTemplate = {
         <h3>Your registered store</h3>
         <p><strong>Name:</strong> {{storeName}}</p>
         <p><strong>City:</strong> {{storeCity}}</p>
-        <p><span class="pending-badge">Pending validation</span></p>
+        <p><span class="live-badge">Live</span></p>
       </div>
 
-      <p>Your store will be reviewed by our team and validated shortly. You will receive a confirmation email as soon as your store is live.</p>
+      <p>Your store is already visible on the map, in listings and in search.</p>
 
-      <p>In the meantime, click the button below to verify your email address:</p>
+      <p>One step left: click the button below to verify your email address.</p>
 
       <p style="text-align: center;">
         <a href="{{verificationUrl}}" class="button">Verify my email</a>
@@ -680,7 +678,7 @@ exports.sendStoreCreationEmail = functions.https.onCall(
       const adminMailOptions = {
         from: `"Shopisan System" <${SENDER_EMAIL}>`,
         to: ADMIN_EMAIL,
-        subject: `New Store Registration: ${storeName}`,
+        subject: `New store is live: ${storeName}`,
         html: adminHtmlContent,
       };
 
@@ -1158,19 +1156,23 @@ exports.sendFeedback = functions.https.onRequest(async (req, res) => {
   }
 });
 
-// Cloud Function that triggers when a store is validated
-exports.onStoreValidated = functions.firestore
+// Cloud Function that triggers when a store is granted the verification badge.
+// is_verified is server-owned (see firestore.rules), so this can only fire from
+// an admin action or scripts/verify-store.js -- an owner cannot mail themselves
+// a congratulations notice by editing their own store.
+exports.onStoreVerified = functions.firestore
   .document("stores/{storeId}")
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
     const storeId = context.params.storeId;
 
-    // Check if store was just validated (is_validated changed to true from false or undefined)
-    if (!before.is_validated && after.is_validated === true) {
+    // Only the falsy -> true transition. Re-saving an already-verified store
+    // must not re-send the email.
+    if (!before.is_verified && after.is_verified === true) {
       try {
         console.log(
-          `Store ${storeId} has been validated, sending confirmation email`,
+          `Store ${storeId} has been verified, sending confirmation email`,
         );
 
         // Get store owner information
@@ -1205,7 +1207,7 @@ exports.onStoreValidated = functions.firestore
         const lang = language.toLowerCase().startsWith("en") ? "en" : "fr";
 
         // Get email template
-        const emailTemplate = storeValidationEmailTemplate[lang];
+        const emailTemplate = storeVerifiedEmailTemplate[lang];
         const subject = emailTemplate.subject;
 
         // Compile email template
@@ -1216,7 +1218,7 @@ exports.onStoreValidated = functions.firestore
           instagramUrl: "https://instagram.com/shopisanapp",
         });
 
-        // Send validation confirmation email
+        // Send verification confirmation email
         const mailOptions = {
           from: `"Shopisan" <${SENDER_EMAIL}>`,
           to: storeEmail,
@@ -1226,13 +1228,13 @@ exports.onStoreValidated = functions.firestore
 
         const result = await transporter.sendMail(mailOptions);
         console.log(
-          "Store validation email sent successfully:",
+          "Store verification email sent successfully:",
           result.messageId,
         );
 
         return result;
       } catch (error) {
-        console.error("Error sending store validation email:", error);
+        console.error("Error sending store verification email:", error);
         return null;
       }
     }
@@ -1240,19 +1242,22 @@ exports.onStoreValidated = functions.firestore
     return null;
   });
 
-// Cloud Function that triggers when a store is rejected
-exports.onStoreRejected = functions.firestore
+// Cloud Function that triggers when a store is suspended (abuse takedown).
+// is_suspended is server-owned (see firestore.rules), so this only fires from an
+// admin action or scripts/suspend-store.js.
+exports.onStoreSuspended = functions.firestore
   .document("stores/{storeId}")
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
     const storeId = context.params.storeId;
 
-    // Check if store was just rejected (is_rejected changed to true from false or undefined)
-    if (!before.is_rejected && after.is_rejected === true) {
+    // Only the falsy -> true transition. Re-saving an already-suspended store
+    // must not re-send the takedown notice.
+    if (!before.is_suspended && after.is_suspended === true) {
       try {
         console.log(
-          `Store ${storeId} has been rejected, sending rejection email`,
+          `Store ${storeId} has been suspended, sending takedown email`,
         );
 
         // Get store owner information
@@ -1287,7 +1292,7 @@ exports.onStoreRejected = functions.firestore
         const lang = language.toLowerCase().startsWith("en") ? "en" : "fr";
 
         // Get email template
-        const emailTemplate = storeRejectionEmailTemplate[lang];
+        const emailTemplate = storeSuspendedEmailTemplate[lang];
         const subject = emailTemplate.subject;
 
         // Compile email template
@@ -1299,7 +1304,7 @@ exports.onStoreRejected = functions.firestore
           appStoreUrl: "https://apps.apple.com/app/shopisan",
         });
 
-        // Send rejection email
+        // Send suspension email
         const mailOptions = {
           from: `"Shopisan" <${SENDER_EMAIL}>`,
           to: storeEmail,
@@ -1309,13 +1314,13 @@ exports.onStoreRejected = functions.firestore
 
         const result = await transporter.sendMail(mailOptions);
         console.log(
-          "Store rejection email sent successfully:",
+          "Store suspension email sent successfully:",
           result.messageId,
         );
 
         return result;
       } catch (error) {
-        console.error("Error sending store rejection email:", error);
+        console.error("Error sending store suspension email:", error);
         return null;
       }
     }

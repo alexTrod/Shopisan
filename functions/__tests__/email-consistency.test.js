@@ -202,17 +202,17 @@ describe("Email Consistency Tests", () => {
       expect(hasGenericFallback).toBe(true);
     });
 
-    it("sendStoreCreationEmail should have same email fallback logic as onStoreValidated", () => {
+    it("sendStoreCreationEmail should have same email fallback logic as onStoreVerified", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // onStoreValidated uses: after.storeEmail || after.email
-      const validatedHasFallback = indexContent.includes(
+      // onStoreVerified uses: after.storeEmail || after.email
+      const verifiedHasFallback = indexContent.includes(
         "let storeEmail = after.storeEmail || after.email",
       );
-      expect(validatedHasFallback).toBe(true);
+      expect(verifiedHasFallback).toBe(true);
 
       // sendStoreCreationEmail should also support fallback or document why not
       // Currently it only uses storeEmail directly - this is the inconsistency
@@ -220,7 +220,7 @@ describe("Email Consistency Tests", () => {
     });
   });
 
-  describe("onStoreValidated - Email Recipient Logic", () => {
+  describe("onStoreVerified - Email Recipient Logic", () => {
     it("should use storeEmail with fallback to owner email", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
@@ -238,24 +238,24 @@ describe("Email Consistency Tests", () => {
     });
   });
 
-  describe("onStoreRejected - Email Recipient Logic", () => {
-    it("should use same fallback logic as onStoreValidated", () => {
+  describe("onStoreSuspended - Email Recipient Logic", () => {
+    it("should use same fallback logic as onStoreVerified", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
       // Both functions should have identical email fallback logic
-      const validatedSection = indexContent.match(
-        /exports\.onStoreValidated[\s\S]*?let storeEmail = ([\s\S]*?);/,
+      const verifiedSection = indexContent.match(
+        /exports\.onStoreVerified[\s\S]*?let storeEmail = ([\s\S]*?);/,
       );
-      const rejectedSection = indexContent.match(
-        /exports\.onStoreRejected[\s\S]*?let storeEmail = ([\s\S]*?);/,
+      const suspendedSection = indexContent.match(
+        /exports\.onStoreSuspended[\s\S]*?let storeEmail = ([\s\S]*?);/,
       );
 
-      expect(validatedSection).toBeTruthy();
-      expect(rejectedSection).toBeTruthy();
-      expect(validatedSection[1]).toBe(rejectedSection[1]);
+      expect(verifiedSection).toBeTruthy();
+      expect(suspendedSection).toBeTruthy();
+      expect(verifiedSection[1]).toBe(suspendedSection[1]);
     });
   });
 
@@ -343,7 +343,7 @@ describe("Email Flow Integration", () => {
       // - sendStoreCreationEmail sends to that email
       //
       // Current issue: sendStoreCreationEmail has no internal fallback
-      // Fix: Add owner_id fallback like onStoreValidated has
+      // Fix: Add owner_id fallback like onStoreVerified has
       expect(true).toBe(true); // Documentation test
     });
   });
