@@ -453,4 +453,122 @@ describe("PostForm", () => {
       );
     });
   });
+
+  describe("Currency", () => {
+    it("should label the price field with the active currency code", () => {
+      // t() returns the key in tests, so this renders as "price (EUR) - optional".
+      // In the app the `price` translation already ends in a colon, so the real
+      // UI reads "Price: (EUR) - optional".
+      const { getByText } = renderForm();
+
+      expect(getByText("price (EUR) - optional")).toBeTruthy();
+    });
+
+    it("should default to EUR and show the code on the currency button", () => {
+      const { getByText } = renderForm();
+
+      expect(getByText("EUR")).toBeTruthy();
+    });
+
+    it("should submit the default currency object with the post", async () => {
+      ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({
+        canceled: false,
+        assets: [{ uri: "file:///picked.jpg" }],
+      });
+
+      const { getByText, getByTestId } = renderForm();
+
+      await act(async () => {
+        fireEvent.press(getByText("add_image"));
+      });
+      await act(async () => {
+        fireEvent.press(getByTestId("editor-done"));
+      });
+      await act(async () => {
+        fireEvent.press(getByText("create_post"));
+      });
+
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currency: { code: "EUR", symbol: "€" },
+        }),
+      );
+    });
+
+    it("should show the currency symbol only inside the picker", async () => {
+      // The euro sign is never rendered next to the price input; the input
+      // shows the "0.00" placeholder and the button shows the code.
+      const { getByText, queryByText } = renderForm();
+
+      expect(queryByText("€")).toBeNull();
+
+      await act(async () => {
+        fireEvent.press(getByText("EUR"));
+      });
+
+      expect(getByText("€")).toBeTruthy();
+      expect(getByText("Euro")).toBeTruthy();
+    });
+
+    it("should switch currency from the picker and keep only code and symbol", async () => {
+      ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({
+        canceled: false,
+        assets: [{ uri: "file:///picked.jpg" }],
+      });
+
+      const { getByText, getByTestId } = renderForm();
+
+      await act(async () => {
+        fireEvent.press(getByText("EUR"));
+      });
+      await act(async () => {
+        fireEvent.press(getByText("British Pound"));
+      });
+
+      // Button and label both follow the selection
+      expect(getByText("price (GBP) - optional")).toBeTruthy();
+
+      await act(async () => {
+        fireEvent.press(getByText("add_image"));
+      });
+      await act(async () => {
+        fireEvent.press(getByTestId("editor-done"));
+      });
+      await act(async () => {
+        fireEvent.press(getByText("create_post"));
+      });
+
+      // name and flag are dropped on selection
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currency: { code: "GBP", symbol: "£" },
+        }),
+      );
+    });
+
+    it("should adopt an object currency from initialData", () => {
+      const { getByText } = renderForm({
+        initialData: {
+          id: "post123",
+          images: ["https://cdn.example/a.jpg"],
+          currency: { code: "CHF", symbol: "CHF" },
+        },
+      });
+
+      expect(getByText("price (CHF) - optional")).toBeTruthy();
+    });
+
+    it("should coerce a legacy string currency from initialData", () => {
+      // Older posts stored the currency as a bare string.
+      const { getByText } = renderForm({
+        initialData: {
+          id: "post123",
+          images: ["https://cdn.example/a.jpg"],
+          currency: "USD",
+        },
+      });
+
+      expect(getByText("price (USD) - optional")).toBeTruthy();
+    });
+  });
 });
