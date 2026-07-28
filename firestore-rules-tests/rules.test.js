@@ -84,11 +84,26 @@ beforeEach(async () => {
       id: 1,
       name: "Store A",
       owner_id: OWNER_A,
+      is_validated: true,
+      is_verified: false,
+      is_suspended: false,
     });
+    // Deliberately left without any moderation fields: legacy documents
+    // predate them, and the rules must still let their owner edit them.
     await setDoc(doc(db, "stores", "store-b"), {
       id: 2,
       name: "Store B",
       owner_id: OWNER_B,
+    });
+    await setDoc(doc(db, "stores", "store-suspended"), {
+      id: 5,
+      name: "Suspended Store",
+      owner_id: OWNER_A,
+      // A takedown writes both fields: is_suspended for current builds,
+      // is_validated: false for builds that predate it.
+      is_validated: false,
+      is_verified: false,
+      is_suspended: true,
     });
 
     await setDoc(doc(db, "posts", "post-a"), {
@@ -223,6 +238,108 @@ describe("stores - only owner accounts can create", () => {
 
   it("lets anyone read stores, signed in or not", async () => {
     await assertSucceeds(getDoc(doc(asGuest(), "stores", "store-a")));
+  });
+});
+
+describe("stores - moderation fields are server-owned", () => {
+  it("blocks an owner from verifying their own store", async () => {
+    // The badge would mean nothing if merchants could grant it to themselves.
+    const db = asUser(OWNER_A);
+    await assertFails(
+      updateDoc(doc(db, "stores", "store-a"), { is_verified: true }),
+    );
+  });
+
+  it("blocks a suspended owner from un-suspending themselves", async () => {
+    const db = asUser(OWNER_A);
+    await assertFails(
+      updateDoc(doc(db, "stores", "store-suspended"), { is_suspended: false }),
+    );
+  });
+
+  it("blocks an owner from rewriting is_validated", async () => {
+    // is_validated is the visibility switch for builds that predate
+    // is_suspended, so rewriting it is half of un-suspending yourself.
+    const db = asUser(OWNER_A);
+    await assertFails(
+      updateDoc(doc(db, "stores", "store-suspended"), { is_validated: true }),
+    );
+  });
+
+  it("still lets an owner edit ordinary fields on their store", async () => {
+    // Regression guard: an over-broad freeze bricks all store editing.
+    const db = asUser(OWNER_A);
+    await assertSucceeds(
+      updateDoc(doc(db, "stores", "store-a"), { name: "Renamed" }),
+    );
+  });
+
+  it("still lets an owner edit a legacy store that has no moderation fields", async () => {
+    // get(key, default) guard: a direct .is_verified read on a missing key
+    // errors out, which would deny every edit these owners make.
+    const db = asUser(OWNER_B);
+    await assertSucceeds(
+      updateDoc(doc(db, "stores", "store-b"), { name: "Legacy renamed" }),
+    );
+  });
+
+  it("allows an admin to verify and suspend a store", async () => {
+    const db = asUser(ADMIN);
+    await assertSucceeds(
+      updateDoc(doc(db, "stores", "store-a"), {
+        is_verified: true,
+        is_suspended: true,
+        is_validated: false,
+      }),
+    );
+  });
+
+  it("blocks creating a store that is already verified", async () => {
+    const db = asUser(OWNER_A);
+    await assertFails(
+      setDoc(doc(db, "stores", "self-verified"), {
+        id: 6,
+        name: "Self verified",
+        owner_id: OWNER_A,
+        is_verified: true,
+      }),
+    );
+  });
+
+  it("blocks creating a store that is already suspended", async () => {
+    const db = asUser(OWNER_A);
+    await assertFails(
+      setDoc(doc(db, "stores", "born-suspended"), {
+        id: 7,
+        name: "Born suspended",
+        owner_id: OWNER_A,
+        is_suspended: true,
+      }),
+    );
+  });
+
+  it("accepts is_validated: false at create, so old builds still work", async () => {
+    const db = asUser(OWNER_A);
+    await assertSucceeds(
+      setDoc(doc(db, "stores", "old-build-store"), {
+        id: 8,
+        name: "From an old build",
+        owner_id: OWNER_A,
+        is_validated: false,
+      }),
+    );
+  });
+
+  it("accepts is_validated: true at create, as current builds write it", async () => {
+    const db = asUser(OWNER_A);
+    await assertSucceeds(
+      setDoc(doc(db, "stores", "new-build-store"), {
+        id: 9,
+        name: "From a current build",
+        owner_id: OWNER_A,
+        is_validated: true,
+      }),
+    );
   });
 });
 

@@ -52,12 +52,44 @@ service cloud.firestore {
       allow delete: if signedIn() && request.auth.uid == userId;
     }
 
-    // Stores - anyone can read, only store owners can create
+    // Stores - anyone can read, only store owners can create.
+    //
+    // Stores are live the moment they are created; there is no approval gate.
+    // is_verified (the public badge) and is_suspended (abuse takedown) are
+    // server-owned: only an admin or the Admin SDK may set them. is_validated
+    // is frozen on update too, because app builds released before this change
+    // still filter their store list on it -- clearing it is half of a takedown,
+    // so an owner who could rewrite it would un-suspend themselves on every old
+    // build in the wild. It stays unconstrained on create so those same builds,
+    // which send is_validated: false, can still add stores.
+    //
+    // Read through get(key, default) everywhere: legacy store documents have
+    // none of these keys, and a direct .is_verified lookup on a missing key
+    // evaluates to an error, which would deny every edit those owners make.
     match /stores/{storeId} {
+      function moderationNeutralOnCreate() {
+        return request.resource.data.get('is_verified', false) == false
+            && request.resource.data.get('is_suspended', false) == false;
+      }
+
+      function moderationUnchanged() {
+        return request.resource.data.get('is_verified', false) == resource.data.get('is_verified', false)
+            && request.resource.data.get('is_suspended', false) == resource.data.get('is_suspended', false)
+            && request.resource.data.get('is_validated', false) == resource.data.get('is_validated', false);
+      }
+
       allow read: if true;
-      allow create: if isStoreOwner() && request.resource.data.owner_id == request.auth.uid;
-      allow update, delete: if signedIn() && resource != null &&
-        (resource.data.owner_id == request.auth.uid || isAdmin());
+
+      allow create: if isStoreOwner()
+        && request.resource.data.owner_id == request.auth.uid
+        && moderationNeutralOnCreate();
+
+      allow update: if signedIn() && resource != null
+        && (isAdmin()
+            || (resource.data.owner_id == request.auth.uid && moderationUnchanged()));
+
+      allow delete: if signedIn() && resource != null
+        && (resource.data.owner_id == request.auth.uid || isAdmin());
     }
 
     // Cities collection - anyone can read, authenticated users can write
