@@ -125,23 +125,36 @@ describe("Email Consistency Tests", () => {
 
       // Check that template selection uses correct logic
       const templateSelectionMatch = indexContent.match(
-        /sendVerificationEmail[\s\S]*?const emailTemplate\s*=[\s\S]*?userType === "merchant"/,
+        /sendVerificationEmail[\s\S]*?const emailTemplate\s*=\s*isStoreOwnerType\(userType\)/,
       );
 
       expect(templateSelectionMatch).toBeTruthy();
     });
 
-    it("should use merchantEmailTemplate for merchant userType", () => {
+    it("should use merchantEmailTemplate for store owner userType", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // Verify merchant template is used for merchant userType
+      // Verify the owner template is selected via the shared helper
       const hasCorrectLogic = indexContent.includes(
-        'userType === "merchant"\n          ? merchantEmailTemplate',
+        "isStoreOwnerType(userType)\n        ? merchantEmailTemplate",
       );
       expect(hasCorrectLogic).toBe(true);
+    });
+
+    it("isStoreOwnerType should accept both owner and legacy merchant", () => {
+      const indexContent = require("fs").readFileSync(
+        require("path").join(__dirname, "../index.js"),
+        "utf8",
+      );
+
+      // Old app builds still send "merchant"; both must route to the owner
+      // template until scripts/migrate-user-types.js has rolled out everywhere.
+      expect(indexContent).toMatch(
+        /const isStoreOwnerType = \(userType\) =>\s*userType === "owner" \|\| userType === "merchant";/,
+      );
     });
   });
 

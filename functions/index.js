@@ -31,6 +31,15 @@ const ADMIN_EMAIL = "info@shopisan.com";
 const SENDER_EMAIL = "info@shopisan.com";
 const SUPPORT_EMAIL = "support@shopisan.com";
 
+/**
+ * Store owner account check.
+ * "owner" is the current value; "merchant" is the pre-migration value and is
+ * still accepted so old app builds keep receiving the right email template.
+ * See scripts/migrate-user-types.js.
+ */
+const isStoreOwnerType = (userType) =>
+  userType === "owner" || userType === "merchant";
+
 // Email templates for different user types
 const shopperEmailTemplate = {
   fr: {
@@ -719,10 +728,9 @@ exports.sendVerificationEmail = functions.https.onCall(
       const lang = (language || "fr").toLowerCase().startsWith("en")
         ? "en"
         : "fr";
-      const emailTemplate =
-        userType === "merchant"
-          ? merchantEmailTemplate[lang]
-          : shopperEmailTemplate[lang];
+      const emailTemplate = isStoreOwnerType(userType)
+        ? merchantEmailTemplate[lang]
+        : shopperEmailTemplate[lang];
       const subject = emailTemplate.subject;
 
       // Compile email template
@@ -1017,16 +1025,15 @@ exports.resendVerificationEmail = functions.https.onCall(
         : "fr";
 
       // Select template based on user type
-      emailTemplate =
-        userType === "merchant"
-          ? merchantEmailTemplate[lang]
-          : shopperEmailTemplate[lang];
+      emailTemplate = isStoreOwnerType(userType)
+        ? merchantEmailTemplate[lang]
+        : shopperEmailTemplate[lang];
       subject = emailTemplate.subject;
 
       // Compile email template
       const template = handlebars.compile(emailTemplate.template);
       const htmlContent = template({
-        username: userType === "merchant" ? storeName || username : username,
+        username: isStoreOwnerType(userType) ? storeName || username : username,
         storeName: storeName || username,
         verificationUrl,
         email,
