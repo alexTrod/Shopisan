@@ -2,6 +2,7 @@ import React, { useState } from "react";
 
 import ScreenWrapper from "../../../components/screen-wrapper";
 import { AppColors } from "../../../utils";
+import { isOwnerType, userTypeLabelKey } from "../../../utils/userTypes";
 import Header from "../../../components/header";
 import CustomText from "../../../components/text";
 import { height, width } from "../../../utils/dimension";
@@ -99,13 +100,21 @@ export default function Profile({ navigation }) {
       >
         {/* Account Section */}
         <View style={styles.sectionContainer}>
-          <CustomText
-            size={2.6}
-            color={AppColors.primary}
-            style={{ marginLeft: 4, fontWeight: "bold" }}
-          >
-            {t("account")}
-          </CustomText>
+          <View style={styles.sectionHeaderRow}>
+            <CustomText
+              size={2.6}
+              color={AppColors.primary}
+              style={{ marginLeft: 4, fontWeight: "bold" }}
+            >
+              {t("account")}
+            </CustomText>
+            {/* The only place the app surfaces which account type you are. */}
+            <View style={styles.accountTypeBadge}>
+              <CustomText size={1.5} color={AppColors.primary}>
+                {t(userTypeLabelKey(user?.userType))}
+              </CustomText>
+            </View>
+          </View>
           <View style={{ height: 20 }} />
           {[
             { titleKey: "change_email_name", screen: "ChangeEmailScreen" },
@@ -139,7 +148,7 @@ export default function Profile({ navigation }) {
         </View>
 
         {/* Support Section *
-        {user?.userType === "merchant" && (
+        {isOwnerType(user) && (
           <View style={styles.sectionContainer}>
             <CustomText size={2.6} color={AppColors.primary} style={{ marginLeft: 4, fontWeight: 'bold' }}>
               Support
@@ -160,28 +169,34 @@ export default function Profile({ navigation }) {
         )}
         */}
 
-        {/* Store Section */}
-        <View style={styles.sectionContainer}>
-          <CustomText
-            size={2.6}
-            color={AppColors.primary}
-            style={{ marginLeft: 4, fontWeight: "bold" }}
-          >
-            Store
-          </CustomText>
-          <View style={{ height: 20 }} />
-          <TouchableOpacity
-            style={styles.optionTile}
-            onPress={() => handlePress("AddStoreScreen")}
-          >
-            <View style={styles.optionContent}>
-              <CustomText size={1.8} color={AppColors.black}>
-                {t("add_a_store")}
-              </CustomText>
-              <ChevronRight width={20} height={20} color={AppColors.grey_300} />
-            </View>
-          </TouchableOpacity>
-        </View>
+        {/* Store Section - store owners only */}
+        {isOwnerType(user) && (
+          <View style={styles.sectionContainer}>
+            <CustomText
+              size={2.6}
+              color={AppColors.primary}
+              style={{ marginLeft: 4, fontWeight: "bold" }}
+            >
+              Store
+            </CustomText>
+            <View style={{ height: 20 }} />
+            <TouchableOpacity
+              style={styles.optionTile}
+              onPress={() => handlePress("AddStoreScreen")}
+            >
+              <View style={styles.optionContent}>
+                <CustomText size={1.8} color={AppColors.black}>
+                  {t("add_a_store")}
+                </CustomText>
+                <ChevronRight
+                  width={20}
+                  height={20}
+                  color={AppColors.grey_300}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Feedback Section */}
         <View style={styles.sectionContainer}>
@@ -276,6 +291,19 @@ export default function Profile({ navigation }) {
 const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 40,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  accountTypeBadge: {
+    backgroundColor: AppColors.white_100,
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
   },
   optionTile: {
     backgroundColor: AppColors.white_100,

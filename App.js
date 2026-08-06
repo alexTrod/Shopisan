@@ -9,7 +9,6 @@ import { checkAuthStatus } from "./src/Redux/Actions/UserActions";
 import BottomTabs from "./src/Routes/bottom-tab";
 import { ScreenNames } from "./src/Routes/routes";
 import SignUp from "./src/screens/auth/signup";
-import MerchantSignupWizard from "./src/screens/auth/signup/MerchantSignupWizard";
 import SignIn from "./src/screens/auth/signin";
 import ResetPassword from "./src/screens/auth/reset-password";
 import CustomText from "./src/components/text";
@@ -25,6 +24,11 @@ import ReportIssueScreen from "./src/screens/app/Profile/report-issue";
 import SuggestIdeaScreen from "./src/screens/app/Profile/suggest-idea";
 import ContactSupportScreen from "./src/screens/app/Profile/contact-support";
 import Toast from "react-native-toast-message";
+// Imported per weight, not from the package root: the root index requires
+// every Roboto variant, which drags ~5 MB of unused fonts into the bundle.
+import { useFonts } from "expo-font";
+import { Roboto_400Regular } from "@expo-google-fonts/roboto/400Regular";
+import { Roboto_500Medium } from "@expo-google-fonts/roboto/500Medium";
 import { useTranslation } from "./src/utils/useTranslation";
 //import LanguageSelectionScreen from './src/screens/app/language-selection';
 //import initializeLogging from './src/utils/initLogging'; // Initialize logging system
@@ -294,10 +298,6 @@ const App = () => {
         ) : (
           <>
             <Stack.Screen name={ScreenNames.SIGN_UP} component={SignUp} />
-            <Stack.Screen
-              name="MerchantSignupWizard"
-              component={MerchantSignupWizard}
-            />
             <Stack.Screen name={ScreenNames.SIGN_IN} component={SignIn} />
             <Stack.Screen
               name={ScreenNames.FORGOT_PASSWORD}
@@ -315,6 +315,26 @@ const WrappedApp = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [localeLoaded, setLocaleLoaded] = useState(false);
 
+  // Registered under the family names the screens already use, so the
+  // fontFamily: "Roboto-Medium" / "Roboto-Regular" call sites work unchanged.
+  const [fontsLoaded, fontError] = useFonts({
+    "Roboto-Regular": Roboto_400Regular,
+    "Roboto-Medium": Roboto_500Medium,
+  });
+
+  // Never block startup on fonts: if they fail, carry on with the system font
+  // rather than leaving the user on a splash screen forever.
+  const fontsReady = fontsLoaded || !!fontError;
+
+  useEffect(() => {
+    if (fontError) {
+      console.warn(
+        "Failed to load Roboto, falling back to system font:",
+        fontError,
+      );
+    }
+  }, [fontError]);
+
   useEffect(() => {
     // Load persisted locale first, then start splash timer
     const init = async () => {
@@ -330,10 +350,15 @@ const WrappedApp = () => {
     init();
   }, []);
 
-  console.log("⏳ WrappedApp render:", { showSplash, localeLoaded });
+  console.log("⏳ WrappedApp render:", {
+    showSplash,
+    localeLoaded,
+    fontsReady,
+  });
 
-  // Show nothing until locale is loaded, then show splash
-  if (!localeLoaded) {
+  // Hold the plain logo screen until both the locale and the fonts are ready,
+  // so text never renders once in the system font and then reflows to Roboto.
+  if (!localeLoaded || !fontsReady) {
     return (
       <View style={styles.splashContainer}>
         <Image

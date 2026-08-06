@@ -18,7 +18,15 @@ export default {
     forgot_password: "Forgot Password",
     create_account: "Create Account",
     sign_up_as_shopper: "Sign up as a shopper",
-    sign_up_as_merchant: "Sign up as a merchant",
+    sign_up_as_merchant: "Sign up as a store owner",
+
+    // Account type labels
+    user_type_shopper: "Shopper",
+    user_type_owner: "Store Owner",
+    owner_account_required: "Store owner account required",
+    owner_account_required_message:
+      "Only store owner accounts can add a store.",
+    not_your_store: "This store belongs to another account.",
     register: "Register",
     already_have_account: "Already have an account?",
     no_account_yet: "Create an account?",
@@ -40,7 +48,6 @@ export default {
     back_to_account: "Back to Account",
     merchant_registration_complete:
       "Your account and store have been registered!",
-    store_pending_approval: "Your store is pending admin approval",
     registration_failed: "Registration failed. Please try again.",
     user_data_missing:
       "User data is missing. Please go back and fill in your details.",
@@ -105,7 +112,8 @@ export default {
     posted_announcements: "Posted Announcements",
     see_all_posts: "See all posts",
     no_post_description: "No description.",
-    price: "Price:",
+    price: "Price",
+    select_currency: "Select Currency",
 
     // Auth & Errors
     login_failed_message: "Incorrect email or password. Please try again.",
@@ -193,10 +201,9 @@ export default {
     email_sent: "Email sent!",
     password_reset_sent: "Password reset email sent",
     no_results: "No results found",
-    store_added_successfully:
-      "Store added successfully! Your store will be visible after validation.",
-    store_validation_pending:
-      "Your store is pending validation and will be visible soon.",
+    store_already_added_title: "This shop is already on Shopisan",
+    store_already_added_description:
+      "You added it a moment ago, so it is already live in the app.",
 
     // Profile Screen
     account: "Account",
@@ -305,11 +312,12 @@ export default {
       "No stores found within 10km. Would you like to explore another city?",
     explore_city_question:
       "No stores found within 10km. Would you like to explore {city}?",
-    store_saved_success:
-      "Store saved! We will verify it quickly. Thank you for growing Shopisan with us",
+    store_saved_success: "Store saved! Thank you for growing Shopisan with us",
     store_added_title: "Thank you for adding your favorite shop!",
     store_added_description:
-      "You are helping grow the Shopisan community. The shop will be added to the app once the validation process is complete. Feel free to spread the word and add other shops you love!",
+      "The shop is live in the app right away. You are helping grow the Shopisan community, so feel free to spread the word and add other shops you love!",
+    store_verified_badge_label: "Verified shop",
+    store_suspended: "This shop is suspended and is not visible in the app.",
     no_stores_in_area: "Your city is still waiting for its shops on Shopisan.",
     loading_stores: "Loading stores...",
     no_stores_modal_description: "Help us grow: add your favorite shops.",
@@ -343,8 +351,13 @@ export default {
     enter_number_error: "Please enter a number",
     unable_to_open_image_picker: "Unable to open image picker.",
 
+    // UI
+    show_more: "Show more",
+    show_less: "Show less",
+
     // Posts Management
     manage_posts: "Manage Posts",
+    add_post: "Add Post",
     create_post: "Create Post",
     edit_post: "Edit Post",
     delete_post: "Delete Post",
@@ -390,7 +403,15 @@ export default {
     forgot_password: "Mot de passe oublié",
     create_account: "Créer un compte",
     sign_up_as_shopper: "S'inscrire en tant qu'acheteur",
-    sign_up_as_merchant: "S'inscrire en tant que commerçant",
+    sign_up_as_merchant: "S'inscrire en tant que propriétaire de magasin",
+
+    // Account type labels
+    user_type_shopper: "Acheteur",
+    user_type_owner: "Propriétaire de magasin",
+    owner_account_required: "Compte propriétaire requis",
+    owner_account_required_message:
+      "Seuls les comptes propriétaires peuvent ajouter un magasin.",
+    not_your_store: "Ce magasin appartient à un autre compte.",
     register: "S'inscrire",
     already_have_account: "Vous avez déjà un compte ?",
     no_account_yet: "Créer un compte ?",
@@ -412,7 +433,6 @@ export default {
     back_to_account: "Retour au Compte",
     merchant_registration_complete:
       "Votre compte et votre boutique ont été enregistrés !",
-    store_pending_approval: "Votre boutique est en attente de validation",
     registration_failed: "L'inscription a échoué. Veuillez réessayer.",
     user_data_missing:
       "Les données utilisateur sont manquantes. Veuillez revenir en arrière et remplir vos informations.",
@@ -478,7 +498,8 @@ export default {
     posted_announcements: "Annonces postées",
     see_all_posts: "Voir toutes les annonces",
     no_post_description: "Pas de description.",
-    price: "Prix:",
+    price: "Prix",
+    select_currency: "Sélectionner la devise",
 
     // Auth & Errors
     login_failed_message:
@@ -571,10 +592,9 @@ export default {
     email_sent: "Email envoyé !",
     password_reset_sent: "Email de réinitialisation envoyé",
     no_results: "Aucun résultat trouvé",
-    store_added_successfully:
-      "Magasin ajouté avec succès ! Votre magasin sera visible après validation.",
-    store_validation_pending:
-      "Votre magasin est en cours de validation et sera bientôt visible.",
+    store_already_added_title: "Cette boutique est déjà sur Shopisan",
+    store_already_added_description:
+      "Vous venez de l'ajouter : elle est déjà en ligne dans l'application.",
 
     // Profile Screen
     account: "Compte",
@@ -687,10 +707,13 @@ export default {
     explore_city_question:
       "Aucun magasin trouvé dans un rayon de 10km. Souhaitez-vous explorer {city} ?",
     store_saved_success:
-      "Boutique enregistrée ! Nous allons le vérifier rapidement. Merci de faire grandir Shopisan avec nous",
+      "Boutique enregistrée ! Merci de faire grandir Shopisan avec nous",
     store_added_title: "Merci d'avoir ajouté votre boutique favorite !",
     store_added_description:
-      "Vous contribuez à faire grandir la communauté Shopisan. La boutique sera ajoutée sur l'application une fois la validation effectuée. N'hésitez pas à en parler autour de vous et à ajouter d'autres boutiques que vous aimez !",
+      "La boutique est immédiatement en ligne dans l'application. Vous contribuez à faire grandir la communauté Shopisan : n'hésitez pas à en parler autour de vous et à ajouter d'autres boutiques que vous aimez !",
+    store_verified_badge_label: "Boutique vérifiée",
+    store_suspended:
+      "Cette boutique est suspendue et n'apparaît pas dans l'application.",
     no_stores_in_area: "Votre ville attend encore ses commerces préférés.",
     loading_stores: "Chargement des magasins...",
     no_stores_modal_description:
@@ -727,8 +750,13 @@ export default {
     enter_number_error: "Veuillez entrer un nombre",
     unable_to_open_image_picker: "Impossible d'ouvrir le sélecteur d'images.",
 
+    // UI
+    show_more: "Voir plus",
+    show_less: "Voir moins",
+
     // Posts Management
     manage_posts: "Gérer les annonces",
+    add_post: "Ajouter une annonce",
     create_post: "Créer une annonce",
     edit_post: "Modifier l'annonce",
     delete_post: "Supprimer l'annonce",

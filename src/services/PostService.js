@@ -97,13 +97,25 @@ class PostService {
    * @param {string[]} postData.imageUris - Local image URIs to upload
    * @param {Object} postData.description - { en?: string, fr?: string }
    * @param {number} [postData.price] - Optional price
+   * @param {Object} [postData.currency] - { code: string, symbol: string }
+   * @param {string} postData.ownerId - uid of the store owner. Required:
+   *   firestore.rules matches it against request.auth.uid. Posts reference
+   *   the store's numeric `id`, not its document id, so rules cannot look the
+   *   owner up — it has to be denormalized onto the post.
    * @returns {Promise<Object>} - Created post with ID
    */
-  async createPost(storeId, { imageUris, description, price }) {
+  async createPost(
+    storeId,
+    { imageUris, description, price, currency, ownerId },
+  ) {
     try {
       // Validate at least one image
       if (!imageUris || imageUris.length === 0) {
         throw new Error("At least one image is required");
+      }
+
+      if (!ownerId) {
+        throw new Error("Missing store owner - cannot create post");
       }
 
       // Upload images
@@ -111,9 +123,11 @@ class PostService {
 
       const postData = {
         store: { id: storeId },
+        owner_id: ownerId,
         images,
         description: description || {},
         price: price !== undefined && price !== "" ? Number(price) : null,
+        currency: currency || { code: "EUR", symbol: "€" },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -166,11 +180,12 @@ class PostService {
    * @param {string[]} [updates.existingImages] - Existing image URLs to keep
    * @param {Object} [updates.description] - { en?: string, fr?: string }
    * @param {number} [updates.price] - Price
+   * @param {Object} [updates.currency] - { code: string, symbol: string }
    * @returns {Promise<Object>} - Updated post
    */
   async updatePost(
     postId,
-    { imageUris = [], existingImages = [], description, price },
+    { imageUris = [], existingImages = [], description, price, currency },
   ) {
     try {
       // Upload new images
@@ -190,6 +205,7 @@ class PostService {
         images,
         description: description || {},
         price: price !== undefined && price !== "" ? Number(price) : null,
+        currency: currency || { code: "EUR", symbol: "€" },
         updatedAt: serverTimestamp(),
       };
 
@@ -242,6 +258,7 @@ class PostService {
             images: post.images,
             description: post.description || {},
             price: post.price,
+            currency: post.currency || { code: "EUR", symbol: "€" },
             createdAt: post.createdAt,
           });
         }

@@ -11,12 +11,8 @@ export const ScreenNames = {
   SELECT_CATEGORY: "SelectCategory",
   MAP: "Map",
   PROFILE: "Profile",
-  PROFILE_SHOPPER: "ProfileShopper",
-  PROFILE_MERCHANT: "ProfileMerchant",
-  SETTINGS: "Settings",
   ADD_STORE: "AddStore",
   HANDLE_STORE: "HandleStore",
-  CHOOSE_ROLE: "ChooseRole",
   VERIFY_EMAIL: "VerifyEmail",
   MANAGE_POSTS: "ManagePosts",
 };

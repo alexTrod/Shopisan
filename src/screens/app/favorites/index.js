@@ -96,15 +96,14 @@ export default function FavoritesScreen({ navigation }) {
       let batchIds = favoriteStoreIds.slice(0, STORES_PER_PAGE);
 
       const storePromises = batchIds.map(async (storeId) => {
-        const storeQuery = query(
-          storesRef,
-          where("id", "==", storeId),
-          where("is_validated", "==", true),
-        );
+        const storeQuery = query(storesRef, where("id", "==", storeId));
         const snapshot = await getDocs(storeQuery);
-        return snapshot.empty
-          ? null
-          : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        if (snapshot.empty) return null;
+
+        const store = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        // Suspended stores drop out of favourites the same way a deleted one
+        // does, rather than rendering a card that leads nowhere.
+        return store.is_suspended ? null : store;
       });
 
       const newStores = (await Promise.all(storePromises)).filter(
@@ -165,6 +164,9 @@ export default function FavoritesScreen({ navigation }) {
           }
         }}
         openingHours={item.openingHours || null}
+        // Suspended stores are dropped in fetchFavoriteStores, so only the
+        // badge is worth passing through here.
+        is_verified={item.is_verified}
       />
     ),
     [locale, favoriteStores, dispatch, navigation],

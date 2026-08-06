@@ -28,6 +28,7 @@ import {
 } from "react-native";
 import FloatingCards from "../../../components/card-Item";
 import ItemDetailModal from "../../../components/item-card/ItemDetailModal";
+import toDetailItem from "../../../components/item-card/toDetailItem";
 import MapCategoryFilter from "../../../components/map-category-filter";
 import * as Location from "expo-location";
 import { useSelector, useDispatch } from "react-redux";
@@ -52,7 +53,7 @@ MapboxGL.setAccessToken(
 );
 
 export default function Map({ navigation, route }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const dispatch = useDispatch();
 
   // Get initial store from route params
@@ -818,15 +819,9 @@ export default function Map({ navigation, route }) {
                     showLabel={currentZoom > 14}
                     onPress={() => {
                       setSelectedStore(store);
-                      setSelectedStoreDetails({
-                        id: store.id,
-                        title: store.name,
-                        description:
-                          store.description?.fr || "No description available",
-                        tags: store.category?.map(getCategoryName) || [],
-                        address: store.address || "No address available",
-                        openingHours: store.openingHours || null,
-                      });
+                      setSelectedStoreDetails(
+                        toDetailItem(store, { getCategoryName, locale }),
+                      );
                       setModalVisible(true);
                     }}
                   />

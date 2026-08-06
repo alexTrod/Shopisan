@@ -7,10 +7,12 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Animated,
 } from "react-native";
 import PostService from "../../services/PostService";
 import { AppColors } from "../../utils";
-import { height, width } from "../../utils/dimension";
+import { ownsStore } from "../../utils/userTypes";
+import { height } from "../../utils/dimension";
 import { ScreenNames } from "../../Routes/routes";
 import logging from "../../utils/logging";
 import { useNavigation } from "@react-navigation/native";
@@ -24,12 +26,15 @@ import StorefrontIcon from "../../../assets/icons/storefront-icon";
 import HeartFilled from "../../../assets/icons/heart-filled";
 import HeartUnfilled from "../../../assets/icons/heart-unfilled";
 import StarIcon from "../../../assets/icons/star-icon";
+import ChevronRight from "../../../assets/icons/chevron-right";
 
 import AddressComponent from "./AddressComponent";
 import ImageGallery from "./ImageGallery";
 import OpeningHoursDisplay from "./OpeningHoursDisplay";
-import PostsMediaList from "./PostsMediaList";
+import PostsCarousel from "./PostsCarousel";
 import useStoreRatings from "./hooks/useStoreRatings";
+import AddCircleIcon from "../../../assets/icons/add-circle-icon";
+import PostFormModal from "../post-form-modal";
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
   const navigation = useNavigation();
@@ -47,6 +52,11 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
   const [postMedia, setPostMedia] = useState([]);
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const detailsAnimation = useRef(new Animated.Value(0)).current;
+
+  const isOwner = ownsStore(user, item?.owner_id);
 
   const {
     averageRating,
@@ -167,6 +177,21 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
       dispatch(setSelectedCategories(newSelectedCategories));
     }
   };
+
+  const toggleDetails = () => {
+    const toValue = showDetails ? 0 : 1;
+    setShowDetails(!showDetails);
+    Animated.timing(detailsAnimation, {
+      toValue,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const chevronRotation = detailsAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["90deg", "270deg"],
+  });
 
   if (loggingOut) {
     return (
@@ -308,13 +333,61 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               ))}
             </View>
 
-            <Text style={styles.description}>
-              {item.description || t("no_description_yet")}
-            </Text>
+            {/* Show More / Show Less Toggle */}
+            <TouchableOpacity
+              style={styles.showMoreButton}
+              onPress={toggleDetails}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.showMoreText}>
+                {showDetails ? t("show_less") : t("show_more")}
+              </Text>
+              <Animated.View
+                style={{ transform: [{ rotate: chevronRotation }] }}
+              >
+                <ChevronRight
+                  width={16}
+                  height={16}
+                  color={AppColors.primary}
+                />
+              </Animated.View>
+            </TouchableOpacity>
 
-            <OpeningHoursDisplay openingHours={item.openingHours} />
+            {/* Collapsible Details Section */}
+            {showDetails && (
+              <View style={styles.detailsSection}>
+                <Text style={styles.description}>
+                  {item.description || t("no_description_yet")}
+                </Text>
+                <OpeningHoursDisplay openingHours={item.openingHours} />
+              </View>
+            )}
 
-            <PostsMediaList media={postMedia} />
+            {/* Add Post button for store owners */}
+            {isOwner && (
+              <TouchableOpacity
+                style={styles.addPostButton}
+                onPress={() => setShowPostModal(true)}
+              >
+                <AddCircleIcon width={20} height={20} color={AppColors.white} />
+                <Text style={styles.addPostButtonText}>{t("add_post")}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Posts Carousel - Always visible */}
+            <PostsCarousel posts={postMedia} />
+
+            <PostFormModal
+              visible={showPostModal}
+              onClose={() => setShowPostModal(false)}
+              storeId={item?.id}
+              storeName={item?.title}
+              onPostCreated={async () => {
+                setShowPostModal(false);
+                // Refresh posts after creation
+                await fetchPostMedia();
+              }}
+            />
           </ScrollView>
         </View>
       </View>
@@ -396,7 +469,23 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
     marginTop: 4,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  showMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    marginBottom: 8,
+    gap: 4,
+  },
+  showMoreText: {
+    fontSize: height(1.6),
+    color: AppColors.primary,
+    fontWeight: "500",
+  },
+  detailsSection: {
+    marginBottom: 8,
   },
   tag: {
     backgroundColor: "rgba(108, 99, 255, 0.08)",
@@ -418,8 +507,9 @@ const styles = StyleSheet.create({
   },
   imageAreaWrapper: {
     position: "relative",
-    width: width(85),
-    alignSelf: "center",
+    // Full content width so the gallery edges line up with the title and
+    // address below it.
+    alignSelf: "stretch",
   },
   goHomeButton: {
     position: "absolute",
@@ -479,6 +569,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
+  },
+  addPostButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: AppColors.primary,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  addPostButtonText: {
+    color: AppColors.white,
+    fontFamily: "Roboto-Medium",
+    fontSize: 14,
   },
 });
 

@@ -3,55 +3,132 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection - users can read/write their own document
-    match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
-      // Allow admins to read all users
-      allow read: if request.auth != null &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    function signedIn() {
+      return request.auth != null;
     }
 
-    // Stores collection - anyone can read, authenticated users can create
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // The app writes is_admin, not role. The previous rules checked `role`,
+    // a field that is never written, so every admin branch was dead.
+    function isAdmin() {
+      return signedIn() && hasUserDoc() && userDoc().is_admin == true;
+    }
+
+    // Only store owner accounts may create stores and posts. "merchant" is the
+    // pre-migration value and is accepted until old app builds age out; drop it
+    // once traffic on those builds stops (see scripts/migrate-user-types.js).
+    function isStoreOwner() {
+      return signedIn() && hasUserDoc() &&
+        (userDoc().userType == 'owner' || userDoc().userType == 'merchant');
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+
+      allow create: if signedIn() && request.auth.uid == userId;
+
+      // Users may edit their own profile but NOT their privileged fields.
+      // Without this, any shopper could promote themselves to owner with a
+      // single updateDoc call and the account type would mean nothing.
+      //
+      // Read through get(key, default): pre-migration documents have no
+      // signupIntent, and a direct .signupIntent lookup on a missing key
+      // evaluates to an error, which would deny every profile update those
+      // users make (including the email sync in fetchUserData).
+      allow update: if signedIn() && request.auth.uid == userId
+        && resource != null
+        && request.resource.data.get('userType', null) == resource.data.get('userType', null)
+        && request.resource.data.get('is_admin', false) == resource.data.get('is_admin', false)
+        && request.resource.data.get('signupIntent', null) == resource.data.get('signupIntent', null);
+
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Stores - anyone can read, only store owners can create.
+    //
+    // Stores are live the moment they are created; there is no approval gate.
+    // is_verified (the public badge) and is_suspended (abuse takedown) are
+    // server-owned: only an admin or the Admin SDK may set them. is_validated
+    // is frozen on update too, because app builds released before this change
+    // still filter their store list on it -- clearing it is half of a takedown,
+    // so an owner who could rewrite it would un-suspend themselves on every old
+    // build in the wild. It stays unconstrained on create so those same builds,
+    // which send is_validated: false, can still add stores.
+    //
+    // Read through get(key, default) everywhere: legacy store documents have
+    // none of these keys, and a direct .is_verified lookup on a missing key
+    // evaluates to an error, which would deny every edit those owners make.
     match /stores/{storeId} {
+      function moderationNeutralOnCreate() {
+        return request.resource.data.get('is_verified', false) == false
+            && request.resource.data.get('is_suspended', false) == false;
+      }
+
+      function moderationUnchanged() {
+        return request.resource.data.get('is_verified', false) == resource.data.get('is_verified', false)
+            && request.resource.data.get('is_suspended', false) == resource.data.get('is_suspended', false)
+            && request.resource.data.get('is_validated', false) == resource.data.get('is_validated', false);
+      }
+
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null &&
-        (resource.data.owner_id == request.auth.uid ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+
+      allow create: if isStoreOwner()
+        && request.resource.data.owner_id == request.auth.uid
+        && moderationNeutralOnCreate();
+
+      allow update: if signedIn() && resource != null
+        && (isAdmin()
+            || (resource.data.owner_id == request.auth.uid && moderationUnchanged()));
+
+      allow delete: if signedIn() && resource != null
+        && (resource.data.owner_id == request.auth.uid || isAdmin());
     }
 
     // Cities collection - anyone can read, authenticated users can write
     match /cities/{cityId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if signedIn();
     }
 
     // Categories collection - anyone can read
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if signedIn();
     }
 
     // Store categories collection - anyone can read
     match /store_categories/{categoryId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if signedIn();
     }
 
-    // Ratings collection - anyone can read, authenticated users can write their own
+    // Ratings - anyone can read, any signed-in user (shoppers included) can rate.
+    // The owner field is user_id (rules previously checked a non-existent
+    // `userId`, so edit and delete always denied).
     match /ratings/{ratingId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if signedIn() && resource != null
+        && resource.data.user_id == request.auth.uid;
     }
 
-    // Posts collection - anyone can read, store owners can manage their posts
+    // Posts - anyone can read, only the owning store owner can write.
+    // owner_id is denormalized onto each post because posts reference the
+    // store's numeric `id` field, not its document id, so the store cannot be
+    // looked up from here.
     match /posts/{postId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null;
+      allow create: if isStoreOwner() && request.resource.data.owner_id == request.auth.uid;
+      allow update, delete: if resource != null
+        && ((signedIn() && resource.data.owner_id == request.auth.uid) || isAdmin());
     }
 
     // Favorites - stored in user document, handled by users rules

@@ -25,6 +25,10 @@ import Toast from "react-native-toast-message";
 import locationManager from "../services/LocationManager";
 import storeService from "../services/StoreService";
 import { LOCATION_CONFIG } from "../config/location";
+import {
+  sortVerifiedFirst,
+  sortByProximityThenVerified,
+} from "../utils/storeSorting";
 import { setCustomLocation } from "../Redux/Actions/LocationActions";
 import { store } from "../Redux";
 
@@ -220,7 +224,10 @@ export const StoreProvider = ({ children }) => {
       selectedCategories,
     );
 
-    setFilteredStores(nearbyStores);
+    // Verification reorders the list only here, at the display edge. The
+    // service keeps returning nearest-first because other callers read its
+    // first element as the closest store.
+    setFilteredStores(sortByProximityThenVerified(nearbyStores));
   }, [allStores, selectedCategories, userLocation]);
 
   /**
@@ -272,7 +279,7 @@ export const StoreProvider = ({ children }) => {
         )
         .filter((store) => filtered.some((f) => f.id === store.id));
 
-      setFilteredStores(nearbyStores);
+      setFilteredStores(sortByProximityThenVerified(nearbyStores));
     },
     [allStores, selectedCategories, userLocation],
   );
@@ -302,7 +309,9 @@ export const StoreProvider = ({ children }) => {
         return valid;
       });
 
-      setFilteredStores(filtered);
+      // No location means no distance to bucket by, so verification is the
+      // only ordering signal available here.
+      setFilteredStores(sortVerifiedFirst(filtered));
     }
   }, [filterStores, userLocation, allStores, selectedCategories]);
 

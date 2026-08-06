@@ -1,26 +1,39 @@
-import { collection, query, doc, getDocs, getDoc, orderBy, limit, startAfter, where } from "firebase/firestore";
+import {
+  collection,
+  query,
+  doc,
+  getDocs,
+  getDoc,
+  orderBy,
+  limit,
+  startAfter,
+  where,
+} from "firebase/firestore";
 import { firestore } from "../../firebaseconfig";
 import logging from "./logging";
 
 const STORES_PER_PAGE = 10;
 
-export const getStoreQuery = (selectedCategories, lastVisible, categories, selectedCities) => {
-
-  const storeCollection = collection(firestore, 'stores');
+export const getStoreQuery = (
+  selectedCategories,
+  lastVisible,
+  categories,
+  selectedCities,
+) => {
+  const storeCollection = collection(firestore, "stores");
   const queryConstraints = [];
 
-  // Always filter for validated stores only
-  queryConstraints.push(where('is_validated', '==', true));
-
   if (selectedCategories && selectedCategories.length > 0) {
-    queryConstraints.push(where('category', 'array-contains-any', selectedCategories));
+    queryConstraints.push(
+      where("category", "array-contains-any", selectedCategories),
+    );
   }
 
   if (selectedCities && selectedCities.length > 0) {
-    queryConstraints.push(where('cityName', 'in', selectedCities));
+    queryConstraints.push(where("cityName", "in", selectedCities));
   }
 
-  queryConstraints.push(orderBy('id', 'desc'));
+  queryConstraints.push(orderBy("id", "desc"));
   //queryConstraints.push(limit(STORES_PER_PAGE));
 
   let baseQuery = query(storeCollection, ...queryConstraints);
@@ -37,15 +50,18 @@ export const fetchStoreRatings = async (storeId) => {
     let _totalRating = 0;
     let _ratingCount = 0;
 
-    const ratingsCollection = collection(firestore, 'ratings');
-    const ratingsQuery = query(ratingsCollection, where('store_id', '==', storeId));
-    
+    const ratingsCollection = collection(firestore, "ratings");
+    const ratingsQuery = query(
+      ratingsCollection,
+      where("store_id", "==", storeId),
+    );
+
     const ratingsSnapshot = await getDocs(ratingsQuery);
     if (ratingsSnapshot.empty) {
       return { averageRating: 0, ratingCount: 0 };
     }
 
-    ratingsSnapshot.forEach(doc => {
+    ratingsSnapshot.forEach((doc) => {
       const ratingData = doc.data();
       _totalRating += ratingData.score;
       _ratingCount += 1;
@@ -53,9 +69,8 @@ export const fetchStoreRatings = async (storeId) => {
 
     const _averageRating = _ratingCount > 0 ? _totalRating / _ratingCount : 0;
     return { averageRating: _averageRating, ratingCount: _ratingCount };
-
   } catch (error) {
-    logging('Error fetching store ratings', error);
+    logging("Error fetching store ratings", error);
     return { averageRating: 0, ratingCount: 0 };
   }
 };
@@ -63,20 +78,20 @@ export const fetchStoreRatings = async (storeId) => {
 export const fetchStores = async (storeQuery) => {
   try {
     const snapshot = await getDocs(storeQuery);
-    const newStores = snapshot.docs.map(doc => {
+    const newStores = snapshot.docs.map((doc) => {
       return {
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       };
     });
 
     return {
       stores: newStores,
       lastVisible: snapshot.docs[snapshot.docs.length - 1],
-      hasMore: snapshot.docs.length === STORES_PER_PAGE
+      hasMore: snapshot.docs.length === STORES_PER_PAGE,
     };
   } catch (error) {
-    logging('Error loading stores:', error);
+    logging("Error loading stores:", error);
     throw error;
   }
 };
@@ -133,10 +148,11 @@ export const getMerchantStoreQuery = (ownerId, lastVisible) => {
   const storeCollection = collection(firestore, "stores");
   const queryConstraints = [
     where("owner_id", "==", ownerId),
-    // Note: For merchant's own stores, we show both validated and non-validated
-    // so they can see the status of their submissions
+    // Unfiltered on purpose: an owner sees every store they own, including a
+    // suspended one, so a takedown reads as a state on their own listing rather
+    // than the store silently vanishing.
     orderBy("id", "desc"),
-    limit(STORES_PER_PAGE)
+    limit(STORES_PER_PAGE),
   ];
 
   let baseQuery = query(storeCollection, ...queryConstraints);
@@ -148,15 +164,22 @@ export const getMerchantStoreQuery = (ownerId, lastVisible) => {
   return baseQuery;
 };
 
-export const matchesFilters = (store, selectedCategories, selectedCities, searchQuery) => {
+export const matchesFilters = (
+  store,
+  selectedCategories,
+  selectedCities,
+  searchQuery,
+) => {
   const matchCategory =
-    selectedCategories.length === 0 || selectedCategories.some(cat => store.category?.includes(cat));
+    selectedCategories.length === 0 ||
+    selectedCategories.some((cat) => store.category?.includes(cat));
 
   const matchCity =
     selectedCities.length === 0 || selectedCities.includes(store.cityName);
 
   const matchSearch =
-    !searchQuery || store.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    !searchQuery ||
+    store.name?.toLowerCase().includes(searchQuery.toLowerCase());
 
   return matchCategory && matchCity && matchSearch;
 };
@@ -166,9 +189,13 @@ export const filterStoresLocally = (
   selectedCategories,
   selectedCities,
   searchQuery,
-  userLocation
+  userLocation,
 ) => {
-  const normalize = str => str?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const normalize = (str) =>
+    str
+      ?.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
 
   const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
@@ -176,24 +203,25 @@ export const filterStoresLocally = (
     const dLon = ((lon2 - lon1) * Math.PI) / 180;
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
-  const filteredStores = stores.filter(store => {
+  const filteredStores = stores.filter((store) => {
     const matchesCity =
       !selectedCities?.length ||
-      selectedCities.some(city =>
+      selectedCities.some((city) =>
         typeof city === "string"
           ? city === store.cityName
-          : city.name === store.cityName
+          : city.name === store.cityName,
       );
 
     const matchesCategory =
       !selectedCategories?.length ||
       (Array.isArray(store.category) &&
-        store.category.some(cat => selectedCategories.includes(cat)));
+        store.category.some((cat) => selectedCategories.includes(cat)));
 
     const normalizedQuery = normalize(searchQuery?.trim());
     const matchesSearch =
@@ -213,8 +241,18 @@ export const filterStoresLocally = (
       if (!aGeo) return 1;
       if (!bGeo) return -1;
 
-      const distA = getDistanceInKm(userLocation.latitude, userLocation.longitude, aGeo.latitude, aGeo.longitude);
-      const distB = getDistanceInKm(userLocation.latitude, userLocation.longitude, bGeo.latitude, bGeo.longitude);
+      const distA = getDistanceInKm(
+        userLocation.latitude,
+        userLocation.longitude,
+        aGeo.latitude,
+        aGeo.longitude,
+      );
+      const distB = getDistanceInKm(
+        userLocation.latitude,
+        userLocation.longitude,
+        bGeo.latitude,
+        bGeo.longitude,
+      );
 
       return distA - distB;
     });

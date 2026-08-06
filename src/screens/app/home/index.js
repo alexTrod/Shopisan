@@ -28,6 +28,7 @@ import {
 import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
+import { isOwnerType } from "../../../utils/userTypes";
 import logging from "../../../utils/logging";
 import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
@@ -149,6 +150,8 @@ export default function HomeScreen({ navigation, route }) {
 
   const locale = useSelector((state) => state.locale.currentLocale);
   const user = useSelector((state) => state.user.userData);
+  // Shoppers can browse and rate, but not create stores.
+  const canAddStore = isOwnerType(user);
 
   const categories = useSelector(
     (state) => state.categories.categories,
@@ -454,13 +457,19 @@ export default function HomeScreen({ navigation, route }) {
         const storesQuery = query(
           storesCollection,
           where("id", "==", store.id),
-          where("is_validated", "==", true),
         );
         const querySnapshot = await getDocs(storesQuery);
 
         if (!querySnapshot.empty) {
           const storeDoc = querySnapshot.docs[0];
           const storeData = storeDoc.data();
+
+          // A suspended store is treated as not found: following a link to one
+          // must not reveal what the takedown removed from the map.
+          if (storeData.is_suspended) {
+            console.warn("Store is suspended, not opening :", store.id);
+            return;
+          }
 
           const completeStore = {
             id: storeDoc.id,
@@ -633,7 +642,8 @@ export default function HomeScreen({ navigation, route }) {
           }
         }}
         openingHours={item.openingHours || null}
-        is_validated={item.is_validated}
+        is_verified={item.is_verified}
+        is_suspended={item.is_suspended}
       />
     ),
     [
@@ -1071,16 +1081,18 @@ export default function HomeScreen({ navigation, route }) {
                         "Help us grow: add your favorite shops."}
                     </Text>
                     <View style={styles.welcomeButtonsContainer}>
-                      <TouchableOpacity
-                        onPress={handleNavigateAddStore}
-                        style={styles.addStoreButton}
-                      >
-                        <AddIcon width={20} height={20} fill="#fff" />
-                        <Text style={styles.addStoreButtonText}>
-                          {t("add_store_or_explore") ||
-                            "Add your favorite shops"}
-                        </Text>
-                      </TouchableOpacity>
+                      {canAddStore && (
+                        <TouchableOpacity
+                          onPress={handleNavigateAddStore}
+                          style={styles.addStoreButton}
+                        >
+                          <AddIcon width={20} height={20} fill="#fff" />
+                          <Text style={styles.addStoreButtonText}>
+                            {t("add_store_or_explore") ||
+                              "Add your favorite shops"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         onPress={findClosestStore}
@@ -1137,14 +1149,16 @@ export default function HomeScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
 
-        {/* Floating Add New Store Button */}
-        <TouchableOpacity
-          testID="home-fab-add-store"
-          onPress={handleNavigateAddStore}
-          style={styles.fabAdd}
-        >
-          <AddIcon width={32} height={32} fill="#fff" />
-        </TouchableOpacity>
+        {/* Floating Add New Store Button - store owners only */}
+        {canAddStore && (
+          <TouchableOpacity
+            testID="home-fab-add-store"
+            onPress={handleNavigateAddStore}
+            style={styles.fabAdd}
+          >
+            <AddIcon width={32} height={32} fill="#fff" />
+          </TouchableOpacity>
+        )}
 
         {/* Floating Favorite Button */}
         <TouchableOpacity

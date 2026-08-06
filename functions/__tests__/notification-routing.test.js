@@ -189,7 +189,7 @@ describe("Notification Routing Tests", () => {
 
       const store = {
         name: "Zaza",
-        is_validated: false, // New store is not validated yet
+        is_verified: false, // Live from creation, badge not granted yet
       };
 
       // For store creation by shopper:
@@ -295,25 +295,68 @@ describe("Notification Routing Tests", () => {
     });
   });
 
-  describe("Store Validation Notification", () => {
-    it("should send validation email when store is_validated changes to true", () => {
-      const beforeData = { is_validated: false, name: "Zaza" };
-      const afterData = { is_validated: true, name: "Zaza" };
+  describe("Store Verification Notification", () => {
+    it("should send verification email when store is_verified changes to true", () => {
+      const beforeData = { is_verified: false, name: "Zaza" };
+      const afterData = { is_verified: true, name: "Zaza" };
 
-      const shouldSendValidationEmail =
-        !beforeData.is_validated && afterData.is_validated;
+      const shouldSendVerificationEmail =
+        !beforeData.is_verified && afterData.is_verified;
 
-      expect(shouldSendValidationEmail).toBe(true);
+      expect(shouldSendVerificationEmail).toBe(true);
     });
 
-    it("should NOT send validation email if already validated", () => {
-      const beforeData = { is_validated: true, name: "Zaza" };
-      const afterData = { is_validated: true, name: "Zaza" };
+    it("should send verification email when is_verified was absent entirely", () => {
+      // Stores created before the badge existed have no is_verified key.
+      const beforeData = { name: "Zaza" };
+      const afterData = { is_verified: true, name: "Zaza" };
 
-      const shouldSendValidationEmail =
-        !beforeData.is_validated && afterData.is_validated;
+      const shouldSendVerificationEmail =
+        !beforeData.is_verified && afterData.is_verified === true;
 
-      expect(shouldSendValidationEmail).toBe(false);
+      expect(shouldSendVerificationEmail).toBe(true);
+    });
+
+    it("should NOT send verification email if already verified", () => {
+      const beforeData = { is_verified: true, name: "Zaza" };
+      const afterData = { is_verified: true, name: "Zaza" };
+
+      const shouldSendVerificationEmail =
+        !beforeData.is_verified && afterData.is_verified;
+
+      expect(shouldSendVerificationEmail).toBe(false);
+    });
+  });
+
+  describe("Store Suspension Notification", () => {
+    it("should send takedown email when store is_suspended changes to true", () => {
+      const beforeData = { is_suspended: false, name: "Zaza" };
+      const afterData = { is_suspended: true, name: "Zaza" };
+
+      const shouldSendSuspensionEmail =
+        !beforeData.is_suspended && afterData.is_suspended === true;
+
+      expect(shouldSendSuspensionEmail).toBe(true);
+    });
+
+    it("should NOT send takedown email if already suspended", () => {
+      const beforeData = { is_suspended: true, name: "Zaza" };
+      const afterData = { is_suspended: true, name: "Zaza" };
+
+      const shouldSendSuspensionEmail =
+        !beforeData.is_suspended && afterData.is_suspended === true;
+
+      expect(shouldSendSuspensionEmail).toBe(false);
+    });
+
+    it("should NOT send takedown email when a store is un-suspended", () => {
+      const beforeData = { is_suspended: true, name: "Zaza" };
+      const afterData = { is_suspended: false, name: "Zaza" };
+
+      const shouldSendSuspensionEmail =
+        !beforeData.is_suspended && afterData.is_suspended === true;
+
+      expect(shouldSendSuspensionEmail).toBe(false);
     });
   });
 });

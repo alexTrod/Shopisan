@@ -5,6 +5,7 @@ import { width, height } from "../../utils/dimension";
 import EditIcon from "../../../assets/icons/edit-icon";
 import TrashIcon from "../../../assets/icons/trash-icon";
 import { useTranslation } from "../../utils/useTranslation";
+import { formatPostPrice } from "../../utils/price";
 
 /**
  * PostCard - Display a post in the management list
@@ -58,8 +59,10 @@ const PostCard = ({ post, onEdit, onDelete }) => {
           {truncatedDescription}
         </Text>
 
-        {post.price !== null && post.price !== undefined && (
-          <Text style={styles.price}>{post.price} €</Text>
+        {formatPostPrice(post.price, post.currency) && (
+          <Text style={styles.price}>
+            {formatPostPrice(post.price, post.currency)}
+          </Text>
         )}
       </View>
 

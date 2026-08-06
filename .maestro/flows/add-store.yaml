@@ -155,3 +155,15 @@ appId: com.ecomerce.shopisan
     visible:
       id: "main-tab-bar"
     timeout: 30000
+
+# === VERIFY THE STORE IS LIVE IMMEDIATELY ===
+# The headline behaviour: there is no approval gate any more, so the store has
+# to be in the list on the way back with no refresh and no logout. This walks
+# the whole path -- the stores:refresh event, the StoreContext refetch, and the
+# now-unfiltered read in StoreService.
+- scrollUntilVisible:
+    element: "Test Store Maestro"
+    direction: DOWN
+    timeout: 20000
+
+- assertVisible: "Test Store Maestro"

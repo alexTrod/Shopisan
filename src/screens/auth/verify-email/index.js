@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { View, Alert, Linking } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import ScreenWrapper from '../../../components/screen-wrapper';
-import { AppColors } from '../../../utils/app-colors';
-import CustomText from '../../../components/text';
-import Button from '../../../components/button';
-import { height, width } from '../../../utils/dimension';
-import { verifyEmail, checkVerificationStatus } from '../../../Redux/Actions/UserActions';
-import { useTranslation } from '../../../utils/useTranslation';
-import { MaterialIcons } from '@expo/vector-icons';
+import React, { useEffect, useState } from "react";
+import { View, Alert, Linking } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { useRoute, useNavigation } from "@react-navigation/native";
+import ScreenWrapper from "../../../components/screen-wrapper";
+import { AppColors } from "../../../utils/app-colors";
+import CustomText from "../../../components/text";
+import Button from "../../../components/button";
+import { height, width } from "../../../utils/dimension";
+import {
+  verifyEmail,
+  checkVerificationStatus,
+} from "../../../Redux/Actions/UserActions";
+import { useTranslation } from "../../../utils/useTranslation";
+import { MaterialIcons } from "@expo/vector-icons";
 
 const VerifyEmailScreen = () => {
   const { t } = useTranslation();
@@ -18,9 +21,11 @@ const VerifyEmailScreen = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [verificationResult, setVerificationResult] = useState(null);
-  
+
   const { token } = route.params || {};
-  const { userData, emailVerificationStatus } = useSelector(state => state.user);
+  const { userData, emailVerificationStatus } = useSelector(
+    (state) => state.user,
+  );
 
   useEffect(() => {
     if (token && userData) {
@@ -37,27 +42,23 @@ const VerifyEmailScreen = () => {
 
   const handleVerification = async () => {
     if (!token) {
-      setVerificationResult('error');
+      setVerificationResult("error");
       return;
     }
 
     setLoading(true);
     try {
       await dispatch(verifyEmail(token));
-      setVerificationResult('success');
-      
-      // Redirect to appropriate screen after successful verification
+      setVerificationResult("success");
+
+      // Shoppers and store owners share the same home screen; the previous
+      // 'MerchantHome' branch pointed at a route that has never existed.
       setTimeout(() => {
-        if (userData?.userType === 'merchant') {
-          navigation.replace('MerchantHome');
-        } else {
-          navigation.replace('Home');
-        }
+        navigation.replace("Home");
       }, 2000);
-      
     } catch (error) {
-      console.error('Verification failed:', error);
-      setVerificationResult('error');
+      console.error("Verification failed:", error);
+      setVerificationResult("error");
     } finally {
       setLoading(false);
     }
@@ -69,21 +70,21 @@ const VerifyEmailScreen = () => {
   };
 
   const handleOpenEmail = () => {
-    Linking.openURL('mailto:');
+    Linking.openURL("mailto:");
   };
 
   const renderContent = () => {
-    if (verificationResult === 'success') {
+    if (verificationResult === "success") {
       return (
         <View style={styles.contentContainer}>
-          <MaterialIcons 
-            name="check-circle" 
-            size={width(20)} 
-            color={AppColors.success} 
+          <MaterialIcons
+            name="check-circle"
+            size={width(20)}
+            color={AppColors.success}
           />
           <CustomText
             color={AppColors.success}
-            textStyles={{ fontFamily: 'Roboto-Medium', marginTop: height(2) }}
+            textStyles={{ fontFamily: "Roboto-Medium", marginTop: height(2) }}
             size={2.5}
             textAlign="center"
           >
@@ -91,11 +92,11 @@ const VerifyEmailScreen = () => {
           </CustomText>
           <CustomText
             color={AppColors.textSecondary}
-            textStyles={{ 
-              fontFamily: 'Roboto-Regular',
+            textStyles={{
+              fontFamily: "Roboto-Regular",
               marginTop: height(1),
-              textAlign: 'center',
-              marginHorizontal: width(4)
+              textAlign: "center",
+              marginHorizontal: width(4),
             }}
             size={1.6}
           >
@@ -105,17 +106,17 @@ const VerifyEmailScreen = () => {
       );
     }
 
-    if (verificationResult === 'error') {
+    if (verificationResult === "error") {
       return (
         <View style={styles.contentContainer}>
-          <MaterialIcons 
-            name="error" 
-            size={width(20)} 
-            color={AppColors.error} 
+          <MaterialIcons
+            name="error"
+            size={width(20)}
+            color={AppColors.error}
           />
           <CustomText
             color={AppColors.error}
-            textStyles={{ fontFamily: 'Roboto-Medium', marginTop: height(2) }}
+            textStyles={{ fontFamily: "Roboto-Medium", marginTop: height(2) }}
             size={2.5}
             textAlign="center"
           >
@@ -123,23 +124,24 @@ const VerifyEmailScreen = () => {
           </CustomText>
           <CustomText
             color={AppColors.textSecondary}
-            textStyles={{ 
-              fontFamily: 'Roboto-Regular',
+            textStyles={{
+              fontFamily: "Roboto-Regular",
               marginTop: height(1),
-              textAlign: 'center',
-              marginHorizontal: width(4)
+              textAlign: "center",
+              marginHorizontal: width(4),
             }}
             size={1.6}
           >
-            The verification link is invalid or has expired. Please request a new one.
+            The verification link is invalid or has expired. Please request a
+            new one.
           </CustomText>
-          
+
           <View style={styles.buttonContainer}>
             <Button
               onPress={handleResendEmail}
               textStyle={{
-                fontFamily: 'Roboto-Medium',
-                color: AppColors.white
+                fontFamily: "Roboto-Medium",
+                color: AppColors.white,
               }}
               containerStyle={styles.primaryButton}
             >
@@ -153,14 +155,14 @@ const VerifyEmailScreen = () => {
     // Default loading state
     return (
       <View style={styles.contentContainer}>
-        <MaterialIcons 
-          name="email" 
-          size={width(20)} 
-          color={AppColors.primary} 
+        <MaterialIcons
+          name="email"
+          size={width(20)}
+          color={AppColors.primary}
         />
         <CustomText
           color={AppColors.primary}
-          textStyles={{ fontFamily: 'Roboto-Medium', marginTop: height(2) }}
+          textStyles={{ fontFamily: "Roboto-Medium", marginTop: height(2) }}
           size={2.5}
           textAlign="center"
         >
@@ -168,25 +170,25 @@ const VerifyEmailScreen = () => {
         </CustomText>
         <CustomText
           color={AppColors.textSecondary}
-          textStyles={{ 
-            fontFamily: 'Roboto-Regular',
+          textStyles={{
+            fontFamily: "Roboto-Regular",
             marginTop: height(1),
-            textAlign: 'center',
-            marginHorizontal: width(4)
+            textAlign: "center",
+            marginHorizontal: width(4),
           }}
           size={1.6}
         >
           Please wait while we verify your email address...
         </CustomText>
-        
+
         {loading && (
           <View style={styles.loadingContainer}>
             <CustomText
               color={AppColors.textSecondary}
-              textStyles={{ 
-                fontFamily: 'Roboto-Regular',
+              textStyles={{
+                fontFamily: "Roboto-Regular",
                 marginTop: height(2),
-                textAlign: 'center'
+                textAlign: "center",
               }}
               size={1.4}
             >
@@ -206,25 +208,25 @@ const VerifyEmailScreen = () => {
     >
       <View style={styles.container}>
         {renderContent()}
-        
+
         <View style={styles.bottomContainer}>
           <CustomText
             color={AppColors.textSecondary}
-            textStyles={{ 
-              fontFamily: 'Roboto-Regular',
-              textAlign: 'center',
-              marginBottom: height(2)
+            textStyles={{
+              fontFamily: "Roboto-Regular",
+              textAlign: "center",
+              marginBottom: height(2),
             }}
             size={1.4}
           >
             Having trouble? Check your email or contact support.
           </CustomText>
-          
+
           <Button
             onPress={handleOpenEmail}
             textStyle={{
-              fontFamily: 'Roboto-Regular',
-              color: AppColors.primary
+              fontFamily: "Roboto-Regular",
+              color: AppColors.primary,
             }}
             containerStyle={styles.secondaryButton}
           >
@@ -239,36 +241,36 @@ const VerifyEmailScreen = () => {
 const styles = {
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: width(4),
   },
   contentContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
   },
   buttonContainer: {
     marginTop: height(3),
-    width: '100%',
+    width: "100%",
   },
   primaryButton: {
     backgroundColor: AppColors.primary,
     paddingVertical: height(1.5),
     borderRadius: width(2),
-    width: '100%',
+    width: "100%",
   },
   secondaryButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: AppColors.primary,
     paddingVertical: height(1.5),
     borderRadius: width(2),
-    width: '100%',
+    width: "100%",
   },
   bottomContainer: {
-    width: '100%',
+    width: "100%",
     marginBottom: height(4),
   },
   loadingContainer: {

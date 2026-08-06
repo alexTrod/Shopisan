@@ -55,11 +55,6 @@ const styles = StyleSheet.create({
     marginRight: 5,
     transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }],
   },
-  userTypeContainer: {
-    marginVertical: height(1),
-    width: "90%",
-    alignSelf: "center",
-  },
   radioGroup: {
     flexDirection: "row",
     justifyContent: "space-between",

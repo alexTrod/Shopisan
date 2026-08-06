@@ -33,6 +33,9 @@ import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
 import { AppColors } from "../../../utils";
+import { isOwnerType } from "../../../utils/userTypes";
+import { buildStoreAddress } from "../../../utils/storeAddress";
+import { ScreenNames } from "../../../Routes/routes";
 import { width, height } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import {
@@ -82,7 +85,7 @@ export default function AddStoreScreen({ navigation }) {
   const { t } = useTranslation();
   const user = useSelector((state) => state.user.userData);
 
-  // Auth check - only signed-up users can add stores
+  // Auth check - only signed-up store owners can add stores
   useEffect(() => {
     if (!user) {
       Alert.alert(
@@ -93,9 +96,21 @@ export default function AddStoreScreen({ navigation }) {
           { text: t("cancel") || "Cancel", onPress: () => navigation.goBack() },
           {
             text: t("sign_up") || "Sign Up",
-            onPress: () => navigation.navigate("Signup"),
+            onPress: () => navigation.navigate(ScreenNames.SIGN_UP),
           },
         ],
+      );
+      return;
+    }
+
+    // Backstop for deep links: firestore.rules would reject the write anyway,
+    // but bounce here so shoppers never fill out a form that cannot save.
+    if (!isOwnerType(user)) {
+      Alert.alert(
+        t("owner_account_required") || "Store owner account required",
+        t("owner_account_required_message") ||
+          "Only store owner accounts can add a store.",
+        [{ text: t("close") || "Close", onPress: () => navigation.goBack() }],
       );
     }
   }, [user, navigation, t]);
@@ -683,20 +698,24 @@ export default function AddStoreScreen({ navigation }) {
       }
 
       console.log("[AddStore] Getting owner ID...");
-      let ownerId = null;
+      // getOwnerId reads users/{uid}.id, which is set to the uid at signup, so
+      // it can only ever return user.id. Fall back to it rather than writing a
+      // null owner_id: firestore.rules requires owner_id == request.auth.uid,
+      // and a store with a null owner would be permanently uneditable.
+      let ownerId = user?.id ?? null;
       if (user) {
         try {
-          ownerId = await withTimeout(
-            getOwnerId(user.id),
-            15000,
-            "OWNER_ID_TIMEOUT",
-          );
+          ownerId =
+            (await withTimeout(
+              getOwnerId(user.id),
+              15000,
+              "OWNER_ID_TIMEOUT",
+            )) || user.id;
         } catch (ownerError) {
           console.warn(
-            "[AddStore] Could not fetch owner ID, continuing without it:",
+            "[AddStore] Could not fetch owner ID, using session uid:",
             ownerError.message,
           );
-          // Continue without owner ID - store can still be created
         }
       }
       console.log("[AddStore] Owner ID:", ownerId);
@@ -734,10 +753,8 @@ export default function AddStoreScreen({ navigation }) {
             setIsAddingStore(false);
             Toast.show({
               type: "success",
-              text1: t("store_created_success") || "Store already submitted!",
-              text2:
-                t("store_pending_validation") ||
-                "Your store is pending validation.",
+              text1: t("store_already_added_title"),
+              text2: t("store_already_added_description"),
             });
             navigation.goBack();
             return;
@@ -778,22 +795,15 @@ export default function AddStoreScreen({ navigation }) {
         id: newStoreId,
         name,
         owner_id: ownerId,
-        address: [
-          {
-            location: {
-              address: { street: `${street}` },
-              city: {
-                name: city,
-                postal_code: postalCode,
-                country_id: detectedCountryCode,
-              },
-              geopoint: {
-                latitude,
-                longitude,
-              },
-            },
-          },
-        ],
+        address: buildStoreAddress({
+          street,
+          streetNumber,
+          city,
+          postalCode,
+          countryId: detectedCountryCode,
+          latitude,
+          longitude,
+        }),
 
         latitude,
         longitude,
@@ -806,9 +816,14 @@ export default function AddStoreScreen({ navigation }) {
         openingHours: openingHours,
         images: images,
         imageUrl: images[0] || "",
-        is_validated: false,
+        // Stores are live on creation. is_validated is legacy: it is written
+        // only so app builds released before this change, which still filter
+        // their store list on it, show new stores too. Drop it once those
+        // builds age out (same deprecation window as merchant/owner in
+        // firestore.rules).
+        is_validated: true,
         created: serverTimestamp(),
-        ...(user?.userType === "merchant" && {
+        ...(isOwnerType(user) && {
           email: storeEmail || "",
           phone: phone || "",
           managerFirstName: managerFirstName || "",
@@ -1197,7 +1212,7 @@ export default function AddStoreScreen({ navigation }) {
             numberOfLines={4}
           />
 
-          {user?.userType === "merchant" && (
+          {isOwnerType(user) && (
             <>
               <Text style={styles.label}>
                 {t("store_email")}{" "}

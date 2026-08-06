@@ -125,23 +125,36 @@ describe("Email Consistency Tests", () => {
 
       // Check that template selection uses correct logic
       const templateSelectionMatch = indexContent.match(
-        /sendVerificationEmail[\s\S]*?const emailTemplate\s*=[\s\S]*?userType === "merchant"/,
+        /sendVerificationEmail[\s\S]*?const emailTemplate\s*=\s*isStoreOwnerType\(userType\)/,
       );
 
       expect(templateSelectionMatch).toBeTruthy();
     });
 
-    it("should use merchantEmailTemplate for merchant userType", () => {
+    it("should use merchantEmailTemplate for store owner userType", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // Verify merchant template is used for merchant userType
+      // Verify the owner template is selected via the shared helper
       const hasCorrectLogic = indexContent.includes(
-        'userType === "merchant"\n          ? merchantEmailTemplate',
+        "isStoreOwnerType(userType)\n        ? merchantEmailTemplate",
       );
       expect(hasCorrectLogic).toBe(true);
+    });
+
+    it("isStoreOwnerType should accept both owner and legacy merchant", () => {
+      const indexContent = require("fs").readFileSync(
+        require("path").join(__dirname, "../index.js"),
+        "utf8",
+      );
+
+      // Old app builds still send "merchant"; both must route to the owner
+      // template until scripts/migrate-user-types.js has rolled out everywhere.
+      expect(indexContent).toMatch(
+        /const isStoreOwnerType = \(userType\) =>\s*userType === "owner" \|\| userType === "merchant";/,
+      );
     });
   });
 
@@ -189,17 +202,17 @@ describe("Email Consistency Tests", () => {
       expect(hasGenericFallback).toBe(true);
     });
 
-    it("sendStoreCreationEmail should have same email fallback logic as onStoreValidated", () => {
+    it("sendStoreCreationEmail should have same email fallback logic as onStoreVerified", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // onStoreValidated uses: after.storeEmail || after.email
-      const validatedHasFallback = indexContent.includes(
+      // onStoreVerified uses: after.storeEmail || after.email
+      const verifiedHasFallback = indexContent.includes(
         "let storeEmail = after.storeEmail || after.email",
       );
-      expect(validatedHasFallback).toBe(true);
+      expect(verifiedHasFallback).toBe(true);
 
       // sendStoreCreationEmail should also support fallback or document why not
       // Currently it only uses storeEmail directly - this is the inconsistency
@@ -207,7 +220,7 @@ describe("Email Consistency Tests", () => {
     });
   });
 
-  describe("onStoreValidated - Email Recipient Logic", () => {
+  describe("onStoreVerified - Email Recipient Logic", () => {
     it("should use storeEmail with fallback to owner email", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
@@ -225,24 +238,24 @@ describe("Email Consistency Tests", () => {
     });
   });
 
-  describe("onStoreRejected - Email Recipient Logic", () => {
-    it("should use same fallback logic as onStoreValidated", () => {
+  describe("onStoreSuspended - Email Recipient Logic", () => {
+    it("should use same fallback logic as onStoreVerified", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
       // Both functions should have identical email fallback logic
-      const validatedSection = indexContent.match(
-        /exports\.onStoreValidated[\s\S]*?let storeEmail = ([\s\S]*?);/,
+      const verifiedSection = indexContent.match(
+        /exports\.onStoreVerified[\s\S]*?let storeEmail = ([\s\S]*?);/,
       );
-      const rejectedSection = indexContent.match(
-        /exports\.onStoreRejected[\s\S]*?let storeEmail = ([\s\S]*?);/,
+      const suspendedSection = indexContent.match(
+        /exports\.onStoreSuspended[\s\S]*?let storeEmail = ([\s\S]*?);/,
       );
 
-      expect(validatedSection).toBeTruthy();
-      expect(rejectedSection).toBeTruthy();
-      expect(validatedSection[1]).toBe(rejectedSection[1]);
+      expect(verifiedSection).toBeTruthy();
+      expect(suspendedSection).toBeTruthy();
+      expect(verifiedSection[1]).toBe(suspendedSection[1]);
     });
   });
 
@@ -330,7 +343,7 @@ describe("Email Flow Integration", () => {
       // - sendStoreCreationEmail sends to that email
       //
       // Current issue: sendStoreCreationEmail has no internal fallback
-      // Fix: Add owner_id fallback like onStoreValidated has
+      // Fix: Add owner_id fallback like onStoreVerified has
       expect(true).toBe(true); // Documentation test
     });
   });
