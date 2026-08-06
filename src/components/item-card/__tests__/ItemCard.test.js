@@ -165,15 +165,16 @@ describe("ItemCard - store owner actions", () => {
   };
 
   describe("Visibility", () => {
-    it("should show add post and edit buttons to the store owner", async () => {
+    it("should show the edit button but no add post button to the store owner", async () => {
+      // Adding posts lives in the store detail modal, not on the card.
       mockUserData = { id: OWNER_ID, userType: "owner" };
 
-      const { getByTestId } = await renderSettled();
+      const { getByTestId, queryByTestId } = await renderSettled();
 
       await waitFor(() => {
-        expect(getByTestId("add-circle-icon")).toBeTruthy();
+        expect(getByTestId("edit-icon")).toBeTruthy();
       });
-      expect(getByTestId("edit-icon")).toBeTruthy();
+      expect(queryByTestId("add-circle-icon")).toBeNull();
     });
 
     it("should hide both buttons from a shopper", async () => {
@@ -299,23 +300,6 @@ describe("ItemCard - store owner actions", () => {
   describe("Navigation", () => {
     beforeEach(() => {
       mockUserData = { id: OWNER_ID, userType: "owner" };
-    });
-
-    it("should navigate to manage posts with the store owner id", async () => {
-      const { getByTestId } = await renderSettled({
-        id: 7,
-        title: "Corner Shop",
-      });
-
-      await act(async () => {
-        fireEvent.press(getByTestId("add-circle-icon"));
-      });
-
-      expect(mockNavigate).toHaveBeenCalledWith(ScreenNames.MANAGE_POSTS, {
-        storeId: 7,
-        storeName: "Corner Shop",
-        ownerId: OWNER_ID,
-      });
     });
 
     it("should navigate to handle store from the edit button", async () => {

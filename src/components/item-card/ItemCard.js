@@ -14,7 +14,6 @@ import { collection, query, getDocs, where } from "firebase/firestore";
 import { firestore } from "../../../firebaseconfig";
 import PostService from "../../services/PostService";
 import EditIcon from "../../../assets/icons/edit-icon";
-import AddCircleIcon from "../../../assets/icons/add-circle-icon";
 import PinFilled from "../../../assets/icons/pin-filled";
 import InfoIcon from "../../../assets/icons/info-icon";
 import HeartFilled from "../../../assets/icons/heart-filled";
@@ -111,14 +110,6 @@ const ItemCard = React.memo(
 
     const handleEditPress = () => {
       navigation.navigate(ScreenNames.HANDLE_STORE, { storeId: id });
-    };
-
-    const handleAddPostPress = () => {
-      navigation.navigate(ScreenNames.MANAGE_POSTS, {
-        storeId: id,
-        storeName: title,
-        ownerId: owner_id,
-      });
     };
 
     useEffect(() => {
@@ -227,24 +218,14 @@ const ItemCard = React.memo(
         >
           <View style={styles.rightIcons}>
             {isOwner && (
-              <>
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={handleAddPostPress}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <AddCircleIcon width={24} height={24} color={iconColor} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={handleEditPress}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <EditIcon width={24} height={24} color={iconColor} />
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={handleEditPress}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <EditIcon width={24} height={24} color={iconColor} />
+              </TouchableOpacity>
             )}
             <TouchableOpacity
               style={styles.iconButton}
