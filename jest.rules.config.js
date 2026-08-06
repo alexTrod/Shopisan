@@ -9,4 +9,7 @@ module.exports = {
   testEnvironment: "node",
   testMatch: ["<rootDir>/firestore-rules-tests/**/*.test.js"],
   testTimeout: 20000,
+  // All suites share one emulator instance and clear it in beforeEach;
+  // parallel workers wipe each other's seed data mid-test.
+  maxWorkers: 1,
 };
