@@ -84,16 +84,28 @@ service cloud.firestore {
         && request.resource.data.owner_id == request.auth.uid
         && moderationNeutralOnCreate();
 
+      // owner_id through get(key, default) and isAdmin() first: stores seeded
+      // by the catalog import have no owner_id key, and a direct lookup on a
+      // missing key evaluates to an error -- which would deny admins too if it
+      // short-circuited ahead of them.
       allow update: if signedIn() && resource != null
         && (isAdmin()
-            || (resource.data.owner_id == request.auth.uid && moderationUnchanged()));
+            || (resource.data.get('owner_id', '') == request.auth.uid && moderationUnchanged()));
 
       allow delete: if signedIn() && resource != null
-        && (resource.data.owner_id == request.auth.uid || isAdmin());
+        && (isAdmin() || resource.data.get('owner_id', '') == request.auth.uid);
     }
 
     // Cities collection - anyone can read, authenticated users can write
     match /cities/{cityId} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+
+    // Countries collection - reference data, same access shape as cities.
+    // The city filter loads this before login; leaving it to the default-deny
+    // fallthrough blanked the filter for every user.
+    match /countries/{countryId} {
       allow read: if true;
       allow write: if signedIn();
     }
@@ -117,7 +129,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if signedIn() && resource != null
-        && resource.data.user_id == request.auth.uid;
+        && resource.data.get('user_id', '') == request.auth.uid;
     }
 
     // Posts - anyone can read, only the owning store owner can write.
@@ -127,8 +139,11 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if true;
       allow create: if isStoreOwner() && request.resource.data.owner_id == request.auth.uid;
+      // isAdmin() first and owner_id through get(key, default): a direct
+      // lookup on a post missing the key errors out the whole expression,
+      // which locked admins out of legacy posts.
       allow update, delete: if resource != null
-        && ((signedIn() && resource.data.owner_id == request.auth.uid) || isAdmin());
+        && (isAdmin() || (signedIn() && resource.data.get('owner_id', '') == request.auth.uid));
     }
 
     // Favorites - stored in user document, handled by users rules
