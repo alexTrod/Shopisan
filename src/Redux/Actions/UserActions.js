@@ -551,9 +551,6 @@ const fetchUserDataByLoginIdentifier =
       let userRef;
 
       logging("start fetching data using loginIdentifier", loginIdentifier);
-      logging("password", password);
-      const usersRef = collection(firestore, "users");
-      const querySnapshot = await getDocs(usersRef);
 
       if (loginIdentifier.includes("@")) {
         userCredential = await signInWithEmailAndPassword(
@@ -564,6 +561,11 @@ const fetchUserDataByLoginIdentifier =
         userRef = userCredential.user.uid;
       } else {
         logging("start to fetch user data by username");
+        // firestore.rules only lets a signed-in user read their own document,
+        // so this unauthenticated collection scan is always denied. Username
+        // login needs a Cloud Function lookup before it can work again.
+        const usersRef = collection(firestore, "users");
+        const querySnapshot = await getDocs(usersRef);
         const userDoc = querySnapshot.docs.find(
           (doc) => doc.data().username === loginIdentifier,
         );
