@@ -12,7 +12,7 @@ import {
 import PostService from "../../services/PostService";
 import { AppColors } from "../../utils";
 import { ownsStore } from "../../utils/userTypes";
-import { height, width } from "../../utils/dimension";
+import { height } from "../../utils/dimension";
 import { ScreenNames } from "../../Routes/routes";
 import logging from "../../utils/logging";
 import { useNavigation } from "@react-navigation/native";
@@ -507,8 +507,9 @@ const styles = StyleSheet.create({
   },
   imageAreaWrapper: {
     position: "relative",
-    width: width(85),
-    alignSelf: "center",
+    // Full content width so the gallery edges line up with the title and
+    // address below it.
+    alignSelf: "stretch",
   },
   goHomeButton: {
     position: "absolute",
