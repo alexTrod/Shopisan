@@ -3,7 +3,7 @@
     "name": "Shopisan_v1",
     "slug": "Shopisan_v1",
     "owner": "shopisan",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
