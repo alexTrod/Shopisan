@@ -3,29 +3,28 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { height, width } from "../../utils/dimension";
 import { useDispatch, useSelector } from "react-redux";
-import { toggleFavoriteStore } from '../../Redux/Actions/UserActions';
-import { selectFavoriteStores } from '../../Redux/Selectors/UserSelectors';
+import { toggleFavoriteStore } from "../../Redux/Actions/UserActions";
+import { selectFavoriteStores } from "../../Redux/Selectors/UserSelectors";
 import { fetchStoreRatings } from "../../utils/storeUtils";
 import logging from "../../utils/logging";
 import { AppColors } from "../../utils";
 import ItemDetailModal from "../item-card/ItemDetailModal";
-import { useTranslation } from '../../utils/useTranslation';
+import toDetailItem from "../item-card/toDetailItem";
+import { useTranslation } from "../../utils/useTranslation";
 import CustomText from "../text";
-
 
 const CardItem = ({ item, isSelected, onPress }) => {
   const dispatch = useDispatch();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const favoriteStores = useSelector(selectFavoriteStores);
-  const user = useSelector(state => state.user.userData);
+  const user = useSelector((state) => state.user.userData);
   const [rating, setRating] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
-  
-  const _id = item.id;
-  const _description = item.description.en;
-  const _tags = item.tags ?? item.category ?? [];
-  const _address = item.address;
-  const _title = item.name;
+
+  const detailItem = useMemo(
+    () => toDetailItem(item, { locale }),
+    [item, locale],
+  );
 
   const isFavorite = useMemo(() => {
     return favoriteStores.includes(item.id);
@@ -46,37 +45,36 @@ const CardItem = ({ item, isSelected, onPress }) => {
 
   const handleToggleFavorite = (e) => {
     e.stopPropagation(); // Prevent card press
-    
+
     if (!user) {
       Alert.alert(
-        t('login_required'),
-        t('login_required_add_favorite_message'),
+        t("login_required"),
+        t("login_required_add_favorite_message"),
         [
-          { 
-            text: t('ok'),
-            style: "cancel"
+          {
+            text: t("ok"),
+            style: "cancel",
           },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
       return;
     }
-    
+
     dispatch(toggleFavoriteStore(item.id));
   };
 
   return (
     <>
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={handlePress}
-        style={[
-          styles.card,
-          isSelected && styles.selectedCard
-        ]}
+        style={[styles.card, isSelected && styles.selectedCard]}
       >
         <View style={styles.info}>
           <View style={styles.headerRow}>
-            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
             <TouchableOpacity
               onPress={handleToggleFavorite}
               style={styles.favoriteButton}
@@ -102,7 +100,7 @@ const CardItem = ({ item, isSelected, onPress }) => {
               ))}
             </View>
             <CustomText style={styles.ratingText}>
-              {rating > 0 ? rating.toFixed(1) : t('no_rating')}
+              {rating > 0 ? rating.toFixed(1) : t("no_rating")}
             </CustomText>
           </View>
         </View>
@@ -111,14 +109,7 @@ const CardItem = ({ item, isSelected, onPress }) => {
       <ItemDetailModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        item={{
-          id: _id,
-          title: _title,
-          description: _description,
-          tags: _tags,
-          address: _address,
-          openingHours: item.openingHours || null,
-        }}
+        item={detailItem}
       />
     </>
   );
@@ -148,7 +139,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
-    width: '100%',
+    width: "100%",
   },
   name: {
     fontSize: 16,
@@ -161,8 +152,8 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     minWidth: 36,
     minHeight: 36,
   },
@@ -189,4 +180,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CardItem; 
+export default CardItem;

@@ -28,6 +28,7 @@ import { ownsStore } from "../../utils/userTypes";
 import { useDispatch, useSelector } from "react-redux";
 import { selectFavoriteStores } from "../../Redux/Selectors/UserSelectors";
 import ItemDetailModal from "./ItemDetailModal";
+import toDetailItem from "./toDetailItem";
 import { useNavigation } from "@react-navigation/native";
 import { ScreenNames } from "../../Routes/routes";
 import CityFilter from "../../components/city-filter";
@@ -77,6 +78,36 @@ const ItemCard = React.memo(
     // Drives the title's reserved icon spacing, so it has to match exactly what
     // the two badges below render.
     const showsBadge = Boolean(is_verified || (isOwner && is_suspended));
+
+    const detailItem = useMemo(
+      () =>
+        toDetailItem(
+          {
+            id,
+            title,
+            description,
+            tags,
+            address,
+            openingHours,
+            images,
+            imageUrl,
+            owner_id,
+          },
+          { locale },
+        ),
+      [
+        id,
+        title,
+        description,
+        tags,
+        address,
+        openingHours,
+        images,
+        imageUrl,
+        owner_id,
+        locale,
+      ],
+    );
 
     const handleEditPress = () => {
       navigation.navigate(ScreenNames.HANDLE_STORE, { storeId: id });
@@ -436,17 +467,7 @@ const ItemCard = React.memo(
         <ItemDetailModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
-          item={{
-            id,
-            title,
-            description,
-            tags,
-            address,
-            openingHours: openingHours || null,
-            images: images || [],
-            imageUrl: imageUrl || null,
-            owner_id,
-          }}
+          item={detailItem}
         />
       </View>
     );
