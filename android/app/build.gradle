@@ -101,15 +101,29 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            // Never falls back to the debug keystore: a release build must be
+            // signed with a real key or fail loudly.
+            //   EAS builds  - EAS injects the keystore via eas-build.gradle.
+            //   Local builds - create android/keystore.properties (gitignored) with
+            //                  storeFile / storePassword / keyAlias / keyPassword.
+            def keystoreProps = rootProject.file('keystore.properties')
+            if (keystoreProps.exists()) {
+                def props = new Properties()
+                keystoreProps.withInputStream { props.load(it) }
+                storeFile rootProject.file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"

@@ -77,6 +77,10 @@ android/app/src/main/assets/index.android.bundle
 android/app/src/main/assets/*.bundle
 
 keystore/*
+android/keystore.properties
+android/keystores/
+android/app/eas-build.gradle
+credentials.json
 # potentially useless copies (see if need to remove)
 src/screens/app/map/index - Copie.js
 src/screens/app/map/index - googlemap.js
