@@ -16,9 +16,9 @@ const mockBatch = {
 };
 
 const mockCollection = jest.fn();
-const mockDoc = jest.fn();
-const mockWhere = jest.fn();
-const mockGet = jest.fn();
+const _mockDoc = jest.fn();
+const _mockWhere = jest.fn();
+const _mockGet = jest.fn();
 
 jest.mock("firebase-admin", () => ({
   initializeApp: jest.fn(),
@@ -64,6 +64,53 @@ describe("deleteUser Cloud Function", () => {
       // Check that it throws HttpsError
       const hasError = indexContent.includes('"userId or email is required"');
       expect(hasError).toBe(true);
+    });
+  });
+
+  describe("Authorization", () => {
+    it("should reject unauthenticated callers before doing anything", () => {
+      const indexContent = require("fs").readFileSync(
+        require("path").join(__dirname, "../index.js"),
+        "utf8",
+      );
+
+      // The unauthenticated check must be the first thing in the handler.
+      const hasAuthGate = /exports\.deleteUser = functions\.https\.onCall\(\s*async \(data, context\) => \{\s*if \(!context\.auth\) \{/.test(
+        indexContent,
+      );
+      expect(hasAuthGate).toBe(true);
+    });
+
+    it("should allow self-delete: every provided identifier must match the caller", () => {
+      const indexContent = require("fs").readFileSync(
+        require("path").join(__dirname, "../index.js"),
+        "utf8",
+      );
+
+      const hasSelfCheck = indexContent.includes("const isSelfDelete =");
+      expect(hasSelfCheck).toBe(true);
+
+      // userId compared to the caller's Auth UID
+      expect(
+        indexContent.includes("(!userId || userId === context.auth.uid)"),
+      ).toBe(true);
+
+      // email compared to the caller's token email
+      expect(indexContent.includes("normalizedEmail === callerEmail")).toBe(
+        true,
+      );
+    });
+
+    it("should require admin when the target is not the caller", () => {
+      const indexContent = require("fs").readFileSync(
+        require("path").join(__dirname, "../index.js"),
+        "utf8",
+      );
+
+      const hasAdminFallback = /if \(!isSelfDelete\) \{\s*await assertAdmin\(context\);/.test(
+        indexContent,
+      );
+      expect(hasAdminFallback).toBe(true);
     });
   });
 

@@ -167,7 +167,7 @@ describe("Notification Routing Tests", () => {
 
     it("should send admin notification about new store", () => {
       const adminEmail = "info@shopisan.com";
-      const storeData = {
+      const _storeData = {
         storeName: "Zaza",
         city: "Namur",
         categories: ["Bijouterie"],
@@ -187,7 +187,7 @@ describe("Notification Routing Tests", () => {
         email: "laurencewandela@gmail.com",
       };
 
-      const store = {
+      const _store = {
         name: "Zaza",
         is_verified: false, // Live from creation, badge not granted yet
       };
@@ -196,7 +196,7 @@ describe("Notification Routing Tests", () => {
       // 1. Send store creation confirmation (not merchant welcome)
       // 2. Use user's name, not store name
 
-      const expectedEmailType = "store_creation_confirmation";
+      const _expectedEmailType = "store_creation_confirmation";
       const expectedGreetingName = user.username; // "Laurence", not "Zaza"
 
       expect(expectedGreetingName).toBe("Laurence");

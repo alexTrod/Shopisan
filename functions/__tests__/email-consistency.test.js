@@ -59,7 +59,7 @@ jest.mock("nodemailer", () => ({
 }));
 
 // Mock handlebars to capture template data
-const mockCompile = jest.fn((template) => {
+const mockCompile = jest.fn((_template) => {
   return jest.fn((data) => `compiled:${JSON.stringify(data)}`);
 });
 jest.mock("handlebars", () => ({

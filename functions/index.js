@@ -17,7 +17,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Support email transporter (for receiving feedback)
-const supportTransporter = nodemailer.createTransport({
+const _supportTransporter = nodemailer.createTransport({
   host: "mail.privateemail.com",
   port: 465,
   secure: true,
@@ -39,6 +39,76 @@ const SUPPORT_EMAIL = "support@shopisan.com";
  */
 const isStoreOwnerType = (userType) =>
   userType === "owner" || userType === "merchant";
+
+// Cloudflare Images account used by the app for every photo upload (store
+// photos, post photos). Same hardcoded credentials as the app-side uploaders
+// (src/components/store-form/useStoreForm.js etc.).
+const CLOUDFLARE_ACCOUNT_ID = "e593403f5f942f93365e9cd0be4065a1";
+const CLOUDFLARE_API_TOKEN = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
+
+/**
+ * Best-effort delete of a Cloudflare image given its delivery URL
+ * (https://imagedelivery.net/<accountHash>/<imageId>/<variant>).
+ * Returns true if the image was deleted (or already gone), false otherwise.
+ * Never throws: image cleanup must not block the Firestore delete.
+ */
+const deleteCloudflareImage = async (imageUrl) => {
+  try {
+    if (!imageUrl || typeof imageUrl !== "string") return false;
+    const url = new URL(imageUrl);
+    if (url.hostname !== "imagedelivery.net") return false;
+    // Path is /<accountHash>/<imageId>/<variant>
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (segments.length < 2) return false;
+    const imageId = segments[1];
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/images/v1/${imageId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` },
+      },
+    );
+    // 404 means already deleted - treat as success
+    if (response.ok || response.status === 404) {
+      console.log(`Deleted Cloudflare image ${imageId}`);
+      return true;
+    }
+    console.error(
+      `Cloudflare image delete failed for ${imageId}: ${response.status}`,
+    );
+    return false;
+  } catch (error) {
+    console.error("Error deleting Cloudflare image:", error.message);
+    return false;
+  }
+};
+
+/**
+ * Guard for admin-only callables.
+ * Admin identity mirrors isAdmin() in firestore.rules: either the `admin: true`
+ * custom claim (set once via scripts/set-admin-claim.js) or is_admin == true on
+ * the caller's users/{uid} document.
+ * Throws HttpsError when the caller is not an admin.
+ */
+const assertAdmin = async (context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Sign-in required",
+    );
+  }
+  if (context.auth.token.admin === true) return;
+  const userDoc = await admin
+    .firestore()
+    .collection("users")
+    .doc(context.auth.uid)
+    .get();
+  if (userDoc.exists && userDoc.data().is_admin === true) return;
+  throw new functions.https.HttpsError(
+    "permission-denied",
+    "Admin privileges required",
+  );
+};
 
 // Email templates for different user types
 const shopperEmailTemplate = {
@@ -613,7 +683,7 @@ const merchantVerificationEmailTemplate = {
 
 // Function to send store creation notification (called when a new store is added)
 exports.sendStoreCreationEmail = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const {
         storeName,
@@ -701,7 +771,7 @@ exports.sendStoreCreationEmail = functions.https.onCall(
 
 // Function to send verification email (uses appropriate template based on userType)
 exports.sendVerificationEmail = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const {
         email,
@@ -770,7 +840,7 @@ exports.sendVerificationEmail = functions.https.onCall(
 
 // Function to send merchant verification email (with store info)
 exports.sendMerchantVerificationEmail = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const {
         email,
@@ -836,7 +906,7 @@ exports.sendMerchantVerificationEmail = functions.https.onCall(
 
 // Function to send admin notification
 exports.sendAdminNotification = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const { email, username, userType } = data;
 
@@ -883,7 +953,7 @@ exports.sendAdminNotification = functions.https.onCall(
 );
 
 // Function to handle email verification (called when user clicks verification link)
-exports.verifyEmail = functions.https.onCall(async (data, context) => {
+exports.verifyEmail = functions.https.onCall(async (data, _context) => {
   try {
     const { token } = data;
 
@@ -944,7 +1014,7 @@ exports.verifyEmail = functions.https.onCall(async (data, context) => {
 // Scheduled function to expire verification tokens after 7 days
 exports.expireVerificationTokens = functions.pubsub
   .schedule("every 24 hours")
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -980,7 +1050,7 @@ exports.expireVerificationTokens = functions.pubsub
 
 // Function to resend verification email
 exports.resendVerificationEmail = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const { email, username, userType, language = "en", storeName } = data;
 
@@ -1046,7 +1116,7 @@ exports.resendVerificationEmail = functions.https.onCall(
         html: htmlContent,
       };
 
-      const result = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
 
       return {
         success: true,
@@ -1444,7 +1514,7 @@ const emailChangeTemplate = {
 
 // Function to check if email already exists in Firebase Auth
 // This uses Admin SDK which can reliably check email existence
-exports.checkEmailExists = functions.https.onCall(async (data, context) => {
+exports.checkEmailExists = functions.https.onCall(async (data, _context) => {
   try {
     const { email } = data;
 
@@ -1481,7 +1551,18 @@ exports.checkEmailExists = functions.https.onCall(async (data, context) => {
 });
 
 // Function to delete a user from both Firebase Auth and Firestore
+// Self-service OR admin: the mobile app calls this from the Profile screen so
+// a signed-in user can delete THEIR OWN account (every provided identifier —
+// userId and/or email — must match the caller). Deleting anyone else requires
+// admin (assertAdmin). Unauthenticated callers (previously allowed) are
+// rejected.
 exports.deleteUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Sign-in required",
+    );
+  }
   try {
     const { userId, email } = data;
 
@@ -1494,6 +1575,21 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 
     let authUid = null;
     const normalizedEmail = email ? email.trim().toLowerCase() : null;
+
+    // Self-delete check: every identifier the caller supplied must point at
+    // their own account. userId is compared to the caller's Auth UID, email
+    // to the verified email on their Auth token. If any identifier targets
+    // someone else, admin privileges are required.
+    const callerEmail = context.auth.token.email
+      ? context.auth.token.email.toLowerCase()
+      : null;
+    const isSelfDelete =
+      (!userId || userId === context.auth.uid) &&
+      (!normalizedEmail ||
+        (callerEmail !== null && normalizedEmail === callerEmail));
+    if (!isSelfDelete) {
+      await assertAdmin(context);
+    }
 
     // ALWAYS try to find the Auth UID by email first (most reliable)
     // This ensures we delete from Auth even if Firestore doc ID doesn't match Auth UID
@@ -1628,9 +1724,261 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   }
 });
 
+/**
+ * Admin moderation delete of a user account.
+ * Deletes the Firebase Auth user, the users document(s) and the passwordResets
+ * document, but DETACHES the user's stores instead of deleting them: each
+ * owned store gets owner_id: null (previous owner kept in previous_owner_id)
+ * so it shows up as an orphan store in the admin panel and can be reviewed or
+ * deleted separately via adminDeleteStore.
+ *
+ * data: { userId?: string, email?: string } (at least one required)
+ * returns: { success: true, message: string, detachedStores: number }
+ */
+exports.adminDeleteUser = functions.https.onCall(async (data, context) => {
+  await assertAdmin(context);
+  try {
+    const { userId, email } = data;
+
+    if (!userId && !email) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "userId or email is required",
+      );
+    }
+
+    let authUid = null;
+    const normalizedEmail = email ? email.trim().toLowerCase() : null;
+
+    // Resolve the Auth UID by email first (most reliable), same strategy as
+    // deleteUser above.
+    if (normalizedEmail) {
+      try {
+        const userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+        authUid = userRecord.uid;
+        console.log(`Found Auth UID by email: ${authUid}`);
+      } catch (error) {
+        if (error.code === "auth/user-not-found") {
+          console.log("User not found in Auth by email:", normalizedEmail);
+        } else {
+          console.error("Error looking up user by email:", error);
+        }
+      }
+    }
+
+    if (!authUid && userId) {
+      authUid = userId;
+      console.log(`Using provided userId as authUid: ${authUid}`);
+    }
+
+    // Delete from Firebase Auth
+    if (authUid) {
+      try {
+        await admin.auth().deleteUser(authUid);
+        console.log(`Deleted user ${authUid} from Firebase Auth`);
+      } catch (error) {
+        if (error.code === "auth/user-not-found") {
+          console.log(`User ${authUid} not found in Auth (already deleted?)`);
+        } else {
+          console.error("Error deleting from Auth:", error);
+          // Don't throw - continue to delete from Firestore
+        }
+      }
+    }
+
+    // Delete users document(s): by doc id and by email query (legacy docs
+    // whose id doesn't match the Auth UID).
+    //
+    // Before deleting, remember every `id` field on the user doc(s): the app
+    // sets store owner_id from the users doc's `id` field, which on legacy
+    // accounts differs from the Auth UID — the store detach below must match
+    // both.
+    const ownerIds = new Set();
+    if (authUid) {
+      ownerIds.add(authUid);
+    }
+    const usersRef = admin.firestore().collection("users");
+    if (authUid) {
+      try {
+        const userDoc = await usersRef.doc(authUid).get();
+        if (userDoc.exists && userDoc.data().id) {
+          ownerIds.add(userDoc.data().id);
+        }
+        await usersRef.doc(authUid).delete();
+        console.log(`Deleted user document ${authUid} from Firestore`);
+      } catch (error) {
+        console.log("Could not delete by userId, trying by email");
+      }
+    }
+    if (normalizedEmail) {
+      const querySnapshot = await usersRef
+        .where("email", "==", normalizedEmail)
+        .get();
+      if (!querySnapshot.empty) {
+        const batch = admin.firestore().batch();
+        querySnapshot.docs.forEach((doc) => {
+          if (doc.data().id) {
+            ownerIds.add(doc.data().id);
+          }
+          batch.delete(doc.ref);
+          console.log(`Deleting user document by email: ${doc.id}`);
+        });
+        await batch.commit();
+      }
+    }
+
+    // Detach (do NOT delete) the user's stores so they become reviewable
+    // orphan stores in the admin panel. Query owner_id against the Auth UID
+    // AND every users-doc `id` field collected above, deduped by store doc.
+    let detachedStores = 0;
+    if (ownerIds.size > 0) {
+      const storesRef = admin.firestore().collection("stores");
+      const storeDocs = new Map();
+      for (const ownerId of ownerIds) {
+        const storesSnapshot = await storesRef
+          .where("owner_id", "==", ownerId)
+          .get();
+        storesSnapshot.docs.forEach((doc) => {
+          storeDocs.set(doc.ref.path, doc);
+        });
+      }
+      if (storeDocs.size > 0) {
+        const storesBatch = admin.firestore().batch();
+        for (const doc of storeDocs.values()) {
+          storesBatch.update(doc.ref, {
+            owner_id: null,
+            previous_owner_id: doc.data().owner_id,
+          });
+          console.log(
+            `Detaching store ${doc.id} from deleted user ` +
+              `${doc.data().owner_id}`,
+          );
+        }
+        await storesBatch.commit();
+        detachedStores = storeDocs.size;
+      }
+    }
+
+    // Delete passwordResets document for this user's email
+    if (normalizedEmail) {
+      try {
+        const passwordResetsRef = admin
+          .firestore()
+          .collection("passwordResets")
+          .doc(normalizedEmail);
+        const passwordResetDoc = await passwordResetsRef.get();
+        if (passwordResetDoc.exists) {
+          await passwordResetsRef.delete();
+          console.log(`Deleted passwordResets document for ${normalizedEmail}`);
+        }
+      } catch (error) {
+        console.log("Error deleting passwordResets:", error.message);
+        // Continue - not critical
+      }
+    }
+
+    return {
+      success: true,
+      message: "User deleted successfully",
+      detachedStores,
+    };
+  } catch (error) {
+    console.error("Error deleting user (admin):", error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to delete user: " + error.message,
+    );
+  }
+});
+
+/**
+ * Admin hard delete of a store with full cascade:
+ * - deletes the store document,
+ * - deletes all posts referencing the store (posts.store.id == store's
+ *   numeric id field - posts are a top-level collection, not a subcollection),
+ * - best-effort deletes every Cloudflare image referenced by the store
+ *   (images[], imageUrl) and its posts (images[]).
+ *
+ * data: { storeId: string }  // Firestore DOCUMENT id of the store
+ * returns: { success: true, deletedPosts: number, deletedImages: number }
+ */
+exports.adminDeleteStore = functions.https.onCall(async (data, context) => {
+  await assertAdmin(context);
+  try {
+    const { storeId } = data;
+
+    if (!storeId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "storeId is required",
+      );
+    }
+
+    const storeRef = admin.firestore().collection("stores").doc(storeId);
+    const storeDoc = await storeRef.get();
+    if (!storeDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Store not found");
+    }
+    const storeData = storeDoc.data();
+
+    // Collect every image URL to clean up
+    const imageUrls = new Set();
+    (storeData.images || []).forEach((url) => imageUrls.add(url));
+    if (storeData.imageUrl) imageUrls.add(storeData.imageUrl);
+
+    // Delete the store's posts (matched on the store's numeric id field)
+    let deletedPosts = 0;
+    const numericStoreId = storeData.id;
+    if (numericStoreId !== undefined && numericStoreId !== null) {
+      const postsSnapshot = await admin
+        .firestore()
+        .collection("posts")
+        .where("store.id", "==", numericStoreId)
+        .get();
+      if (!postsSnapshot.empty) {
+        const postsBatch = admin.firestore().batch();
+        postsSnapshot.docs.forEach((postDoc) => {
+          (postDoc.data().images || []).forEach((url) => imageUrls.add(url));
+          postsBatch.delete(postDoc.ref);
+          console.log(
+            `Deleting post ${postDoc.id} for store ${storeId}`,
+          );
+        });
+        await postsBatch.commit();
+        deletedPosts = postsSnapshot.size;
+      }
+    }
+
+    // Delete the store document itself
+    await storeRef.delete();
+    console.log(`Deleted store ${storeId}`);
+
+    // Best-effort Cloudflare image cleanup - never blocks the response
+    let deletedImages = 0;
+    for (const url of imageUrls) {
+      const deleted = await deleteCloudflareImage(url);
+      if (deleted) deletedImages++;
+    }
+
+    return { success: true, deletedPosts, deletedImages };
+  } catch (error) {
+    console.error("Error deleting store (admin):", error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to delete store: " + error.message,
+    );
+  }
+});
+
 // Function to send email change verification
 exports.sendEmailChangeVerification = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const { userId, oldEmail, newEmail, username, language = "fr" } = data;
 
@@ -1720,7 +2068,7 @@ exports.sendEmailChangeVerification = functions.https.onCall(
 );
 
 // Function to confirm email change (called when user clicks the link)
-exports.confirmEmailChange = functions.https.onCall(async (data, context) => {
+exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
   try {
     const { token, userId } = data;
 
@@ -1877,7 +2225,7 @@ const passwordResetEmailTemplate = {
 
 // Custom password reset - sends email from info@shopisan.com
 exports.sendCustomPasswordReset = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const { email, language = "fr" } = data;
 
@@ -1956,7 +2304,7 @@ exports.sendCustomPasswordReset = functions.https.onCall(
 
 // Verify reset code and reset password
 exports.resetPasswordWithCode = functions.https.onCall(
-  async (data, context) => {
+  async (data, _context) => {
     try {
       const { email, code, newPassword } = data;
 
