@@ -836,6 +836,10 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       // store list on it, show new stores too. Distinct from the identically
       // named field on users, which means "email verified".
       is_validated: true,
+      // New stores start pending admin review. This is the server-owned
+      // moderation field from firestore.rules ('pending' | 'approved');
+      // only admins can change it.
+      status: "pending",
       created: serverTimestamp(),
       email: store.storeEmail || "",
       phone: store.phone || "",

@@ -482,6 +482,13 @@ export const useStoreForm = ({
     }
   };
 
+  // Basic email shape: something@something.tld
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  // Website accepted with or without protocol: "shopisan.com" or "https://shopisan.com/page"
+  const WEBSITE_REGEX = /^(https?:\/\/)?([\w-]+\.)+[a-zA-Z]{2,}([/?#]\S*)?$/;
+
+  // Returns an error code ("required" | "invalid_email" | "invalid_website")
+  // or false when the field is valid.
   const validateField = (fieldName, value) => {
     const requiredFields = [
       "name",
@@ -498,13 +505,20 @@ export const useStoreForm = ({
         "managerLastName",
         "storeEmail",
         "phone",
+        "website",
       );
     }
 
-    const isRequired = requiredFields.includes(fieldName);
+    const trimmed = value ? value.trim() : "";
 
-    if (isRequired && (!value || value.trim() === "")) {
-      return true;
+    if (requiredFields.includes(fieldName) && trimmed === "") {
+      return "required";
+    }
+    if (fieldName === "storeEmail" && trimmed !== "" && !EMAIL_REGEX.test(trimmed)) {
+      return "invalid_email";
+    }
+    if (fieldName === "website" && trimmed !== "" && !WEBSITE_REGEX.test(trimmed)) {
+      return "invalid_website";
     }
     return false;
   };
@@ -526,12 +540,14 @@ export const useStoreForm = ({
         { key: "managerLastName", value: managerLastName },
         { key: "storeEmail", value: storeEmail },
         { key: "phone", value: phone },
+        { key: "website", value: website },
       );
     }
 
     requiredFields.forEach((field) => {
-      if (validateField(field.key, field.value)) {
-        errors[field.key] = true;
+      const fieldError = validateField(field.key, field.value);
+      if (fieldError) {
+        errors[field.key] = fieldError;
       }
     });
 
@@ -593,6 +609,10 @@ export const useStoreForm = ({
       // store list on it, show new stores too. Drop it once those builds age
       // out (same deprecation window as merchant/owner in firestore.rules).
       is_validated: true,
+      // New stores start pending admin review. This is the server-owned
+      // moderation field from firestore.rules ('pending' | 'approved');
+      // only admins can change it.
+      status: "pending",
       created: serverTimestamp(),
       email: storeEmail || "",
       phone: phone || "",

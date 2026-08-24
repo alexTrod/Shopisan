@@ -281,6 +281,8 @@ export default {
     sending_to: "Sending to:",
     enter_email: "Please enter your email address",
     invalid_email: "Please enter a valid email address",
+    invalid_website: "Please enter a valid website address",
+    field_required: "This field is required",
     failed_send_email: "Failed to send reset email",
     failed_reset_password: "Failed to reset password",
     reset_code: "Reset Code",
@@ -357,6 +359,8 @@ export default {
 
     // Posts Management
     manage_posts: "Manage Posts",
+    select_store_for_posts: "Select a store",
+    no_stores_for_posts: "Add a store first to publish posts.",
     add_post: "Add Post",
     create_post: "Create Post",
     edit_post: "Edit Post",
@@ -675,6 +679,8 @@ export default {
     sending_to: "Envoi à :",
     enter_email: "Entrez votre email",
     invalid_email: "Veuillez entrer une adresse email valide",
+    invalid_website: "Veuillez entrer une adresse de site web valide",
+    field_required: "Ce champ est obligatoire",
     failed_send_email: "Échec de l'envoi de l'email",
     failed_reset_password: "Échec de la réinitialisation du mot de passe",
     reset_code: "Code de réinitialisation",
@@ -756,6 +762,9 @@ export default {
 
     // Posts Management
     manage_posts: "Gérer les annonces",
+    select_store_for_posts: "Sélectionnez un magasin",
+    no_stores_for_posts:
+      "Ajoutez d'abord un magasin pour publier des annonces.",
     add_post: "Ajouter une annonce",
     create_post: "Créer une annonce",
     edit_post: "Modifier l'annonce",

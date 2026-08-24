@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
   ScrollView,
+  Keyboard,
   DeviceEventEmitter,
   Platform,
   Image,
@@ -84,6 +85,8 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [addressQuery, setAddressQuery] = useState("");
   const [streetNumber, setStreetNumber] = useState("");
   const [expandedDay, setExpandedDay] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const dispatch = useDispatch();
 
   const timePresets = [
@@ -251,16 +254,117 @@ export default function HandleStoreScreen({ route, navigation }) {
     setStoreCategories(storeCategories.filter((cat) => cat !== categoryID));
   };
 
-  const handleUpdateStore = async () => {
+  // Basic email shape: something@something.tld
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  // Website accepted with or without protocol: "shopisan.com" or "https://shopisan.com/page"
+  const WEBSITE_REGEX = /^(https?:\/\/)?([\w-]+\.)+[a-zA-Z]{2,}([/?#]\S*)?$/;
+
+  // Returns an error code ("required" | "invalid_email" | "invalid_website")
+  // or false when the field is valid.
+  const validateField = (fieldName, value) => {
+    const requiredFields = [
+      "name",
+      "street",
+      "city",
+      "postalCode",
+      "description",
+    ];
+
+    // Merchant contact fields are mandatory for store owner accounts
+    if (isOwnerType(user)) {
+      requiredFields.push(
+        "managerFirstName",
+        "managerLastName",
+        "storeEmail",
+        "phone",
+        "website",
+      );
+    }
+
+    const trimmed = value ? value.trim() : "";
+
+    if (requiredFields.includes(fieldName) && trimmed === "") {
+      return "required"; // Has error
+    }
     if (
-      !name ||
-      !street ||
-      !city ||
-      !postalCode ||
-      !description ||
-      storeCategories.length === 0
+      fieldName === "storeEmail" &&
+      trimmed !== "" &&
+      !EMAIL_REGEX.test(trimmed)
     ) {
-      Alert.alert(t("error"), t("all_fields_required"));
+      return "invalid_email";
+    }
+    if (
+      fieldName === "website" &&
+      trimmed !== "" &&
+      !WEBSITE_REGEX.test(trimmed)
+    ) {
+      return "invalid_website";
+    }
+    return false; // No error
+  };
+
+  const validateAllFields = () => {
+    const errors = {};
+    const fieldsToCheck = [
+      { key: "name", value: name },
+      { key: "street", value: street },
+      { key: "city", value: city },
+      { key: "postalCode", value: postalCode },
+      { key: "description", value: description },
+    ];
+
+    if (isOwnerType(user)) {
+      fieldsToCheck.push(
+        { key: "managerFirstName", value: managerFirstName },
+        { key: "managerLastName", value: managerLastName },
+        { key: "storeEmail", value: storeEmail },
+        { key: "phone", value: phone },
+        { key: "website", value: website },
+      );
+    }
+
+    fieldsToCheck.forEach((field) => {
+      const fieldError = validateField(field.key, field.value);
+      if (fieldError) {
+        errors[field.key] = fieldError;
+      }
+    });
+
+    if (storeCategories.length === 0) {
+      errors.categories = true;
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const getInputStyle = (fieldName, extraStyle) => {
+    const hasError = hasAttemptedSubmit && validationErrors[fieldName];
+    return [styles.input, extraStyle, hasError && styles.inputError];
+  };
+
+  // Per-field validation message shown under the input after a submit attempt
+  const renderFieldError = (fieldName) => {
+    if (!hasAttemptedSubmit || !validationErrors[fieldName]) {
+      return null;
+    }
+    const errorCode = validationErrors[fieldName];
+    let message;
+    if (errorCode === "invalid_email") {
+      message = t("invalid_email") || "Please enter a valid email address";
+    } else if (errorCode === "invalid_website") {
+      message = t("invalid_website") || "Please enter a valid website address";
+    } else {
+      message = t("field_required") || "This field is required";
+    }
+    return <Text style={styles.errorText}>{message}</Text>;
+  };
+
+  const handleUpdateStore = async () => {
+    setHasAttemptedSubmit(true);
+
+    if (!validateAllFields()) {
+      Alert.alert(t("error"), t("required_fields_error"));
       return;
     }
 
@@ -812,11 +916,6 @@ export default function HandleStoreScreen({ route, navigation }) {
     }));
   };
 
-  const updateOpeningHourValidated = (day, period, field, value) => {
-    updateOpeningHour(day, period, field, value);
-    validateHour(day, period, field, value);
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -844,22 +943,24 @@ export default function HandleStoreScreen({ route, navigation }) {
         <View style={styles.container}>
           <Text style={styles.label}>{t("store_name")}</Text>
           <TextInput
-            style={styles.input}
+            style={getInputStyle("name")}
             placeholder={t("store_name")}
             value={name}
             onChangeText={setName}
           />
+          {renderFieldError("name")}
 
           <Text style={styles.label}>{t("store_address")}</Text>
           <View style={styles.addressContainer}>
             <View style={styles.addressInputWrapper}>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("street")}
                 value={addressQuery}
                 onChangeText={fetchAddressSuggestions}
                 placeholder={t("store_address")}
                 onBlur={() => setSuggestions([])}
               />
+              {renderFieldError("street")}
 
               {suggestions.length > 0 && (
                 <View
@@ -931,29 +1032,32 @@ export default function HandleStoreScreen({ route, navigation }) {
 
           <Text style={styles.label}>{t("city")}</Text>
           <TextInput
-            style={styles.input}
+            style={getInputStyle("city")}
             placeholder={t("city")}
             value={city}
             onChangeText={setCity}
           />
+          {renderFieldError("city")}
 
           <Text style={styles.label}>{t("postal_code")}</Text>
           <TextInput
-            style={styles.input}
+            style={getInputStyle("postalCode")}
             placeholder={t("postal_code")}
             value={postalCode}
             onChangeText={setPostalCode}
             keyboardType="numeric"
           />
+          {renderFieldError("postalCode")}
 
           <Text style={styles.label}>{t("description")}</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={getInputStyle("description", styles.textArea)}
             placeholder={t("description")}
             value={description}
             onChangeText={setDescription}
             multiline
           />
+          {renderFieldError("description")}
 
           <OpeningHoursPicker
             value={openingHours}
@@ -967,53 +1071,63 @@ export default function HandleStoreScreen({ route, navigation }) {
             <>
               <Text style={styles.label}>{t("store_email")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("storeEmail")}
                 placeholder={t("store_email")}
                 value={storeEmail}
                 onChangeText={setStoreEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+              {renderFieldError("storeEmail")}
 
               <Text style={styles.label}>{t("website")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("website")}
                 placeholder={t("website")}
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
               />
+              {renderFieldError("website")}
 
               <Text style={styles.label}>{t("phone")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("phone")}
                 placeholder={t("phone")}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
+              {renderFieldError("phone")}
 
               <Text style={styles.label}>{t("manager_first_name")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("managerFirstName")}
                 placeholder={t("manager_first_name")}
                 value={managerFirstName}
                 onChangeText={setManagerFirstName}
               />
+              {renderFieldError("managerFirstName")}
 
               <Text style={styles.label}>{t("manager_last_name")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("managerLastName")}
                 placeholder={t("manager_last_name")}
                 value={managerLastName}
                 onChangeText={setManagerLastName}
               />
+              {renderFieldError("managerLastName")}
             </>
           )}
 
           <Text style={styles.label}>{t("categories")}</Text>
           <TouchableOpacity
-            style={styles.categoryButton}
+            style={[
+              styles.categoryButton,
+              hasAttemptedSubmit &&
+                validationErrors.categories &&
+                styles.categoryButtonError,
+            ]}
             onPress={() => setModalVisible(true)}
           >
             <Text style={styles.categoryButtonText}>
@@ -1243,7 +1357,6 @@ export default function HandleStoreScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: width(4),
     backgroundColor: AppColors.white_100,
   },
@@ -1261,6 +1374,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     backgroundColor: "#f8f8f8",
   },
+  inputError: {
+    borderColor: AppColors.red,
+    backgroundColor: "#fff0f0",
+  },
+  errorText: {
+    color: AppColors.red,
+    fontSize: 14,
+    marginTop: -10,
+    marginBottom: 10,
+  },
   textArea: {
     height: 80,
     textAlignVertical: "top",
@@ -1271,6 +1394,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginBottom: 15,
+  },
+  categoryButtonError: {
+    borderWidth: 2,
+    borderColor: AppColors.red,
   },
   categoryButtonText: {
     color: "#fff",
@@ -1346,10 +1473,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingBottom: 20,
-  },
-  container: {
-    padding: width(4),
-    backgroundColor: AppColors.white_100,
   },
   dayContainer: {
     marginBottom: 0,

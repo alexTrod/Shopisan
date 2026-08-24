@@ -397,6 +397,10 @@ describe("StoreForm", () => {
         "shop@example.com",
       );
       fireEvent.changeText(utils.getByPlaceholderText("phone"), "0600000000");
+      fireEvent.changeText(
+        utils.getByPlaceholderText("website"),
+        "shopisan.com",
+      );
     };
 
     it("should block submit when merchant contact fields are empty", async () => {
@@ -433,20 +437,58 @@ describe("StoreForm", () => {
       expect(onSubmit).toHaveBeenCalled();
     });
 
-    it("should not require website or street number", async () => {
+    it("should not require street number", async () => {
       mockSelectedCategories = ["cat1"];
       const onSubmit = jest.fn();
       const utils = await renderForm({ onSubmit });
 
       fillBaseFields(utils);
       fillMerchantFields(utils);
-      // website and street_number deliberately left blank
+      // street_number deliberately left blank
 
       await act(async () => {
         fireEvent.press(utils.getByText("add_store"));
       });
 
       expect(onSubmit).toHaveBeenCalled();
+    });
+
+    it("should block submit when the website is invalid", async () => {
+      mockSelectedCategories = ["cat1"];
+      const onSubmit = jest.fn();
+      const utils = await renderForm({ onSubmit });
+
+      fillBaseFields(utils);
+      fillMerchantFields(utils);
+      fireEvent.changeText(
+        utils.getByPlaceholderText("website"),
+        "not a website",
+      );
+
+      await act(async () => {
+        fireEvent.press(utils.getByText("add_store"));
+      });
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("should block submit when the store email is invalid", async () => {
+      mockSelectedCategories = ["cat1"];
+      const onSubmit = jest.fn();
+      const utils = await renderForm({ onSubmit });
+
+      fillBaseFields(utils);
+      fillMerchantFields(utils);
+      fireEvent.changeText(
+        utils.getByPlaceholderText("store_email"),
+        "not-an-email",
+      );
+
+      await act(async () => {
+        fireEvent.press(utils.getByText("add_store"));
+      });
+
+      expect(onSubmit).not.toHaveBeenCalled();
     });
 
     it("should not require merchant fields when they are hidden", async () => {

@@ -521,6 +521,13 @@ export default function AddStoreScreen({ navigation }) {
     }
   };
 
+  // Basic email shape: something@something.tld
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  // Website accepted with or without protocol: "shopisan.com" or "https://shopisan.com/page"
+  const WEBSITE_REGEX = /^(https?:\/\/)?([\w-]+\.)+[a-zA-Z]{2,}([/?#]\S*)?$/;
+
+  // Returns an error code ("required" | "invalid_email" | "invalid_website")
+  // or false when the field is valid.
   const validateField = (fieldName, value) => {
     const requiredFields = [
       "name",
@@ -529,10 +536,36 @@ export default function AddStoreScreen({ navigation }) {
       "postalCode",
       "description",
     ];
-    const isRequired = requiredFields.includes(fieldName);
 
-    if (isRequired && (!value || value.trim() === "")) {
-      return true; // Has error
+    // Merchant contact fields are mandatory for store owner accounts
+    if (isOwnerType(user)) {
+      requiredFields.push(
+        "managerFirstName",
+        "managerLastName",
+        "storeEmail",
+        "phone",
+        "website",
+      );
+    }
+
+    const trimmed = value ? value.trim() : "";
+
+    if (requiredFields.includes(fieldName) && trimmed === "") {
+      return "required"; // Has error
+    }
+    if (
+      fieldName === "storeEmail" &&
+      trimmed !== "" &&
+      !EMAIL_REGEX.test(trimmed)
+    ) {
+      return "invalid_email";
+    }
+    if (
+      fieldName === "website" &&
+      trimmed !== "" &&
+      !WEBSITE_REGEX.test(trimmed)
+    ) {
+      return "invalid_website";
     }
     return false; // No error
   };
@@ -547,9 +580,20 @@ export default function AddStoreScreen({ navigation }) {
       { key: "description", value: description },
     ];
 
+    if (isOwnerType(user)) {
+      requiredFields.push(
+        { key: "managerFirstName", value: managerFirstName },
+        { key: "managerLastName", value: managerLastName },
+        { key: "storeEmail", value: storeEmail },
+        { key: "phone", value: phone },
+        { key: "website", value: website },
+      );
+    }
+
     requiredFields.forEach((field) => {
-      if (validateField(field.key, field.value)) {
-        errors[field.key] = true;
+      const fieldError = validateField(field.key, field.value);
+      if (fieldError) {
+        errors[field.key] = fieldError;
       }
     });
 
@@ -564,6 +608,23 @@ export default function AddStoreScreen({ navigation }) {
   const getInputStyle = (fieldName) => {
     const hasError = hasAttemptedSubmit && validationErrors[fieldName];
     return [styles.input, hasError && styles.inputError];
+  };
+
+  // Per-field validation message shown under the input after a submit attempt
+  const renderFieldError = (fieldName) => {
+    if (!hasAttemptedSubmit || !validationErrors[fieldName]) {
+      return null;
+    }
+    const errorCode = validationErrors[fieldName];
+    let message;
+    if (errorCode === "invalid_email") {
+      message = t("invalid_email") || "Please enter a valid email address";
+    } else if (errorCode === "invalid_website") {
+      message = t("invalid_website") || "Please enter a valid website address";
+    } else {
+      message = t("field_required") || "This field is required";
+    }
+    return <Text style={styles.errorText}>{message}</Text>;
   };
 
   const handleAddStore = async () => {
@@ -822,6 +883,10 @@ export default function AddStoreScreen({ navigation }) {
         // builds age out (same deprecation window as merchant/owner in
         // firestore.rules).
         is_validated: true,
+        // New stores start pending admin review. This is the server-owned
+        // moderation field from firestore.rules ('pending' | 'approved');
+        // only admins can change it.
+        status: "pending",
         created: serverTimestamp(),
         ...(isOwnerType(user) && {
           email: storeEmail || "",
@@ -1214,64 +1279,55 @@ export default function AddStoreScreen({ navigation }) {
 
           {isOwnerType(user) && (
             <>
-              <Text style={styles.label}>
-                {t("store_email")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("store_email")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("storeEmail")}
                 placeholder={t("store_email")}
                 value={storeEmail}
                 onChangeText={setStoreEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+              {renderFieldError("storeEmail")}
 
-              <Text style={styles.label}>
-                {t("website")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("website")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("website")}
                 placeholder={t("website")}
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
+                keyboardType="url"
               />
+              {renderFieldError("website")}
 
-              <Text style={styles.label}>
-                {t("phone")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("phone")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("phone")}
                 placeholder={t("phone")}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
+              {renderFieldError("phone")}
 
-              <Text style={styles.label}>
-                {t("manager_first_name")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("manager_first_name")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("managerFirstName")}
                 placeholder={t("manager_first_name")}
                 value={managerFirstName}
                 onChangeText={setManagerFirstName}
               />
+              {renderFieldError("managerFirstName")}
 
-              <Text style={styles.label}>
-                {t("manager_last_name")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("manager_last_name")}</Text>
               <TextInput
-                style={styles.input}
+                style={getInputStyle("managerLastName")}
                 placeholder={t("manager_last_name")}
                 value={managerLastName}
                 onChangeText={setManagerLastName}
               />
+              {renderFieldError("managerLastName")}
             </>
           )}
 
@@ -1552,6 +1608,12 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: AppColors.red,
     backgroundColor: "#fff0f0",
+  },
+  errorText: {
+    color: AppColors.red,
+    fontSize: 14,
+    marginTop: -10,
+    marginBottom: 10,
   },
   textArea: {
     height: 80,

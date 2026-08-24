@@ -172,6 +172,23 @@ export const StoreForm = ({
     ];
   };
 
+  // Per-field validation message shown under the input after a submit attempt
+  const renderFieldError = (fieldName) => {
+    if (!hasAttemptedSubmit || !validationErrors[fieldName]) {
+      return null;
+    }
+    const errorCode = validationErrors[fieldName];
+    let message;
+    if (errorCode === "invalid_email") {
+      message = t("invalid_email") || "Please enter a valid email address";
+    } else if (errorCode === "invalid_website") {
+      message = t("invalid_website") || "Please enter a valid website address";
+    } else {
+      message = t("field_required") || "This field is required";
+    }
+    return <Text style={styles.errorText}>{message}</Text>;
+  };
+
   const data = categories.map((category) => ({
     value: category.id,
     label: category.name,
@@ -367,6 +384,7 @@ export const StoreForm = ({
                 onChangeText={setManagerFirstName}
                 editable={!disabled}
               />
+              {renderFieldError("managerFirstName")}
 
               <Text style={styles.label}>{t("manager_last_name")}</Text>
               <TextInput
@@ -376,6 +394,7 @@ export const StoreForm = ({
                 onChangeText={setManagerLastName}
                 editable={!disabled}
               />
+              {renderFieldError("managerLastName")}
 
               <Text style={styles.label}>{t("store_email")}</Text>
               <TextInput
@@ -387,6 +406,7 @@ export const StoreForm = ({
                 autoCapitalize="none"
                 editable={!disabled}
               />
+              {renderFieldError("storeEmail")}
 
               <Text style={styles.label}>{t("phone")}</Text>
               <TextInput
@@ -397,19 +417,19 @@ export const StoreForm = ({
                 keyboardType="phone-pad"
                 editable={!disabled}
               />
+              {renderFieldError("phone")}
 
-              <Text style={styles.label}>
-                {t("website")}{" "}
-                <Text style={styles.optionalText}>({t("optional")})</Text>
-              </Text>
+              <Text style={styles.label}>{t("website")}</Text>
               <TextInput
-                style={[styles.input, disabled && styles.inputDisabled]}
+                style={getInputStyle("website")}
                 placeholder={t("website")}
                 value={website}
                 onChangeText={setWebsite}
                 autoCapitalize="none"
+                keyboardType="url"
                 editable={!disabled}
               />
+              {renderFieldError("website")}
             </>
           )}
 
