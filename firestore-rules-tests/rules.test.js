@@ -165,6 +165,26 @@ describe("users - privileged fields are frozen", () => {
     const db = asUser(ADMIN);
     await assertSucceeds(getDoc(doc(db, "users", SHOPPER)));
   });
+
+  it("allows an admin to update another user's document", async () => {
+    // The admin panel toggles is_active/is_validated and clears profile
+    // photo fields during moderation.
+    const db = asUser(ADMIN);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", SHOPPER), {
+        is_active: false,
+        is_validated: false,
+        profile_photo: null,
+      }),
+    );
+  });
+
+  it("still blocks a non-admin from updating another user's document", async () => {
+    const db = asUser(SHOPPER);
+    await assertFails(
+      updateDoc(doc(db, "users", OWNER_A), { username: "hijacked" }),
+    );
+  });
 });
 
 describe("stores - only owner accounts can create", () => {

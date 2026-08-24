@@ -17,8 +17,14 @@ service cloud.firestore {
 
     // The app writes is_admin, not role. The previous rules checked `role`,
     // a field that is never written, so every admin branch was dead.
+    //
+    // The `admin` custom claim is the admin-panel identity (set once via
+    // scripts/set-admin-claim.js); it is checked first because it needs no
+    // document read. The is_admin doc field is kept as the legacy path.
     function isAdmin() {
-      return signedIn() && hasUserDoc() && userDoc().is_admin == true;
+      return signedIn() &&
+        (request.auth.token.get('admin', false) == true ||
+         (hasUserDoc() && userDoc().is_admin == true));
     }
 
     // Only store owner accounts may create stores and posts. "merchant" is the
@@ -39,17 +45,25 @@ service cloud.firestore {
       // Without this, any shopper could promote themselves to owner with a
       // single updateDoc call and the account type would mean nothing.
       //
+      // Admins may update any user document: the admin panel toggles
+      // is_active/is_validated and clears profile photo fields during
+      // moderation.
+      //
       // Read through get(key, default): pre-migration documents have no
       // signupIntent, and a direct .signupIntent lookup on a missing key
       // evaluates to an error, which would deny every profile update those
       // users make (including the email sync in fetchUserData).
-      allow update: if signedIn() && request.auth.uid == userId
-        && resource != null
-        && request.resource.data.get('userType', null) == resource.data.get('userType', null)
-        && request.resource.data.get('is_admin', false) == resource.data.get('is_admin', false)
-        && request.resource.data.get('signupIntent', null) == resource.data.get('signupIntent', null);
+      allow update: if signedIn() && resource != null
+        && (isAdmin()
+            || (request.auth.uid == userId
+                && request.resource.data.get('userType', null) == resource.data.get('userType', null)
+                && request.resource.data.get('is_admin', false) == resource.data.get('is_admin', false)
+                && request.resource.data.get('signupIntent', null) == resource.data.get('signupIntent', null)));
 
-      allow delete: if signedIn() && request.auth.uid == userId;
+      // Self-delete, or admin moderation delete. Full account removal
+      // (Auth user + owned data) still goes through the adminDeleteUser
+      // callable; this only covers the Firestore document.
+      allow delete: if signedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // Stores - anyone can read, only store owners can create.
@@ -67,15 +81,24 @@ service cloud.firestore {
     // none of these keys, and a direct .is_verified lookup on a missing key
     // evaluates to an error, which would deny every edit those owners make.
     match /stores/{storeId} {
+      // status is the moderation field: 'pending' | 'approved'. It is
+      // server-owned like is_verified/is_suspended -- owners may only create
+      // stores as 'pending' (or without the field, for old app builds) and may
+      // never change it; admins clear it to 'approved'. Reads are NOT gated on
+      // it: pending stores stay visible in the app (flag-and-review model),
+      // any hiding happens client-side. Distinct from the legacy numeric
+      // storeStatus field, which the app always writes as 0.
       function moderationNeutralOnCreate() {
         return request.resource.data.get('is_verified', false) == false
-            && request.resource.data.get('is_suspended', false) == false;
+            && request.resource.data.get('is_suspended', false) == false
+            && request.resource.data.get('status', 'pending') == 'pending';
       }
 
       function moderationUnchanged() {
         return request.resource.data.get('is_verified', false) == resource.data.get('is_verified', false)
             && request.resource.data.get('is_suspended', false) == resource.data.get('is_suspended', false)
-            && request.resource.data.get('is_validated', false) == resource.data.get('is_validated', false);
+            && request.resource.data.get('is_validated', false) == resource.data.get('is_validated', false)
+            && request.resource.data.get('status', '') == resource.data.get('status', '');
       }
 
       allow read: if true;
