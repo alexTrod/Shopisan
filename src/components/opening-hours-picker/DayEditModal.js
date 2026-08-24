@@ -103,8 +103,9 @@ export default function DayEditModal({
               <Switch
                 value={isClosed}
                 onValueChange={handleClosedToggle}
-                trackColor={{ false: AppColors.grey_300, true: AppColors.primary }}
+                trackColor={{ false: AppColors.grey_200, true: AppColors.primary }}
                 thumbColor={AppColors.white}
+                ios_backgroundColor={AppColors.grey_200}
               />
             </View>
 
