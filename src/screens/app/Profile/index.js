@@ -13,10 +13,22 @@ import {
   ScrollView,
   Linking,
   Alert,
+  Modal,
+  FlatList,
+  ActivityIndicator,
 } from "react-native";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut, deleteAccount } from "../../../Redux/Actions/UserActions";
 import ChevronRight from "../../../../assets/icons/chevron-right";
+import CloseIcon from "../../../../assets/icons/close-icon";
 import InstagramIcon from "../../../../assets/icons/instagram-icon";
 import GlobeIcon from "../../../../assets/icons/globe-icon";
 import LogoutIcon from "../../../../assets/icons/logout-icon";
@@ -26,13 +38,51 @@ import { ScreenNames } from "../../../Routes/routes";
 import EmailVerificationBanner from "../../../components/email-verification";
 import { setLocale } from "../../../Redux/Slices/localeSlice";
 import LanguageSelector from "../../../components/language-selector";
-import { doc, updateDoc } from "firebase/firestore";
 import { firestore, auth } from "../../../../firebaseconfig";
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user.userData);
   const { t, locale } = useTranslation();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [loadingStores, setLoadingStores] = useState(false);
+  const [ownedStores, setOwnedStores] = useState([]);
+  const [storePickerVisible, setStorePickerVisible] = useState(false);
+
+  const openManagePosts = (store) => {
+    setStorePickerVisible(false);
+    navigation.navigate(ScreenNames.MANAGE_POSTS, {
+      storeId: store.id,
+      storeName: store.name,
+      ownerId: store.owner_id,
+    });
+  };
+
+  const handleManagePostsPress = async () => {
+    if (loadingStores) return;
+    setLoadingStores(true);
+    try {
+      const snapshot = await getDocs(
+        query(
+          collection(firestore, "stores"),
+          where("owner_id", "==", user?.id),
+        ),
+      );
+      const stores = snapshot.docs.map((docSnap) => docSnap.data());
+      if (stores.length === 0) {
+        Alert.alert(t("manage_posts"), t("no_stores_for_posts"));
+      } else if (stores.length === 1) {
+        openManagePosts(stores[0]);
+      } else {
+        setOwnedStores(stores);
+        setStorePickerVisible(true);
+      }
+    } catch (error) {
+      console.error("Error loading owned stores:", error);
+      Alert.alert(t("error"), t("no_stores_found"));
+    } finally {
+      setLoadingStores(false);
+    }
+  };
 
   const handlePress = (screen) => {
     if (screen) {
@@ -195,6 +245,26 @@ export default function Profile({ navigation }) {
                 />
               </View>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.optionTile}
+              onPress={handleManagePostsPress}
+              disabled={loadingStores}
+            >
+              <View style={styles.optionContent}>
+                <CustomText size={1.8} color={AppColors.black}>
+                  {t("manage_posts")}
+                </CustomText>
+                {loadingStores ? (
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                ) : (
+                  <ChevronRight
+                    width={20}
+                    height={20}
+                    color={AppColors.grey_300}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -284,11 +354,80 @@ export default function Profile({ navigation }) {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Store picker for post management (owners with several stores) */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={storePickerVisible}
+        onRequestClose={() => setStorePickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <CustomText
+                size={2.2}
+                color={AppColors.primary}
+                style={{ fontWeight: "bold" }}
+              >
+                {t("select_store_for_posts")}
+              </CustomText>
+              <TouchableOpacity
+                onPress={() => setStorePickerVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <CloseIcon width={24} height={24} color={AppColors.black} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={ownedStores}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.optionTile}
+                  onPress={() => openManagePosts(item)}
+                >
+                  <View style={styles.optionContent}>
+                    <CustomText size={1.8} color={AppColors.black}>
+                      {item.name}
+                    </CustomText>
+                    <ChevronRight
+                      width={20}
+                      height={20}
+                      color={AppColors.grey_300}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  modalContent: {
+    backgroundColor: AppColors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
   sectionContainer: {
     marginBottom: 40,
   },

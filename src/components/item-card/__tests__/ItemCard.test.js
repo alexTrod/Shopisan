@@ -92,6 +92,10 @@ jest.mock("../../../../assets/icons/add-circle-icon", () => {
   const React = require("react");
   return () => React.createElement("View", { testID: "add-circle-icon" });
 });
+jest.mock("../../../../assets/icons/add-post-icon", () => {
+  const React = require("react");
+  return () => React.createElement("View", { testID: "add-post-icon" });
+});
 jest.mock("../../../../assets/icons/edit-icon", () => {
   const React = require("react");
   return () => React.createElement("View", { testID: "edit-icon" });
@@ -165,16 +169,15 @@ describe("ItemCard - store owner actions", () => {
   };
 
   describe("Visibility", () => {
-    it("should show the edit button but no add post button to the store owner", async () => {
-      // Adding posts lives in the store detail modal, not on the card.
+    it("should show the edit and manage-posts buttons to the store owner", async () => {
       mockUserData = { id: OWNER_ID, userType: "owner" };
 
-      const { getByTestId, queryByTestId } = await renderSettled();
+      const { getByTestId } = await renderSettled();
 
       await waitFor(() => {
         expect(getByTestId("edit-icon")).toBeTruthy();
       });
-      expect(queryByTestId("add-circle-icon")).toBeNull();
+      expect(getByTestId("add-post-icon")).toBeTruthy();
     });
 
     it("should hide both buttons from a shopper", async () => {
@@ -182,7 +185,7 @@ describe("ItemCard - store owner actions", () => {
 
       const { queryByTestId } = await renderSettled();
 
-      expect(queryByTestId("add-circle-icon")).toBeNull();
+      expect(queryByTestId("add-post-icon")).toBeNull();
       expect(queryByTestId("edit-icon")).toBeNull();
     });
 
@@ -192,7 +195,7 @@ describe("ItemCard - store owner actions", () => {
 
       const { queryByTestId } = await renderSettled();
 
-      expect(queryByTestId("add-circle-icon")).toBeNull();
+      expect(queryByTestId("add-post-icon")).toBeNull();
       expect(queryByTestId("edit-icon")).toBeNull();
     });
 
@@ -201,7 +204,7 @@ describe("ItemCard - store owner actions", () => {
 
       const { queryByTestId } = await renderSettled();
 
-      expect(queryByTestId("add-circle-icon")).toBeNull();
+      expect(queryByTestId("add-post-icon")).toBeNull();
       expect(queryByTestId("edit-icon")).toBeNull();
     });
 
@@ -211,7 +214,7 @@ describe("ItemCard - store owner actions", () => {
 
       const { queryByTestId } = await renderSettled({ owner_id: null });
 
-      expect(queryByTestId("add-circle-icon")).toBeNull();
+      expect(queryByTestId("add-post-icon")).toBeNull();
       expect(queryByTestId("edit-icon")).toBeNull();
     });
 
@@ -221,7 +224,7 @@ describe("ItemCard - store owner actions", () => {
 
       const { queryByTestId } = await renderSettled({ owner_id: "42" });
 
-      expect(queryByTestId("add-circle-icon")).toBeNull();
+      expect(queryByTestId("add-post-icon")).toBeNull();
     });
   });
 
@@ -311,6 +314,20 @@ describe("ItemCard - store owner actions", () => {
 
       expect(mockNavigate).toHaveBeenCalledWith(ScreenNames.HANDLE_STORE, {
         storeId: 7,
+      });
+    });
+
+    it("should navigate to manage posts from the posts button", async () => {
+      const { getByTestId } = await renderSettled({ id: 7 });
+
+      await act(async () => {
+        fireEvent.press(getByTestId("add-post-icon"));
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith(ScreenNames.MANAGE_POSTS, {
+        storeId: 7,
+        storeName: "Test Store",
+        ownerId: OWNER_ID,
       });
     });
   });
