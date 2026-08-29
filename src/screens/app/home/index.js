@@ -240,7 +240,9 @@ export default function HomeScreen({ navigation, route }) {
           where("owner_id", "==", user.id),
         );
         const snapshot = await getDocs(storesQuery);
-        setUserOwnsStores(!snapshot.empty);
+        setUserOwnsStores(
+          snapshot.docs.some((docSnap) => !docSnap.data().deleted_at),
+        );
       } catch (error) {
         console.error("Error checking user stores:", error);
         setUserOwnsStores(false);
@@ -466,8 +468,11 @@ export default function HomeScreen({ navigation, route }) {
 
           // A suspended store is treated as not found: following a link to one
           // must not reveal what the takedown removed from the map.
-          if (storeData.is_suspended) {
-            console.warn("Store is suspended, not opening :", store.id);
+          if (storeData.is_suspended || storeData.deleted_at) {
+            console.warn(
+              "Store is suspended or trashed, not opening :",
+              store.id,
+            );
             return;
           }
 

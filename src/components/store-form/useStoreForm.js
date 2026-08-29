@@ -505,7 +505,6 @@ export const useStoreForm = ({
         "managerLastName",
         "storeEmail",
         "phone",
-        "website",
       );
     }
 
@@ -531,6 +530,8 @@ export const useStoreForm = ({
       { key: "city", value: city },
       { key: "postalCode", value: postalCode },
       { key: "description", value: description },
+      // Optional, but validated for shape when filled in.
+      { key: "website", value: website },
     ];
 
     // Add merchant-specific required fields
@@ -540,7 +541,6 @@ export const useStoreForm = ({
         { key: "managerLastName", value: managerLastName },
         { key: "storeEmail", value: storeEmail },
         { key: "phone", value: phone },
-        { key: "website", value: website },
       );
     }
 

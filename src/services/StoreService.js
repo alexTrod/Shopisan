@@ -147,7 +147,9 @@ class StoreService {
           id: doc.id,
           ...doc.data(),
         }))
-        .filter((store) => !store.is_suspended);
+        // Trashed stores (deleted_at set, restorable from the admin panel)
+        // are hidden exactly like suspended ones.
+        .filter((store) => !store.is_suspended && !store.deleted_at);
 
       this.allStores = stores;
       this.lastFetchTime = Date.now();

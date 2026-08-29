@@ -103,7 +103,7 @@ export default function FavoritesScreen({ navigation }) {
         const store = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
         // Suspended stores drop out of favourites the same way a deleted one
         // does, rather than rendering a card that leads nowhere.
-        return store.is_suspended ? null : store;
+        return store.is_suspended || store.deleted_at ? null : store;
       });
 
       const newStores = (await Promise.all(storePromises)).filter(

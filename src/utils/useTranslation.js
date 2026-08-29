@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import i18n from '../translations/i18n';
 
 export const useTranslation = () => {
@@ -21,7 +21,11 @@ export const useTranslation = () => {
     }
   }, [locale]);
 
-  const t = (key, options = {}) => {
+  // Memoised on locale: several screens list `t` in effect deps, and a fresh
+  // closure every render made those effects re-run after each setState, which
+  // on the edit-store screen became an infinite refetch loop that froze the UI.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const t = useCallback((key, options = {}) => {
     try {  
       if (!i18n || !i18n.t) {
         console.warn('i18n not initialized, returning key:', key);
@@ -32,7 +36,7 @@ export const useTranslation = () => {
       console.warn(`Translation failed for key: ${key}`, error);
       return key;
     }
-  };
+  }, [locale]);
 
   return { t, locale, isRTL };
 };

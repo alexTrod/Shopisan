@@ -90,10 +90,13 @@ export default function ForgotPassword({ navigation }) {
       setStep(2);
     } catch (error) {
       console.error('Error sending reset code:', error);
+      const notFound = error?.code === 'functions/not-found';
       Toast.show({
         type: "error",
         text1: t('error'),
-        text2: error.message || t('failed_send_email'),
+        text2: notFound
+          ? t('no_account_for_email')
+          : error.message || t('failed_send_email'),
       });
     }
     setLoading(false);
@@ -182,7 +185,10 @@ export default function ForgotPassword({ navigation }) {
       Toast.show({
         type: "error",
         text1: t('error'),
-        text2: error.message || "Failed to resend code",
+        text2:
+          error?.code === 'functions/not-found'
+            ? t('no_account_for_email')
+            : error.message || t('failed_send_email'),
       });
     }
     setLoading(false);

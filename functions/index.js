@@ -92,10 +92,7 @@ const deleteCloudflareImage = async (imageUrl) => {
  */
 const assertAdmin = async (context) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "Sign-in required",
-    );
+    throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
   }
   if (context.auth.token.admin === true) return;
   const userDoc = await admin
@@ -1558,10 +1555,7 @@ exports.checkEmailExists = functions.https.onCall(async (data, _context) => {
 // rejected.
 exports.deleteUser = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "Sign-in required",
-    );
+    throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
   }
   try {
     const { userId, email } = data;
@@ -1924,44 +1918,14 @@ exports.adminDeleteStore = functions.https.onCall(async (data, context) => {
     }
     const storeData = storeDoc.data();
 
-    // Collect every image URL to clean up
-    const imageUrls = new Set();
-    (storeData.images || []).forEach((url) => imageUrls.add(url));
-    if (storeData.imageUrl) imageUrls.add(storeData.imageUrl);
-
-    // Delete the store's posts (matched on the store's numeric id field)
-    let deletedPosts = 0;
-    const numericStoreId = storeData.id;
-    if (numericStoreId !== undefined && numericStoreId !== null) {
-      const postsSnapshot = await admin
-        .firestore()
-        .collection("posts")
-        .where("store.id", "==", numericStoreId)
-        .get();
-      if (!postsSnapshot.empty) {
-        const postsBatch = admin.firestore().batch();
-        postsSnapshot.docs.forEach((postDoc) => {
-          (postDoc.data().images || []).forEach((url) => imageUrls.add(url));
-          postsBatch.delete(postDoc.ref);
-          console.log(
-            `Deleting post ${postDoc.id} for store ${storeId}`,
-          );
-        });
-        await postsBatch.commit();
-        deletedPosts = postsSnapshot.size;
-      }
-    }
-
-    // Delete the store document itself
-    await storeRef.delete();
+    // Hard delete: posts, the store document, then best-effort Cloudflare
+    // image cleanup. Reached from the admin Trash view ("Delete permanently")
+    // and, on a timer, from purgeTrashedStores.
+    const { deletedPosts, deletedImages } = await hardDeleteStore(
+      storeRef,
+      storeData,
+    );
     console.log(`Deleted store ${storeId}`);
-
-    // Best-effort Cloudflare image cleanup - never blocks the response
-    let deletedImages = 0;
-    for (const url of imageUrls) {
-      const deleted = await deleteCloudflareImage(url);
-      if (deleted) deletedImages++;
-    }
 
     return { success: true, deletedPosts, deletedImages };
   } catch (error) {
@@ -1975,6 +1939,81 @@ exports.adminDeleteStore = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+/**
+ * Scheduled purge of trashed stores.
+ *
+ * Owners (app) and admins (panel) soft-delete stores by setting `deleted_at`;
+ * the store disappears from the app immediately but stays restorable from the
+ * admin Trash view. After TRASH_RETENTION_DAYS this job runs the same hard
+ * cascade as adminDeleteStore (posts + Cloudflare images).
+ */
+const TRASH_RETENTION_DAYS = 30;
+
+async function hardDeleteStore(storeRef, storeData) {
+  const imageUrls = new Set();
+  (storeData.images || []).forEach((url) => imageUrls.add(url));
+  (storeData.deleted_images || []).forEach((url) => imageUrls.add(url));
+  if (storeData.imageUrl) imageUrls.add(storeData.imageUrl);
+
+  let deletedPosts = 0;
+  const numericStoreId = storeData.id;
+  if (numericStoreId !== undefined && numericStoreId !== null) {
+    const postsSnapshot = await admin
+      .firestore()
+      .collection("posts")
+      .where("store.id", "==", numericStoreId)
+      .get();
+    if (!postsSnapshot.empty) {
+      const postsBatch = admin.firestore().batch();
+      postsSnapshot.docs.forEach((postDoc) => {
+        const post = postDoc.data();
+        (post.images || []).forEach((url) => imageUrls.add(url));
+        (post.deleted_images || []).forEach((url) => imageUrls.add(url));
+        postsBatch.delete(postDoc.ref);
+      });
+      await postsBatch.commit();
+      deletedPosts = postsSnapshot.size;
+    }
+  }
+
+  await storeRef.delete();
+
+  let deletedImages = 0;
+  for (const url of imageUrls) {
+    const deleted = await deleteCloudflareImage(url);
+    if (deleted) deletedImages++;
+  }
+  return { deletedPosts, deletedImages };
+}
+
+exports.purgeTrashedStores = functions.pubsub
+  .schedule("every 24 hours")
+  .timeZone("Europe/Brussels")
+  .onRun(async () => {
+    const cutoff = new Date(
+      Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const snapshot = await admin
+      .firestore()
+      .collection("stores")
+      .where("deleted_at", "<=", cutoff)
+      .get();
+
+    console.log(`purgeTrashedStores: ${snapshot.size} store(s) past retention`);
+    for (const storeDoc of snapshot.docs) {
+      try {
+        const result = await hardDeleteStore(storeDoc.ref, storeDoc.data());
+        console.log(
+          `Purged store ${storeDoc.id} (${storeDoc.data().name}):`,
+          result,
+        );
+      } catch (error) {
+        console.error(`Failed to purge store ${storeDoc.id}:`, error);
+      }
+    }
+    return null;
+  });
 
 // Function to send email change verification
 exports.sendEmailChangeVerification = functions.https.onCall(
@@ -2244,11 +2283,12 @@ exports.sendCustomPasswordReset = functions.https.onCall(
         userRecord = await admin.auth().getUserByEmail(normalizedEmail);
       } catch (error) {
         if (error.code === "auth/user-not-found") {
-          // Don't reveal if email exists or not for security
-          return {
-            success: true,
-            message: "If an account exists, a reset email has been sent",
-          };
+          // Tell the caller plainly: a silent "success" left people waiting
+          // for a code that never comes after a typo in their address.
+          throw new functions.https.HttpsError(
+            "not-found",
+            "No account exists for this email address",
+          );
         }
         throw error;
       }
@@ -2293,6 +2333,9 @@ exports.sendCustomPasswordReset = functions.https.onCall(
 
       return { success: true, message: "Reset email sent successfully" };
     } catch (error) {
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
       console.error("Error sending password reset email:", error);
       throw new functions.https.HttpsError(
         "internal",

@@ -284,6 +284,8 @@ export default {
     invalid_website: "Please enter a valid website address",
     field_required: "This field is required",
     failed_send_email: "Failed to send reset email",
+    no_account_for_email:
+      "No account exists with this email address. Check the spelling.",
     failed_reset_password: "Failed to reset password",
     reset_code: "Reset Code",
 
@@ -331,6 +333,15 @@ export default {
     clear_filters: "Clear filters",
     close_button: "Close",
     update_store: "Update store",
+    updating_store: "Updating...",
+    terms_and_conditions: "Terms and conditions",
+    privacy_policy: "Privacy policy",
+    i_accept_the: "I accept the",
+    and_the: "and the",
+    must_accept_terms:
+      "Please accept the terms and conditions and the privacy policy to continue.",
+    delete_store_confirm_soft:
+      "The store will be hidden from the app immediately. It can be restored by Shopisan support within 30 days, after which it is permanently deleted.",
     update_store_title: "Update a store",
     delete_store: "Delete store",
     delete_store_confirm:
@@ -682,6 +693,8 @@ export default {
     invalid_website: "Veuillez entrer une adresse de site web valide",
     field_required: "Ce champ est obligatoire",
     failed_send_email: "Échec de l'envoi de l'email",
+    no_account_for_email:
+      "Aucun compte n'existe avec cette adresse email. Vérifiez l'orthographe.",
     failed_reset_password: "Échec de la réinitialisation du mot de passe",
     reset_code: "Code de réinitialisation",
 
@@ -732,6 +745,15 @@ export default {
     clear_filters: "Effacer les filtres",
     close_button: "Fermer",
     update_store: "Modifier le magasin",
+    updating_store: "Mise à jour...",
+    terms_and_conditions: "Conditions générales",
+    privacy_policy: "Politique de confidentialité",
+    i_accept_the: "J'accepte les",
+    and_the: "et la",
+    must_accept_terms:
+      "Veuillez accepter les conditions générales et la politique de confidentialité pour continuer.",
+    delete_store_confirm_soft:
+      "Le magasin sera immédiatement masqué dans l'application. Il pourra être restauré par le support Shopisan pendant 30 jours, puis sera définitivement supprimé.",
     update_store_title: "Modifier un magasin",
     delete_store: "Supprimer le magasin",
     delete_store_confirm:

@@ -38,6 +38,7 @@ import { ScreenNames } from "../../../Routes/routes";
 import EmailVerificationBanner from "../../../components/email-verification";
 import { setLocale } from "../../../Redux/Slices/localeSlice";
 import LanguageSelector from "../../../components/language-selector";
+import { TERMS_URL, PRIVACY_URL } from "../../../config/legal";
 import { firestore, auth } from "../../../../firebaseconfig";
 export default function Profile({ navigation }) {
   const dispatch = useDispatch();
@@ -67,7 +68,9 @@ export default function Profile({ navigation }) {
           where("owner_id", "==", user?.id),
         ),
       );
-      const stores = snapshot.docs.map((docSnap) => docSnap.data());
+      const stores = snapshot.docs
+        .map((docSnap) => docSnap.data())
+        .filter((store) => !store.deleted_at);
       if (stores.length === 0) {
         Alert.alert(t("manage_posts"), t("no_stores_for_posts"));
       } else if (stores.length === 1) {
@@ -169,11 +172,17 @@ export default function Profile({ navigation }) {
           {[
             { titleKey: "change_email_name", screen: "ChangeEmailScreen" },
             { titleKey: "forgot_password", screen: "RecoverPasswordScreen" },
+            { titleKey: "terms_and_conditions", url: TERMS_URL },
+            { titleKey: "privacy_policy", url: PRIVACY_URL },
           ].map((option) => (
             <TouchableOpacity
               key={option.titleKey}
               style={styles.optionTile}
-              onPress={() => handlePress(option.screen)}
+              onPress={() =>
+                option.url
+                  ? Linking.openURL(option.url)
+                  : handlePress(option.screen)
+              }
             >
               <View style={styles.optionContent}>
                 <CustomText size={1.8} color={AppColors.black}>

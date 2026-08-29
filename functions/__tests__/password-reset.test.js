@@ -94,26 +94,22 @@ describe("Password Reset Flow Tests", () => {
       });
     });
 
-    it("should return success even if user not found (security)", async () => {
-      // For security, don't reveal if email exists or not
+    it("should reject with not-found when no account matches the email", async () => {
+      // A silent success used to leave people waiting for a code that never
+      // arrived after a typo in their address, so the error is now explicit.
       admin
         .auth()
         .getUserByEmail.mockRejectedValue({ code: "auth/user-not-found" });
 
       const handleUserNotFound = (error) => {
         if (error.code === "auth/user-not-found") {
-          return {
-            success: true,
-            message: "If an account exists, a reset email has been sent",
-          };
+          return { httpsErrorCode: "not-found" };
         }
         throw error;
       };
 
       const result = handleUserNotFound({ code: "auth/user-not-found" });
-      expect(result.success).toBe(true);
-      // Message doesn't reveal if account exists
-      expect(result.message).toContain("If an account exists");
+      expect(result.httpsErrorCode).toBe("not-found");
     });
 
     it("should generate 6-digit reset code", () => {
@@ -344,24 +340,17 @@ describe("Password Reset Flow Tests", () => {
   });
 
   describe("Security Considerations", () => {
-    it("should not reveal user existence in error messages", () => {
-      const userNotFoundResponse = {
-        success: true,
-        message: "If an account exists, a reset email has been sent",
+    it("should surface a not-found error without leaking other details", () => {
+      // Deliberate trade-off: the app tells the user when no account exists
+      // for the address (typo recovery matters more than enumeration here),
+      // but it must not leak anything beyond that.
+      const userNotFoundError = {
+        code: "not-found",
+        message: "No account exists for this email address",
       };
 
-      const userFoundResponse = {
-        success: true,
-        message: "Reset email sent successfully",
-      };
-
-      // Both responses should indicate success
-      expect(userNotFoundResponse.success).toBe(true);
-      expect(userFoundResponse.success).toBe(true);
-
-      // User not found message should not reveal this fact
-      expect(userNotFoundResponse.message).not.toContain("not found");
-      expect(userNotFoundResponse.message).not.toContain("doesn't exist");
+      expect(userNotFoundError.code).toBe("not-found");
+      expect(userNotFoundError.message).not.toMatch(/uid|password|token/i);
     });
 
     it("should rate limit reset attempts per email", () => {

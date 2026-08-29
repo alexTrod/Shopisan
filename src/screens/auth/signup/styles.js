@@ -73,6 +73,43 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary_light,
     borderColor: AppColors.primary,
   },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: height(1.5),
+    marginBottom: height(0.5),
+    paddingHorizontal: width(1),
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: AppColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: AppColors.primary,
+  },
+  checkboxTick: {
+    color: AppColors.white,
+    fontSize: 14,
+    fontWeight: "bold",
+    lineHeight: 18,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: AppColors.grey_300,
+    lineHeight: 19,
+  },
+  termsLink: {
+    color: AppColors.primary,
+    textDecorationLine: "underline",
+  },
 });
 
 export default styles;

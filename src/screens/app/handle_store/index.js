@@ -22,7 +22,7 @@ import {
   getDocs,
   doc,
   updateDoc,
-  deleteDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { firestore } from "../../../../firebaseconfig";
 import { useSelector, useDispatch } from "react-redux";
@@ -87,6 +87,7 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [expandedDay, setExpandedDay] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const dispatch = useDispatch();
 
   const timePresets = [
@@ -148,6 +149,12 @@ export default function HandleStoreScreen({ route, navigation }) {
           // Reachable by deep link with any storeId, so verify ownership
           // before populating the editor. firestore.rules rejects the write
           // regardless; this avoids showing an editor that cannot save.
+          if (store.deleted_at) {
+            Alert.alert(t("error"), t("store_not_found"));
+            navigation.goBack();
+            return;
+          }
+
           if (!ownsStore(user, store.owner_id)) {
             Alert.alert(
               t("owner_account_required") || "Store owner account required",
@@ -223,7 +230,10 @@ export default function HandleStoreScreen({ route, navigation }) {
     };
 
     fetchStoreData();
-  }, [storeId, dispatch, navigation, user, t]);
+    // `t` deliberately left out: it only feeds alert copy, and re-running the
+    // fetch whenever translations re-render is exactly what froze this screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId, dispatch, navigation, user]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -277,7 +287,6 @@ export default function HandleStoreScreen({ route, navigation }) {
         "managerLastName",
         "storeEmail",
         "phone",
-        "website",
       );
     }
 
@@ -311,6 +320,8 @@ export default function HandleStoreScreen({ route, navigation }) {
       { key: "city", value: city },
       { key: "postalCode", value: postalCode },
       { key: "description", value: description },
+      // Optional, but validated for shape when filled in.
+      { key: "website", value: website },
     ];
 
     if (isOwnerType(user)) {
@@ -319,7 +330,6 @@ export default function HandleStoreScreen({ route, navigation }) {
         { key: "managerLastName", value: managerLastName },
         { key: "storeEmail", value: storeEmail },
         { key: "phone", value: phone },
-        { key: "website", value: website },
       );
     }
 
@@ -373,6 +383,9 @@ export default function HandleStoreScreen({ route, navigation }) {
       Keyboard.dismiss();
     }
 
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     let images = [...existingImageUrls];
 
     try {
@@ -389,7 +402,9 @@ export default function HandleStoreScreen({ route, navigation }) {
         images.unshift(mainImage);
       }
 
-      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
+      // Geocode without a hardcoded country: the store keeps the country it
+      // was created with (see countryId below), and Google resolves the rest.
+      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}`;
 
       const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
       const response = await fetch(
@@ -398,6 +413,7 @@ export default function HandleStoreScreen({ route, navigation }) {
       const data = await response.json();
 
       if (data.status !== "OK" || data.results.length === 0) {
+        setIsSubmitting(false);
         Alert.alert(t("error"), t("address_not_found"));
         return;
       }
@@ -411,7 +427,9 @@ export default function HandleStoreScreen({ route, navigation }) {
       const updatedData = {
         id: storeData?.id,
         name,
-        owner_id: storeData?.owner_id ?? null,
+        // Only echo owner_id when the store has one; writing null would make
+        // a legacy store permanently un-editable under firestore.rules.
+        ...(storeData?.owner_id && { owner_id: storeData.owner_id }),
 
         address: buildStoreAddress({
           street,
@@ -471,6 +489,8 @@ export default function HandleStoreScreen({ route, navigation }) {
     } catch (error) {
       console.error("Error updating store:", error);
       Alert.alert(t("error"), t("unable_to_update_store"));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -479,7 +499,7 @@ export default function HandleStoreScreen({ route, navigation }) {
       setSuggestions([]);
       Keyboard.dismiss();
     }
-    Alert.alert(t("delete_store"), t("delete_store_confirm"), [
+    Alert.alert(t("delete_store"), t("delete_store_confirm_soft"), [
       { text: t("cancel"), style: "cancel" },
       {
         text: t("delete"),
@@ -487,7 +507,13 @@ export default function HandleStoreScreen({ route, navigation }) {
         onPress: async () => {
           try {
             const storeRef = doc(firestore, "stores", storeDocumentId);
-            await deleteDoc(storeRef);
+            // Soft delete: the store is hidden everywhere immediately and can
+            // be restored from the admin panel for 30 days, after which a
+            // scheduled function purges it (see functions/index.js).
+            await updateDoc(storeRef, {
+              deleted_at: serverTimestamp(),
+              deleted_by: user?.id ?? null,
+            });
             DeviceEventEmitter.emit("stores:refresh");
             Alert.alert(t("success"), t("store_deleted_success"));
             navigation.goBack();
@@ -1252,17 +1278,31 @@ export default function HandleStoreScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.addButton, isSubmitting && styles.addButtonDisabled]}
             onPress={handleDeleteStore}
+            disabled={isSubmitting}
           >
             <Text style={styles.addButtonText}>{t("delete_store")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.addButton}
+            testID="update-store-submit-button"
+            style={[styles.addButton, isSubmitting && styles.addButtonDisabled]}
             onPress={handleUpdateStore}
+            disabled={isSubmitting}
           >
-            <Text style={styles.addButtonText}>{t("update_store")}</Text>
+            {isSubmitting ? (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <ActivityIndicator
+                  size="small"
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.addButtonText}>{t("updating_store")}</Text>
+              </View>
+            ) : (
+              <Text style={styles.addButtonText}>{t("update_store")}</Text>
+            )}
           </TouchableOpacity>
 
           <Modal
@@ -1432,6 +1472,9 @@ const styles = StyleSheet.create({
   managePostsButton: {
     flexDirection: "row",
     backgroundColor: "#007BFF",
+  },
+  addButtonDisabled: {
+    opacity: 0.7,
   },
   addButtonText: {
     color: "#fff",

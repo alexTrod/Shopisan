@@ -78,12 +78,16 @@ export const fetchStoreRatings = async (storeId) => {
 export const fetchStores = async (storeQuery) => {
   try {
     const snapshot = await getDocs(storeQuery);
-    const newStores = snapshot.docs.map((doc) => {
-      return {
-        id: doc.id,
-        ...doc.data(),
-      };
-    });
+    const newStores = snapshot.docs
+      .map((doc) => {
+        return {
+          id: doc.id,
+          ...doc.data(),
+        };
+      })
+      // Trashed stores stay in Firestore for 30 days (restorable from the
+      // admin panel) but must never render in the app.
+      .filter((store) => !store.deleted_at);
 
     return {
       stores: newStores,

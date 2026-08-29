@@ -544,7 +544,6 @@ export default function AddStoreScreen({ navigation }) {
         "managerLastName",
         "storeEmail",
         "phone",
-        "website",
       );
     }
 
@@ -578,6 +577,8 @@ export default function AddStoreScreen({ navigation }) {
       { key: "city", value: city },
       { key: "postalCode", value: postalCode },
       { key: "description", value: description },
+      // Optional, but validated for shape when filled in.
+      { key: "website", value: website },
     ];
 
     if (isOwnerType(user)) {
@@ -586,7 +587,6 @@ export default function AddStoreScreen({ navigation }) {
         { key: "managerLastName", value: managerLastName },
         { key: "storeEmail", value: storeEmail },
         { key: "phone", value: phone },
-        { key: "website", value: website },
       );
     }
 
@@ -873,7 +873,7 @@ export default function AddStoreScreen({ navigation }) {
         description: { fr: description },
         category: selectedCategories,
         storeStatus: 0,
-        website: "",
+        website: website || "",
         openingHours: openingHours,
         images: images,
         imageUrl: images[0] || "",

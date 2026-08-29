@@ -54,7 +54,11 @@ export default function RecoverPasswordScreen({ navigation }) {
       setStep(2);
     } catch (err) {
       console.error('Password reset error:', err);
-      setError(err.message || t('error_sending_reset') || 'An error occurred while sending the reset email.');
+      setError(
+        err?.code === 'functions/not-found'
+          ? t('no_account_for_email')
+          : err.message || t('error_sending_reset') || 'An error occurred while sending the reset email.',
+      );
     } finally {
       setLoading(false);
     }

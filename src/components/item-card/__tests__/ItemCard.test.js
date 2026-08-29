@@ -169,18 +169,19 @@ describe("ItemCard - store owner actions", () => {
   };
 
   describe("Visibility", () => {
-    it("should show the edit and manage-posts buttons to the store owner", async () => {
+    it("should show the edit button to the store owner", async () => {
       mockUserData = { id: OWNER_ID, userType: "owner" };
 
-      const { getByTestId } = await renderSettled();
+      const { getByTestId, queryByTestId } = await renderSettled();
 
       await waitFor(() => {
         expect(getByTestId("edit-icon")).toBeTruthy();
       });
-      expect(getByTestId("add-post-icon")).toBeTruthy();
+      // Manage posts lives inside the store edit screen, not on the card.
+      expect(queryByTestId("add-post-icon")).toBeNull();
     });
 
-    it("should hide both buttons from a shopper", async () => {
+    it("should hide the edit button from a shopper", async () => {
       mockUserData = { id: "shopper-uid", userType: "user" };
 
       const { queryByTestId } = await renderSettled();
@@ -189,7 +190,7 @@ describe("ItemCard - store owner actions", () => {
       expect(queryByTestId("edit-icon")).toBeNull();
     });
 
-    it("should hide both buttons from an owner who does not own this store", async () => {
+    it("should hide the edit button from an owner who does not own this store", async () => {
       // Ownership is the permission, not account type.
       mockUserData = { id: "other-owner-uid", userType: "owner" };
 
@@ -314,20 +315,6 @@ describe("ItemCard - store owner actions", () => {
 
       expect(mockNavigate).toHaveBeenCalledWith(ScreenNames.HANDLE_STORE, {
         storeId: 7,
-      });
-    });
-
-    it("should navigate to manage posts from the posts button", async () => {
-      const { getByTestId } = await renderSettled({ id: 7 });
-
-      await act(async () => {
-        fireEvent.press(getByTestId("add-post-icon"));
-      });
-
-      expect(mockNavigate).toHaveBeenCalledWith(ScreenNames.MANAGE_POSTS, {
-        storeId: 7,
-        storeName: "Test Store",
-        ownerId: OWNER_ID,
       });
     });
   });

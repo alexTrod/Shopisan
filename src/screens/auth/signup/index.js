@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Image, TouchableOpacity, View, Text } from "react-native";
+import { Image, TouchableOpacity, View, Text, Linking } from "react-native";
 import { useForm } from "react-hook-form";
 import SignUpFormValidation from "./validation";
 import styles from "./styles";
@@ -37,6 +37,7 @@ import {
 import { useTranslation } from "../../../utils/useTranslation";
 import StepIndicator from "./components/StepIndicator";
 import { StoreForm } from "../../../components/store-form";
+import { TERMS_URL, PRIVACY_URL } from "../../../config/legal";
 
 export default function SignUp({ navigation }) {
   const { t } = useTranslation();
@@ -61,6 +62,7 @@ export default function SignUp({ navigation }) {
   const [passwordHide, setPasswordHide] = useState(true);
   const [confirmPasswordHide, setConfirmPasswordHide] = useState(true);
   const [userType, setUserType] = useState(USER_TYPES.SHOPPER);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const isOwnerSignup = userType === USER_TYPES.OWNER;
 
   const {
@@ -87,6 +89,15 @@ export default function SignUp({ navigation }) {
   const signupHandler = async (values) => {
     // Clear any previous email error
     setEmailError(null);
+
+    if (!acceptedTerms) {
+      Toast.show({
+        text1: t("error") || "Error",
+        text2: t("must_accept_terms"),
+        type: "error",
+      });
+      return;
+    }
 
     // Store owner flow - go to Step 2 (store creation)
     if (isOwnerSignup) {
@@ -353,6 +364,34 @@ export default function SignUp({ navigation }) {
           </TouchableOpacity>
         }
       />
+      <TouchableOpacity
+        testID="accept-terms-checkbox"
+        style={styles.termsRow}
+        onPress={() => setAcceptedTerms((v) => !v)}
+        activeOpacity={0.8}
+      >
+        <View
+          style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}
+        >
+          {acceptedTerms ? <Text style={styles.checkboxTick}>✓</Text> : null}
+        </View>
+        <Text style={styles.termsText}>
+          {t("i_accept_the")}{" "}
+          <Text
+            style={styles.termsLink}
+            onPress={() => Linking.openURL(TERMS_URL)}
+          >
+            {t("terms_and_conditions")}
+          </Text>{" "}
+          {t("and_the")}{" "}
+          <Text
+            style={styles.termsLink}
+            onPress={() => Linking.openURL(PRIVACY_URL)}
+          >
+            {t("privacy_policy")}
+          </Text>
+        </Text>
+      </TouchableOpacity>
       <Button
         loading={loading}
         textStyle={{ fontFamily: "Roboto-Medium" }}

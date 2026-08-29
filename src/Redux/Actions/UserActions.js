@@ -208,6 +208,8 @@ export const signUp =
         is_validated: false, // Email not verified yet
         is_active: true, // Account is active (not archived)
         is_admin: false,
+        // Signup cannot be submitted without ticking the legal checkbox.
+        termsAcceptedAt: serverTimestamp(),
         last_login: serverTimestamp(),
         created: serverTimestamp(),
         surname: null,
@@ -714,6 +716,8 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       is_validated: false, // Email not verified yet
       is_active: true, // Account is active (not archived)
       is_admin: false,
+      // Signup cannot be submitted without ticking the legal checkbox.
+      termsAcceptedAt: serverTimestamp(),
       last_login: serverTimestamp(),
       created: serverTimestamp(),
       surname: null,
