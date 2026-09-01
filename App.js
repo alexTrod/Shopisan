@@ -10,7 +10,6 @@ import BottomTabs from "./src/Routes/bottom-tab";
 import { ScreenNames } from "./src/Routes/routes";
 import SignUp from "./src/screens/auth/signup";
 import SignIn from "./src/screens/auth/signin";
-import ResetPassword from "./src/screens/auth/reset-password";
 import CustomText from "./src/components/text";
 import ForgotPassword from "./src/screens/auth/forgot-password";
 import AddStore from "./src/screens/app/add_store";
