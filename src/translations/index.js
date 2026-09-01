@@ -368,6 +368,10 @@ export default {
     show_more: "Show more",
     show_less: "Show less",
 
+    // Store management
+    edit_my_store: "Edit my store",
+    no_stores_to_edit: "Add a store first to edit it.",
+
     // Posts Management
     manage_posts: "Manage Posts",
     select_store_for_posts: "Select a store",
@@ -781,6 +785,10 @@ export default {
     // UI
     show_more: "Voir plus",
     show_less: "Voir moins",
+
+    // Store management
+    edit_my_store: "Modifier mon magasin",
+    no_stores_to_edit: "Ajoutez d'abord un magasin pour le modifier.",
 
     // Posts Management
     manage_posts: "Gérer les annonces",

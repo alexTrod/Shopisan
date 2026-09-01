@@ -45,22 +45,26 @@ export default function Profile({ navigation }) {
   const user = useSelector((state) => state.user.userData);
   const { t, locale } = useTranslation();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [loadingStores, setLoadingStores] = useState(false);
+  const [loadingStores, setLoadingStores] = useState(null); // 'posts' | 'edit' | null
   const [ownedStores, setOwnedStores] = useState([]);
-  const [storePickerVisible, setStorePickerVisible] = useState(false);
+  const [storePickerMode, setStorePickerMode] = useState(null); // 'posts' | 'edit' | null
 
-  const openManagePosts = (store) => {
-    setStorePickerVisible(false);
-    navigation.navigate(ScreenNames.MANAGE_POSTS, {
-      storeId: store.id,
-      storeName: store.name,
-      ownerId: store.owner_id,
-    });
+  const openStoreAction = (mode, store) => {
+    setStorePickerMode(null);
+    if (mode === "edit") {
+      navigation.navigate(ScreenNames.HANDLE_STORE, { storeId: store.id });
+    } else {
+      navigation.navigate(ScreenNames.MANAGE_POSTS, {
+        storeId: store.id,
+        storeName: store.name,
+        ownerId: store.owner_id,
+      });
+    }
   };
 
-  const handleManagePostsPress = async () => {
+  const handleStoreActionPress = async (mode) => {
     if (loadingStores) return;
-    setLoadingStores(true);
+    setLoadingStores(mode);
     try {
       const snapshot = await getDocs(
         query(
@@ -72,18 +76,22 @@ export default function Profile({ navigation }) {
         .map((docSnap) => docSnap.data())
         .filter((store) => !store.deleted_at);
       if (stores.length === 0) {
-        Alert.alert(t("manage_posts"), t("no_stores_for_posts"));
+        if (mode === "edit") {
+          Alert.alert(t("edit_my_store"), t("no_stores_to_edit"));
+        } else {
+          Alert.alert(t("manage_posts"), t("no_stores_for_posts"));
+        }
       } else if (stores.length === 1) {
-        openManagePosts(stores[0]);
+        openStoreAction(mode, stores[0]);
       } else {
         setOwnedStores(stores);
-        setStorePickerVisible(true);
+        setStorePickerMode(mode);
       }
     } catch (error) {
       console.error("Error loading owned stores:", error);
       Alert.alert(t("error"), t("no_stores_found"));
     } finally {
-      setLoadingStores(false);
+      setLoadingStores(null);
     }
   };
 
@@ -256,14 +264,34 @@ export default function Profile({ navigation }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.optionTile}
-              onPress={handleManagePostsPress}
-              disabled={loadingStores}
+              onPress={() => handleStoreActionPress("edit")}
+              disabled={!!loadingStores}
+            >
+              <View style={styles.optionContent}>
+                <CustomText size={1.8} color={AppColors.black}>
+                  {t("edit_my_store")}
+                </CustomText>
+                {loadingStores === "edit" ? (
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                ) : (
+                  <ChevronRight
+                    width={20}
+                    height={20}
+                    color={AppColors.grey_300}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.optionTile}
+              onPress={() => handleStoreActionPress("posts")}
+              disabled={!!loadingStores}
             >
               <View style={styles.optionContent}>
                 <CustomText size={1.8} color={AppColors.black}>
                   {t("manage_posts")}
                 </CustomText>
-                {loadingStores ? (
+                {loadingStores === "posts" ? (
                   <ActivityIndicator size="small" color={AppColors.primary} />
                 ) : (
                   <ChevronRight
@@ -364,12 +392,12 @@ export default function Profile({ navigation }) {
         )}
       </ScrollView>
 
-      {/* Store picker for post management (owners with several stores) */}
+      {/* Store picker for owners with several stores (edit or manage posts) */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={storePickerVisible}
-        onRequestClose={() => setStorePickerVisible(false)}
+        visible={!!storePickerMode}
+        onRequestClose={() => setStorePickerMode(null)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -382,7 +410,7 @@ export default function Profile({ navigation }) {
                 {t("select_store_for_posts")}
               </CustomText>
               <TouchableOpacity
-                onPress={() => setStorePickerVisible(false)}
+                onPress={() => setStorePickerMode(null)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <CloseIcon width={24} height={24} color={AppColors.black} />
@@ -394,7 +422,7 @@ export default function Profile({ navigation }) {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.optionTile}
-                  onPress={() => openManagePosts(item)}
+                  onPress={() => openStoreAction(storePickerMode, item)}
                 >
                   <View style={styles.optionContent}>
                     <CustomText size={1.8} color={AppColors.black}>

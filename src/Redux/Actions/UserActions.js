@@ -19,7 +19,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { pbkdf2 } from "@react-native-module/pbkdf2";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import {
   selectIsAuthenticated,
   selectUserData,
@@ -774,17 +774,29 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       longitude = Number(location.lng);
     }
 
-    // Upload image if present
-    let imageUrl = "";
-    if (store.selectedImage) {
+    // Upload images if present. The signup wizard's StoreForm passes
+    // selectedImages (array); selectedImage (single) is the old shape, kept
+    // as a fallback.
+    const imagesToUpload =
+      store.selectedImages?.length > 0
+        ? store.selectedImages
+        : store.selectedImage
+          ? [store.selectedImage]
+          : [];
+    const images = [];
+    for (const img of imagesToUpload) {
       try {
         const cloudflareAccountId = "e593403f5f942f93365e9cd0be4065a1";
         const apiToken = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
         const fileName = `photo_${Date.now()}.jpg`;
+        const imageUri =
+          Platform.OS === "android" && !img.uri.startsWith("file://")
+            ? `file://${img.uri}`
+            : img.uri;
 
         const formData = new FormData();
         formData.append("file", {
-          uri: store.selectedImage.uri,
+          uri: imageUri,
           name: fileName,
           type: "image/jpeg",
         });
@@ -799,7 +811,7 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         );
         const uploadData = await uploadResponse.json();
         if (uploadData.success) {
-          imageUrl = uploadData.result.variants[0];
+          images.push(uploadData.result.variants[0]);
         }
       } catch (imgError) {
         console.warn(
@@ -834,7 +846,8 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       storeStatus: 0,
       website: store.website || "",
       openingHours: store.openingHours || {},
-      imageUrl: imageUrl,
+      images,
+      imageUrl: images[0] || "",
       // Stores are live on creation. is_validated is legacy: it is written only
       // so app builds released before this change, which still filter their
       // store list on it, show new stores too. Distinct from the identically
