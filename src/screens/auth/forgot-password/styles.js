@@ -63,6 +63,16 @@ const styles = StyleSheet.create({
     marginLeft: height(0.5),
     marginRight: height(1),
   },
+  inputWrapperError: {
+    borderColor: AppColors.red,
+    borderWidth: 1.5,
+  },
+  errorText: {
+    width: "90%",
+    alignSelf: "center",
+    marginTop: -height(1),
+    marginBottom: height(1.5),
+  },
 });
 
 export default styles;

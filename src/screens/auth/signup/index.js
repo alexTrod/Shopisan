@@ -63,6 +63,7 @@ export default function SignUp({ navigation }) {
   const [confirmPasswordHide, setConfirmPasswordHide] = useState(true);
   const [userType, setUserType] = useState(USER_TYPES.SHOPPER);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState(false);
   const isOwnerSignup = userType === USER_TYPES.OWNER;
 
   const {
@@ -91,6 +92,7 @@ export default function SignUp({ navigation }) {
     setEmailError(null);
 
     if (!acceptedTerms) {
+      setTermsError(true);
       Toast.show({
         text1: t("error") || "Error",
         text2: t("must_accept_terms"),
@@ -366,12 +368,22 @@ export default function SignUp({ navigation }) {
       />
       <TouchableOpacity
         testID="accept-terms-checkbox"
-        style={styles.termsRow}
-        onPress={() => setAcceptedTerms((v) => !v)}
+        style={[
+          styles.termsRow,
+          termsError && !acceptedTerms && styles.termsRowError,
+        ]}
+        onPress={() => {
+          setAcceptedTerms((v) => !v);
+          setTermsError(false);
+        }}
         activeOpacity={0.8}
       >
         <View
-          style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}
+          style={[
+            styles.checkbox,
+            acceptedTerms && styles.checkboxChecked,
+            termsError && !acceptedTerms && styles.checkboxError,
+          ]}
         >
           {acceptedTerms ? <Text style={styles.checkboxTick}>✓</Text> : null}
         </View>
@@ -382,7 +394,8 @@ export default function SignUp({ navigation }) {
             onPress={() => Linking.openURL(TERMS_URL)}
           >
             {t("terms_and_conditions")}
-          </Text>{" "}
+          </Text>
+          {"\n"}
           {t("and_the")}{" "}
           <Text
             style={styles.termsLink}
@@ -392,6 +405,11 @@ export default function SignUp({ navigation }) {
           </Text>
         </Text>
       </TouchableOpacity>
+      {termsError && !acceptedTerms && (
+        <Text testID="terms-error" style={styles.termsError}>
+          *{t("must_accept_terms")}
+        </Text>
+      )}
       <Button
         loading={loading}
         textStyle={{ fontFamily: "Roboto-Medium" }}

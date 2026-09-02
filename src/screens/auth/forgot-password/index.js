@@ -19,8 +19,9 @@ import EyeIcon from "../../../../assets/icons/eye-icon";
 import EyeOffIcon from "../../../../assets/icons/eye-off-icon";
 
 // Styled input component matching the app style - defined outside to prevent re-creation
-const StyledInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, maxLength, suffix }) => (
-  <View style={styles.inputWrapper}>
+const StyledInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, maxLength, suffix, error }) => (
+  <>
+  <View style={[styles.inputWrapper, error && styles.inputWrapperError]}>
     <View style={styles.inputIconContainer}>
       {icon}
     </View>
@@ -41,6 +42,12 @@ const StyledInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, 
       </View>
     )}
   </View>
+  {error ? (
+    <CustomText size={1.5} color={AppColors.red} textStyles={styles.errorText}>
+      *{error}
+    </CustomText>
+  ) : null}
+  </>
 );
 
 export default function ForgotPassword({ navigation }) {
@@ -52,24 +59,30 @@ export default function ForgotPassword({ navigation }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState(null);
+  const [formError, setFormError] = useState(null);
+
+  // Toasts are easy to miss on real devices, so every failure is also
+  // shown inline under the relevant input.
+  const failEmail = (message) => {
+    setEmailError(message);
+    Toast.show({ type: "error", text1: t('error'), text2: message });
+  };
+  const failForm = (message) => {
+    setFormError(message);
+    Toast.show({ type: "error", text1: t('error'), text2: message });
+  };
 
   const handleSendResetCode = async () => {
+    setEmailError(null);
     if (!email.trim()) {
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: t('enter_email'),
-      });
+      failEmail(t('enter_email'));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: t('invalid_email'),
-      });
+      failEmail(t('invalid_email'));
       return;
     }
 
@@ -91,42 +104,29 @@ export default function ForgotPassword({ navigation }) {
     } catch (error) {
       console.error('Error sending reset code:', error);
       const notFound = error?.code === 'functions/not-found';
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: notFound
+      failEmail(
+        notFound
           ? t('no_account_for_email')
           : error.message || t('failed_send_email'),
-      });
+      );
     }
     setLoading(false);
   };
 
   const handleResetPassword = async () => {
+    setFormError(null);
     if (!resetCode.trim() || resetCode.trim().length !== 6) {
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: t('enter_6_digit_code'),
-      });
+      failForm(t('enter_6_digit_code'));
       return;
     }
 
     if (!newPassword || newPassword.length < 6) {
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: t('password_min_6'),
-      });
+      failForm(t('password_min_6'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: t('passwords_not_match'),
-      });
+      failForm(t('passwords_not_match'));
       return;
     }
 
@@ -158,11 +158,7 @@ export default function ForgotPassword({ navigation }) {
         errorMessage = t('too_many_attempts');
       }
 
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2: errorMessage,
-      });
+      failForm(errorMessage);
     }
     setLoading(false);
   };
@@ -182,14 +178,11 @@ export default function ForgotPassword({ navigation }) {
         text2: t('check_inbox_code'),
       });
     } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: t('error'),
-        text2:
-          error?.code === 'functions/not-found'
-            ? t('no_account_for_email')
-            : error.message || t('failed_send_email'),
-      });
+      failForm(
+        error?.code === 'functions/not-found'
+          ? t('no_account_for_email')
+          : error.message || t('failed_send_email'),
+      );
     }
     setLoading(false);
   };
@@ -255,8 +248,12 @@ export default function ForgotPassword({ navigation }) {
                 icon={<MailIcon height={height(3)} width={height(3)} color={AppColors.black} />}
                 placeholder={t('email_placeholder')}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (emailError) setEmailError(null);
+                }}
                 keyboardType="email-address"
+                error={emailError}
               />
 
               <Spacer vertical={height(3)} />
@@ -284,7 +281,10 @@ export default function ForgotPassword({ navigation }) {
                 icon={<Unlock_outline height={height(3)} width={height(3)} />}
                 placeholder={t('reset_code')}
                 value={resetCode}
-                onChangeText={(text) => setResetCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                onChangeText={(text) => {
+                  setResetCode(text.replace(/[^0-9]/g, '').slice(0, 6));
+                  if (formError) setFormError(null);
+                }}
                 keyboardType="number-pad"
                 maxLength={6}
               />
@@ -293,7 +293,10 @@ export default function ForgotPassword({ navigation }) {
                 icon={<Unlock_outline height={height(3)} width={height(3)} />}
                 placeholder={t('new_password')}
                 value={newPassword}
-                onChangeText={setNewPassword}
+                onChangeText={(text) => {
+                  setNewPassword(text);
+                  if (formError) setFormError(null);
+                }}
                 secureTextEntry={!showPassword}
                 suffix={
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -310,8 +313,12 @@ export default function ForgotPassword({ navigation }) {
                 icon={<Unlock_outline height={height(3)} width={height(3)} />}
                 placeholder={t('confirm_password')}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (formError) setFormError(null);
+                }}
                 secureTextEntry={!showPassword}
+                error={formError}
               />
 
               <Spacer vertical={height(2)} />
