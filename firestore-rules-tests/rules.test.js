@@ -31,6 +31,7 @@ const OWNER_B = "owner-b-uid";
 const LEGACY_MERCHANT = "legacy-merchant-uid";
 const ADMIN = "admin-uid";
 const PRE_MIGRATION = "pre-migration-uid";
+const PENDING_MERCHANT = "pending-merchant-uid";
 
 let testEnv;
 
@@ -73,6 +74,14 @@ beforeEach(async () => {
     // Old app builds still write the pre-migration value.
     await seedUser(db, LEGACY_MERCHANT, { userType: "merchant" });
     await seedUser(db, ADMIN, { userType: "owner", is_admin: true });
+    // Pre-approval flow: an owner whose request the admin has not reviewed.
+    await seedUser(db, PENDING_MERCHANT, {
+      userType: "owner",
+      signupIntent: "owner",
+      merchantStatus: "pending",
+      companyNumber: "BE0123456789",
+      phone: "+32470000000",
+    });
     // Written before the migration: no userType, no signupIntent.
     await setDoc(doc(db, "users", PRE_MIGRATION), {
       id: PRE_MIGRATION,
@@ -104,6 +113,16 @@ beforeEach(async () => {
       is_validated: false,
       is_verified: false,
       is_suspended: true,
+    });
+    // Written by the pre-approval signup: waits for the admin batch.
+    await setDoc(doc(db, "stores", "store-pending"), {
+      id: 6,
+      name: "Pending Store",
+      owner_id: PENDING_MERCHANT,
+      status: "pending",
+      is_validated: true,
+      is_verified: false,
+      is_suspended: false,
     });
 
     await setDoc(doc(db, "posts", "post-a"), {
@@ -187,6 +206,122 @@ describe("users - privileged fields are frozen", () => {
   });
 });
 
+describe("users - merchantStatus is server-owned", () => {
+  it("allows an owner to create their own doc as pending", async () => {
+    // This is exactly what signUpMerchantWithStore writes.
+    const db = asUser("fresh-owner-uid");
+    await assertSucceeds(
+      setDoc(doc(db, "users", "fresh-owner-uid"), {
+        id: "fresh-owner-uid",
+        email: "fresh@example.com",
+        username: "fresh",
+        userType: "owner",
+        signupIntent: "owner",
+        merchantStatus: "pending",
+        companyNumber: "BE0999999999",
+      }),
+    );
+  });
+
+  it("allows a shopper to create their doc without the field", async () => {
+    // Shoppers never carry merchantStatus; the create default must not
+    // block them.
+    const db = asUser("fresh-shopper-uid");
+    await assertSucceeds(
+      setDoc(doc(db, "users", "fresh-shopper-uid"), {
+        id: "fresh-shopper-uid",
+        email: "shop@example.com",
+        username: "shop",
+        userType: "user",
+        signupIntent: "user",
+      }),
+    );
+  });
+
+  it("blocks creating a doc that is already approved", async () => {
+    // Otherwise the whole review queue is skippable at signup.
+    const db = asUser("sneaky-owner-uid");
+    await assertFails(
+      setDoc(doc(db, "users", "sneaky-owner-uid"), {
+        id: "sneaky-owner-uid",
+        email: "sneaky@example.com",
+        username: "sneaky",
+        userType: "owner",
+        merchantStatus: "approved",
+      }),
+    );
+  });
+
+  it("blocks a pending merchant from approving themselves", async () => {
+    const db = asUser(PENDING_MERCHANT);
+    await assertFails(
+      updateDoc(doc(db, "users", PENDING_MERCHANT), {
+        merchantStatus: "approved",
+      }),
+    );
+  });
+
+  it("blocks a legacy owner (no field) from adding merchantStatus", async () => {
+    // Missing already means approved in the app; writing the key is still
+    // a privileged change and must go through an admin.
+    const db = asUser(OWNER_A);
+    await assertFails(
+      updateDoc(doc(db, "users", OWNER_A), { merchantStatus: "approved" }),
+    );
+  });
+
+  it("lets a legacy owner (no field) keep editing their profile", async () => {
+    // get(key, null) on both sides: a missing key compares equal to itself.
+    const db = asUser(OWNER_A);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", OWNER_A), { username: "still-me" }),
+    );
+  });
+
+  it("lets a pending merchant edit companyNumber, phone and name", async () => {
+    // The pending screen and later profile completion write these.
+    const db = asUser(PENDING_MERCHANT);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", PENDING_MERCHANT), {
+        companyNumber: "BE0111111111",
+        phone: "+32471111111",
+        name: "Laurence",
+        surname: "Dupont",
+      }),
+    );
+  });
+
+  it("lets a pending merchant re-send merchantStatus: pending on an update", async () => {
+    // The idempotent signup retry does a setDoc on an existing doc, which
+    // rules see as an update; the freeze must accept an unchanged value.
+    const db = asUser(PENDING_MERCHANT);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", PENDING_MERCHANT), {
+        merchantStatus: "pending",
+        phone: "+32472222222",
+      }),
+    );
+  });
+
+  it("allows an admin to approve a merchant", async () => {
+    const db = asUser(ADMIN);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", PENDING_MERCHANT), {
+        merchantStatus: "approved",
+      }),
+    );
+  });
+
+  it("allows an admin to reject a merchant", async () => {
+    const db = asUser(ADMIN);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", PENDING_MERCHANT), {
+        merchantStatus: "rejected",
+      }),
+    );
+  });
+});
+
 describe("stores - only owner accounts can create", () => {
   it("blocks a shopper from creating a store", async () => {
     const db = asUser(SHOPPER);
@@ -258,6 +393,64 @@ describe("stores - only owner accounts can create", () => {
 
   it("lets anyone read stores, signed in or not", async () => {
     await assertSucceeds(getDoc(doc(asGuest(), "stores", "store-a")));
+  });
+});
+
+describe("stores - pre-approval status", () => {
+  it("blocks creating a store that is already approved", async () => {
+    const db = asUser(OWNER_A);
+    await assertFails(
+      setDoc(doc(db, "stores", "self-approved"), {
+        id: 10,
+        name: "Self approved",
+        owner_id: OWNER_A,
+        status: "approved",
+      }),
+    );
+  });
+
+  it("blocks an owner from approving their own store", async () => {
+    const db = asUser(PENDING_MERCHANT);
+    await assertFails(
+      updateDoc(doc(db, "stores", "store-pending"), { status: "approved" }),
+    );
+  });
+
+  it("lets a pending merchant create their first store as pending", async () => {
+    // isStoreOwner() must not look at merchantStatus: the wizard writes the
+    // store right after the users doc, before any admin review.
+    const db = asUser(PENDING_MERCHANT);
+    await assertSucceeds(
+      setDoc(doc(db, "stores", "first-store"), {
+        id: 11,
+        name: "First store",
+        owner_id: PENDING_MERCHANT,
+        status: "pending",
+        is_validated: true,
+        is_verified: false,
+        is_suspended: false,
+      }),
+    );
+  });
+
+  it("lets a pending merchant edit ordinary fields on their pending store", async () => {
+    const db = asUser(PENDING_MERCHANT);
+    await assertSucceeds(
+      updateDoc(doc(db, "stores", "store-pending"), {
+        description: { fr: "Bientot ouvert" },
+      }),
+    );
+  });
+
+  it("allows an admin to approve a store", async () => {
+    const db = asUser(ADMIN);
+    await assertSucceeds(
+      updateDoc(doc(db, "stores", "store-pending"), { status: "approved" }),
+    );
+  });
+
+  it("lets anyone read a pending store (hiding is client-side)", async () => {
+    await assertSucceeds(getDoc(doc(asGuest(), "stores", "store-pending")));
   });
 });
 

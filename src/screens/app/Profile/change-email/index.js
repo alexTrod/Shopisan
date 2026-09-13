@@ -80,7 +80,7 @@ export default function ChangeEmailScreen() {
         // Use custom Cloud Function to send email change verification
         const sendEmailChangeVerification = httpsCallable(functions, 'sendEmailChangeVerification');
         await sendEmailChangeVerification({
-          userId: user.id,
+          userId: currentUser.uid,
           oldEmail: user.email,
           newEmail: newEmail.trim(),
           username: user.username || user.name || 'User',

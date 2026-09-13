@@ -21,6 +21,7 @@ import logging from "../../../utils/logging";
 import { toggleFavoriteStore } from "../../../Redux/Actions/UserActions";
 import { setCustomLocation } from "../../../Redux/Actions/LocationActions";
 import { ScreenNames } from "../../../Routes/routes";
+import { isStoreVisibleTo } from "../../../utils/storeVisibility";
 
 const STORES_PER_PAGE = 10;
 
@@ -102,8 +103,13 @@ export default function FavoritesScreen({ navigation }) {
 
         const store = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
         // Suspended stores drop out of favourites the same way a deleted one
-        // does, rather than rendering a card that leads nowhere.
-        return store.is_suspended || store.deleted_at ? null : store;
+        // does, rather than rendering a card that leads nowhere. A store
+        // still awaiting approval only shows to its owner.
+        return store.is_suspended ||
+          store.deleted_at ||
+          !isStoreVisibleTo(store, user)
+          ? null
+          : store;
       });
 
       const newStores = (await Promise.all(storePromises)).filter(
@@ -145,6 +151,11 @@ export default function FavoritesScreen({ navigation }) {
         imageUrl={item.imageUrl || item.image || null}
         isFavorite={favoriteStores.includes(item.id)}
         onPressFavorite={() => handleToggleFavorite(item.id)}
+        owner_id={item.owner_id}
+        is_verified={item.is_verified}
+        phone={item.phone}
+        email={item.email}
+        website={item.website}
         onPress={() => {
           const geo = item?.address?.[0]?.location?.geopoint;
           const store = item;

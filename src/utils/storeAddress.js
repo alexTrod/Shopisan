@@ -44,9 +44,11 @@ export const buildStoreAddress = ({
         postal_code: postalCode,
         country_id: countryId || DEFAULT_COUNTRY_ID,
       },
+      // Firestore rejects `undefined` field values, so a store with no known
+      // coordinates gets an empty geopoint rather than a failed write.
       geopoint: {
-        latitude,
-        longitude,
+        ...(typeof latitude === "number" ? { latitude } : {}),
+        ...(typeof longitude === "number" ? { longitude } : {}),
       },
     },
   },

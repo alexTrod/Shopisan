@@ -10,6 +10,8 @@ import BottomTabs from "./src/Routes/bottom-tab";
 import { ScreenNames } from "./src/Routes/routes";
 import SignUp from "./src/screens/auth/signup";
 import SignIn from "./src/screens/auth/signin";
+import PendingApproval from "./src/screens/auth/pending-approval";
+import { isOwnerType, isMerchantApproved } from "./src/utils/userTypes";
 import CustomText from "./src/components/text";
 import ForgotPassword from "./src/screens/auth/forgot-password";
 import AddStore from "./src/screens/app/add_store";
@@ -94,9 +96,14 @@ const App = () => {
   const navigationRef = useRef(null);
   const [currentRoute, setCurrentRoute] = useState(null);
   const [i18nReady, setI18nReady] = useState(false);
-  const { isAuthenticated, noAuthenticationWanted, loading } = useSelector(
-    (state) => state.user,
-  );
+  const { isAuthenticated, noAuthenticationWanted, loading, userData } =
+    useSelector((state) => state.user);
+
+  // A store owner whose registration is still pending (or rejected) is
+  // signed in but gated on the PendingApproval screen: BottomTabs (and with
+  // it StoreProvider: location prompt, store fetch) never mounts.
+  const isPendingMerchant =
+    isAuthenticated && isOwnerType(userData) && !isMerchantApproved(userData);
 
   useEffect(() => {
     let timeoutId = null;
@@ -178,6 +185,9 @@ const App = () => {
 
   useEffect(() => {
     const backAction = () => {
+      if (currentRoute === "PendingApproval") {
+        return true;
+      }
       if (currentRoute === ScreenNames.MAP) {
         navigationRef.current?.navigate(ScreenNames.HOME);
         return true;
@@ -247,9 +257,17 @@ const App = () => {
     >
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        key={isAuthenticated || noAuthenticationWanted ? "main" : "auth"}
+        key={
+          isPendingMerchant
+            ? "pending"
+            : isAuthenticated || noAuthenticationWanted
+              ? "main"
+              : "auth"
+        }
       >
-        {isAuthenticated || noAuthenticationWanted ? (
+        {isPendingMerchant ? (
+          <Stack.Screen name="PendingApproval" component={PendingApproval} />
+        ) : isAuthenticated || noAuthenticationWanted ? (
           <>
             <Stack.Screen name="MainTabs" component={BottomTabs} />
             <Stack.Screen

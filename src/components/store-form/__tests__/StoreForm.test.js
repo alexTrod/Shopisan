@@ -393,6 +393,10 @@ describe("StoreForm", () => {
         "Lovelace",
       );
       fireEvent.changeText(
+        utils.getByPlaceholderText("company_number"),
+        "BE0123456789",
+      );
+      fireEvent.changeText(
         utils.getByPlaceholderText("store_email"),
         "shop@example.com",
       );

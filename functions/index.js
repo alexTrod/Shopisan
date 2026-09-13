@@ -296,11 +296,24 @@ const adminNotificationTemplate = `
 </head>
 <body>
   <div class="container">
-    <h2>New user registered</h2>
+    <h2>{{#if details}}New merchant request{{else}}New user registered{{/if}}</h2>
     <p>Username: {{username}}</p>
     <p>Email: {{email}}</p>
     <p>Type: {{userType}}</p>
     <p>Date: {{registrationDate}}</p>
+    {{#if details}}
+    <h3>Merchant details</h3>
+    <p>First name: {{details.name}}</p>
+    <p>Last name: {{details.surname}}</p>
+    <p>Phone: {{details.phone}}</p>
+    <p>Company number: {{details.companyNumber}}</p>
+    <h3>Store</h3>
+    <p>Store name: {{details.storeName}}</p>
+    <p>Address: {{details.storeAddress}}</p>
+    <p>City: {{details.storeCity}}</p>
+    <p>Website: {{details.website}}</p>
+    <p>Review and approve this request in the admin panel (Merchant requests).</p>
+    {{/if}}
     <div class="footer">
       <p>Shopisan</p>
     </div>
@@ -394,6 +407,111 @@ const storeVerifiedEmailTemplate = {
         <a href="{{appUrl}}" class="button">View my store</a>
       </p>
       <p>Thank you for keeping local business alive with us!</p>
+      <p>See you soon,<br>The Shopisan Team</p>
+      <p class="contact">Our team is at your disposal at info@shopisan.com</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Website</a> |
+        <a href="{{appUrl}}">Link to app</a> |
+        <a href="{{instagramUrl}}">Instagram</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  },
+};
+
+// Merchant approval email. Sent by onMerchantApproved when the admin moves
+// users.merchantStatus from 'pending' to 'approved' (the same batch flips the
+// store to status 'approved'). Copy from freelance/EN version mails - toast
+// notifications .docx, "Confirmation of store validation".
+const merchantApprovedEmailTemplate = {
+  fr: {
+    subject: "Votre boutique est maintenant en ligne sur Shopisan !",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Inscription validée</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+    .contact { margin-top: 20px; font-size: 13px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Votre boutique est maintenant en ligne sur Shopisan !</h2>
+    </div>
+    <div class="content">
+      <p>Bonjour {{storeName}},</p>
+      <p>C'est officiel : votre inscription sur Shopisan a été validée.</p>
+      <p>Votre boutique rejoint dès aujourd'hui la communauté qui met en avant les commerces de proximité.</p>
+      <p>Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
+      <p style="text-align: center;">
+        <a href="{{appUrl}}" class="button">Accéder à mon compte</a>
+      </p>
+      <p>Bienvenue dans l'aventure Shopisan ! Nous sommes ravis de vous compter parmi nous !</p>
+      <p>À bientôt,<br>L'équipe Shopisan</p>
+      <p class="contact">Notre équipe est à votre disposition à info@shopisan.com</p>
+    </div>
+    <div class="footer">
+      <div class="social-links">
+        <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{appUrl}}">Lien vers l'application</a> |
+        <a href="{{instagramUrl}}">Instagram</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  },
+  en: {
+    subject: "Your store is now live on Shopisan!",
+    template: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Registration validated</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .content { margin-bottom: 30px; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
+    .social-links { margin: 20px 0; }
+    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
+    .contact { margin-top: 20px; font-size: 13px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Your store is now live on Shopisan!</h2>
+    </div>
+    <div class="content">
+      <p>Hello {{storeName}},</p>
+      <p>It's official: your registration on Shopisan has been validated.</p>
+      <p>Your store is joining today the community that highlights local businesses.</p>
+      <p>All that's left is for you to configure your account to present your products and welcome your first customers through the app.</p>
+      <p style="text-align: center;">
+        <a href="{{appUrl}}" class="button">Access my account</a>
+      </p>
+      <p>Welcome to the Shopisan adventure! We are delighted to have you on board!</p>
       <p>See you soon,<br>The Shopisan Team</p>
       <p class="contact">Our team is at your disposal at info@shopisan.com</p>
     </div>
@@ -547,7 +665,7 @@ const storeCreationAdminTemplate = `
       <p><strong>Date:</strong> {{registrationDate}}</p>
     </div>
     <div class="footer">
-      <p>No action needed - the store is already visible in the app.</p>
+      <p>The store was created as pending: review and approve it in the admin panel (Stores) before it appears to shoppers.</p>
       <p>To grant the verification badge: node scripts/verify-store.js &lt;storeId&gt;</p>
       <p>To take it down: node scripts/suspend-store.js &lt;storeId&gt; --reason="..."</p>
     </div>
@@ -556,16 +674,20 @@ const storeCreationAdminTemplate = `
 </html>
 `;
 
-// Merchant verification email template (combines user welcome + store info)
+// Merchant "request received" email. Sent right after the pre-approval
+// signup: the store is NOT live yet -- the admin reviews the request and the
+// onMerchantApproved trigger sends the "validated" email later. Copy from
+// freelance/EN version mails - toast notifications .docx, "Confirmation of
+// merchant registration request".
 const merchantVerificationEmailTemplate = {
   fr: {
-    subject: "Bienvenue sur Shopisan - Confirmez votre inscription",
+    subject: "Bienvenue sur Shopisan 🚀",
     template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Inscription Commercant</title>
+  <title>Demande d'inscription reçue</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
@@ -574,7 +696,7 @@ const merchantVerificationEmailTemplate = {
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
-    .live-badge { display: inline-block; background-color: #2E9E5B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .pending-badge { display: inline-block; background-color: #E8A33D; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -587,28 +709,31 @@ const merchantVerificationEmailTemplate = {
     </div>
     <div class="content">
       <p>Bonjour {{username}},</p>
-      <p>Merci pour votre inscription en tant que commercant sur Shopisan !</p>
+      <p>Merci pour votre inscription sur Shopisan ! Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
 
       <div class="store-info">
-        <h3>Votre boutique enregistree</h3>
-        <p><strong>Nom :</strong> {{storeName}}</p>
+        <h3>Votre demande d'inscription</h3>
+        <p><strong>Boutique :</strong> {{storeName}}</p>
         <p><strong>Ville :</strong> {{storeCity}}</p>
-        <p><span class="live-badge">En ligne</span></p>
+        <p><span class="pending-badge">En attente de validation</span></p>
       </div>
 
-      <p>Votre boutique est deja visible sur la carte, dans les listes et dans la recherche.</p>
+      <p>Votre demande a bien été reçue et sera validée prochainement par notre équipe.</p>
+      <p>Dès que votre inscription sera confirmée, vous pourrez configurer votre compte et commencer à présenter votre boutique aux utilisateurs de l'application.</p>
+      <p>Nous vous tiendrons informé(e) par email très prochainement.</p>
 
-      <p>Il ne reste qu'une etape : cliquez sur le bouton ci-dessous pour verifier votre adresse email.</p>
+      <p>En attendant, cliquez sur le bouton ci-dessous pour vérifier votre adresse email.</p>
 
       <p style="text-align: center;">
-        <a href="{{verificationUrl}}" class="button">Verifier mon email</a>
+        <a href="{{verificationUrl}}" class="button">Vérifier mon email</a>
       </p>
 
-      <p>A bientot,<br>L'equipe Shopisan</p>
+      <p>À bientôt,<br>L'équipe Shopisan</p>
     </div>
     <div class="footer">
       <div class="social-links">
         <a href="{{appUrl}}">Site internet</a> |
+        <a href="{{appUrl}}">Lien vers l'application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
       </div>
     </div>
@@ -618,13 +743,13 @@ const merchantVerificationEmailTemplate = {
     `,
   },
   en: {
-    subject: "Welcome to Shopisan - Confirm your registration",
+    subject: "Welcome to Shopisan 🚀",
     template: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Merchant Registration</title>
+  <title>Registration request received</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 24px; }
@@ -633,7 +758,7 @@ const merchantVerificationEmailTemplate = {
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
-    .live-badge { display: inline-block; background-color: #2E9E5B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .pending-badge { display: inline-block; background-color: #E8A33D; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
     .social-links { margin: 20px 0; }
     .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
@@ -646,18 +771,20 @@ const merchantVerificationEmailTemplate = {
     </div>
     <div class="content">
       <p>Hello {{username}},</p>
-      <p>Thank you for registering as a merchant on Shopisan!</p>
+      <p>Thank you for registering on Shopisan! We are delighted to welcome you to the community that highlights local businesses.</p>
 
       <div class="store-info">
-        <h3>Your registered store</h3>
-        <p><strong>Name:</strong> {{storeName}}</p>
+        <h3>Your registration request</h3>
+        <p><strong>Store:</strong> {{storeName}}</p>
         <p><strong>City:</strong> {{storeCity}}</p>
-        <p><span class="live-badge">Live</span></p>
+        <p><span class="pending-badge">Pending validation</span></p>
       </div>
 
-      <p>Your store is already visible on the map, in listings and in search.</p>
+      <p>Your request has been successfully received and will be validated shortly by our team.</p>
+      <p>As soon as your registration is confirmed, you will be able to set up your account and start presenting your shop to the app's users.</p>
+      <p>We will keep you updated by email very soon.</p>
 
-      <p>One step left: click the button below to verify your email address.</p>
+      <p>In the meantime, click the button below to verify your email address.</p>
 
       <p style="text-align: center;">
         <a href="{{verificationUrl}}" class="button">Verify my email</a>
@@ -668,6 +795,7 @@ const merchantVerificationEmailTemplate = {
     <div class="footer">
       <div class="social-links">
         <a href="{{appUrl}}">Website</a> |
+        <a href="{{appUrl}}">Link to application</a> |
         <a href="{{instagramUrl}}">Instagram</a>
       </div>
     </div>
@@ -901,6 +1029,36 @@ exports.sendMerchantVerificationEmail = functions.https.onCall(
   },
 );
 
+const MERCHANT_DETAIL_FIELDS = [
+  "name",
+  "surname",
+  "phone",
+  "companyNumber",
+  "storeName",
+  "storeAddress",
+  "storeCity",
+  "website",
+];
+
+/**
+ * Coerce the optional `details` payload of sendAdminNotification into a
+ * plain object with every known field present as a string ("-" when empty),
+ * or null when no details were sent. Extra keys are dropped so a client
+ * cannot inject arbitrary content into the admin email.
+ */
+const normalizeMerchantDetails = (details) => {
+  if (!details || typeof details !== "object") return null;
+  const out = {};
+  for (const key of MERCHANT_DETAIL_FIELDS) {
+    const value = details[key];
+    out[key] =
+      value === undefined || value === null || String(value).trim() === ""
+        ? "-"
+        : String(value).trim();
+  }
+  return out;
+};
+
 // Function to send admin notification
 exports.sendAdminNotification = functions.https.onCall(
   async (data, _context) => {
@@ -914,20 +1072,30 @@ exports.sendAdminNotification = functions.https.onCall(
         );
       }
 
+      // Optional merchant-request details (pre-approval signup). Every field
+      // is listed in the email so the admin can review without opening the
+      // panel; missing values render as "-".
+      const details = normalizeMerchantDetails(data.details);
+
       // Compile admin notification template
       const template = handlebars.compile(adminNotificationTemplate);
       const htmlContent = template({
         username,
         email,
         userType,
+        details,
         registrationDate: new Date().toLocaleDateString(),
       });
 
-      // Send admin notification using Nodemailer with Gmail
+      const subject = details
+        ? `New merchant request: ${details.storeName}`
+        : `New ${userType} registration`;
+
+      // Send admin notification
       const mailOptions = {
         from: `"Shopisan System" <${SENDER_EMAIL}>`,
         to: ADMIN_EMAIL,
-        subject: `New ${userType} registration`,
+        subject,
         html: htmlContent,
       };
 
@@ -1307,6 +1475,77 @@ exports.onStoreVerified = functions.firestore
     }
 
     return null;
+  });
+
+// Cloud Function that triggers when an admin approves a merchant request.
+// users.merchantStatus is server-owned (see firestore.rules), so only the
+// admin panel or the Admin SDK can produce the pending -> approved transition;
+// a merchant cannot mail themselves an approval by editing their own doc.
+// It only sends the email: the store cascade (status 'approved') is written by
+// the admin batch in the same action.
+exports.onMerchantApproved = functions.firestore
+  .document("users/{userId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const userId = context.params.userId;
+
+    // Only a transition INTO approved from a gated state (pending, or a
+    // rejection the admin reconsidered). Re-saving an approved user or
+    // approving a legacy owner (no field) must not send the email.
+    const wasGated = before.merchantStatus === "pending" || before.merchantStatus === "rejected";
+    if (!wasGated || after.merchantStatus !== "approved") {
+      return null;
+    }
+
+    try {
+      console.log(`Merchant ${userId} approved, sending confirmation email`);
+
+      const recipient = after.email;
+      if (!recipient) {
+        console.error("No email found for approved merchant:", userId);
+        return null;
+      }
+
+      // The greeting uses the store name; fall back to the username when the
+      // store has not been written yet.
+      let storeName = after.username || "";
+      const storesSnap = await admin
+        .firestore()
+        .collection("stores")
+        .where("owner_id", "==", userId)
+        .limit(1)
+        .get();
+      if (!storesSnap.empty) {
+        const storeData = storesSnap.docs[0].data();
+        if (storeData.name) storeName = storeData.name;
+      }
+
+      const language = after.language || after.locale || "fr";
+      const lang = language.toLowerCase().startsWith("en") ? "en" : "fr";
+
+      const emailTemplate = merchantApprovedEmailTemplate[lang];
+      const template = handlebars.compile(emailTemplate.template);
+      const htmlContent = template({
+        storeName,
+        appUrl: "https://shopisan-bad76.web.app",
+        instagramUrl: "https://instagram.com/shopisanapp",
+      });
+
+      const mailOptions = {
+        from: `"Shopisan" <${SENDER_EMAIL}>`,
+        to: recipient,
+        subject: emailTemplate.subject,
+        html: htmlContent,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      console.log("Merchant approval email sent successfully:", result.messageId);
+      return result;
+    } catch (error) {
+      console.error("Error sending merchant approval email:", error);
+      return null;
+    }
   });
 
 // Cloud Function that triggers when a store is suspended (abuse takedown).
@@ -2015,13 +2254,31 @@ exports.purgeTrashedStores = functions.pubsub
     return null;
   });
 
-// Function to send email change verification
+// Function to send email change verification.
+// Caller must be signed in and may only start a change for their own account:
+// without this, anyone who knew a userId could park a token on that document
+// and redirect the account's email to an address they control.
 exports.sendEmailChangeVerification = functions.https.onCall(
-  async (data, _context) => {
-    try {
-      const { userId, oldEmail, newEmail, username, language = "fr" } = data;
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign-in required",
+      );
+    }
+    if (!data || context.auth.uid !== data.userId) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Cannot change another user's email",
+      );
+    }
+    // The document id is always the caller's uid, never the client value.
+    const userId = context.auth.uid;
 
-      if (!userId || !oldEmail || !newEmail || !username) {
+    try {
+      const { oldEmail, newEmail, username, language = "fr" } = data;
+
+      if (!oldEmail || !newEmail || !username) {
         throw new functions.https.HttpsError(
           "invalid-argument",
           "Missing required parameters",
@@ -2098,6 +2355,9 @@ exports.sendEmailChangeVerification = functions.https.onCall(
       };
     } catch (error) {
       console.error("Error sending email change verification:", error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
       throw new functions.https.HttpsError(
         "internal",
         "Failed to send verification email",
@@ -2106,12 +2366,17 @@ exports.sendEmailChangeVerification = functions.https.onCall(
   },
 );
 
-// Function to confirm email change (called when user clicks the link)
+// Function to confirm email change (called when user clicks the link).
+// Invoked from the hosted page public/confirm-email-change.html, which never
+// signs in, so it cannot require context.auth. Instead the user is looked up
+// BY TOKEN (32 random bytes, single-use, 24 h expiry) and the userId from the
+// link only has to agree with that document -- a caller cannot pick a target
+// account, they can only redeem a token that was mailed to the new address.
 exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
   try {
-    const { token, userId } = data;
+    const { token, userId } = data || {};
 
-    if (!token || !userId) {
+    if (!token || !userId || typeof token !== "string") {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "Missing required parameters",
@@ -2119,16 +2384,24 @@ exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
     }
 
     const db = admin.firestore();
-    const userDoc = await db.collection("users").doc(userId).get();
+    const tokenSnap = await db
+      .collection("users")
+      .where("emailChangeToken", "==", token)
+      .limit(1)
+      .get();
 
-    if (!userDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "User not found");
+    if (tokenSnap.empty) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Invalid or expired token",
+      );
     }
 
+    const userDoc = tokenSnap.docs[0];
     const userData = userDoc.data();
 
-    // Verify token
-    if (userData.emailChangeToken !== token) {
+    // The link's userId must be the document the token belongs to.
+    if (userDoc.id !== userId) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "Invalid or expired token",
@@ -2136,7 +2409,8 @@ exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
     }
 
     // Check expiration
-    if (new Date() > userData.emailChangeExpiresAt.toDate()) {
+    const expiresAt = userData.emailChangeExpiresAt;
+    if (!expiresAt || new Date() > expiresAt.toDate()) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "Token has expired",
@@ -2144,6 +2418,12 @@ exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
     }
 
     const newEmail = userData.emailChangeNewEmail;
+    if (!newEmail) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "No pending email change",
+      );
+    }
 
     // Update Firebase Auth email using Admin SDK
     await admin.auth().updateUser(userId, {
@@ -2151,8 +2431,8 @@ exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
       emailVerified: true,
     });
 
-    // Update Firestore
-    await db.collection("users").doc(userId).update({
+    // Update Firestore and clear the token so the link is single-use
+    await userDoc.ref.update({
       email: newEmail,
       emailChangeToken: null,
       emailChangeNewEmail: null,
@@ -2165,6 +2445,9 @@ exports.confirmEmailChange = functions.https.onCall(async (data, _context) => {
     return { success: true, message: "Email changed successfully", newEmail };
   } catch (error) {
     console.error("Error confirming email change:", error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
     throw new functions.https.HttpsError(
       "internal",
       error.message || "Failed to change email",

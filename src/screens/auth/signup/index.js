@@ -1,5 +1,12 @@
-import React, { useRef, useState } from "react";
-import { Image, TouchableOpacity, View, Text, Linking } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Image,
+  TouchableOpacity,
+  View,
+  Text,
+  Linking,
+  BackHandler,
+} from "react-native";
 import { useForm } from "react-hook-form";
 import SignUpFormValidation from "./validation";
 import styles from "./styles";
@@ -38,6 +45,23 @@ import { useTranslation } from "../../../utils/useTranslation";
 import StepIndicator from "./components/StepIndicator";
 import { StoreForm } from "../../../components/store-form";
 import { TERMS_URL, PRIVACY_URL } from "../../../config/legal";
+
+// Translation key for a merchant-signup failure. Raw error messages are
+// never shown: they are English-only and can leak Firebase internals.
+const signupErrorKey = (code) => {
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "email_already_in_use";
+    case "auth/weak-password":
+      return "weak_password";
+    case "address_not_found":
+      return "address_not_found";
+    case "network_error":
+      return "network_error";
+    default:
+      return "registration_failed";
+  }
+};
 
 export default function SignUp({ navigation }) {
   const { t } = useTranslation();
@@ -186,7 +210,7 @@ export default function SignUp({ navigation }) {
         text1: t("success") || "Success",
         text2:
           t("merchant_registration_complete") ||
-          "Your account and store have been registered!",
+          "Your request has been received.",
         type: "success",
       });
 
@@ -195,10 +219,7 @@ export default function SignUp({ navigation }) {
       console.error("Merchant signup error:", error);
       Toast.show({
         text1: t("error") || "Error",
-        text2:
-          error.message ||
-          t("registration_failed") ||
-          "Registration failed. Please try again.",
+        text2: t(signupErrorKey(error?.code)),
         type: "error",
       });
     } finally {
@@ -208,8 +229,22 @@ export default function SignUp({ navigation }) {
 
   // Handle back from Step 2 to Step 1
   const handleBackToStep1 = () => {
+    // Drop the previous attempt's error so step 1 does not show it
+    dispatch({ type: "SIGN_UP_ERROR", payload: null });
     setCurrentStep(1);
   };
+
+  // Android hardware back on step 2 returns to step 1 instead of leaving
+  // the app. Registered here (parent), so StoreForm's own handler, added
+  // later, still wins while address suggestions are open.
+  useEffect(() => {
+    if (currentStep !== 2) return undefined;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleBackToStep1();
+      return true;
+    });
+    return () => sub.remove();
+  }, [currentStep]);
 
   const goToSignIn = () => {
     navigation.navigate(ScreenNames.SIGN_IN);
@@ -431,6 +466,7 @@ export default function SignUp({ navigation }) {
       submitButtonText={t("complete_registration") || "Complete Registration"}
       mode="wizard"
       showMerchantFields={true}
+      preapproval
       disabled={loading}
     />
   );

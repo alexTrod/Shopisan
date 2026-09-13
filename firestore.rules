@@ -39,26 +39,37 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
 
-      allow create: if signedIn() && request.auth.uid == userId;
+      // merchantStatus ('pending' | 'approved' | 'rejected') is the
+      // pre-approval gate for store owners. A fresh signup may only start as
+      // 'pending' (or omit the field: shoppers never carry it, and the default
+      // below treats a missing key as pending so the create is still allowed).
+      // Only an admin or the Admin SDK moves it to 'approved' / 'rejected'.
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.get('merchantStatus', 'pending') == 'pending';
 
       // Users may edit their own profile but NOT their privileged fields.
       // Without this, any shopper could promote themselves to owner with a
       // single updateDoc call and the account type would mean nothing.
       //
       // Admins may update any user document: the admin panel toggles
-      // is_active/is_validated and clears profile photo fields during
-      // moderation.
+      // is_active/is_validated, approves/rejects merchants (merchantStatus)
+      // and clears profile photo fields during moderation.
       //
       // Read through get(key, default): pre-migration documents have no
       // signupIntent, and a direct .signupIntent lookup on a missing key
       // evaluates to an error, which would deny every profile update those
-      // users make (including the email sync in fetchUserData).
+      // users make (including the email sync in fetchUserData). Same for
+      // merchantStatus: legacy owners have no such key (missing == approved
+      // in the app), and the freeze compares get(key, null) on both sides so
+      // their profile edits keep passing while a pending merchant can never
+      // approve themselves.
       allow update: if signedIn() && resource != null
         && (isAdmin()
             || (request.auth.uid == userId
                 && request.resource.data.get('userType', null) == resource.data.get('userType', null)
                 && request.resource.data.get('is_admin', false) == resource.data.get('is_admin', false)
-                && request.resource.data.get('signupIntent', null) == resource.data.get('signupIntent', null)));
+                && request.resource.data.get('signupIntent', null) == resource.data.get('signupIntent', null)
+                && request.resource.data.get('merchantStatus', null) == resource.data.get('merchantStatus', null)));
 
       // Self-delete, or admin moderation delete. Full account removal
       // (Auth user + owned data) still goes through the adminDeleteUser
@@ -68,7 +79,14 @@ service cloud.firestore {
 
     // Stores - anyone can read, only store owners can create.
     //
-    // Stores are live the moment they are created; there is no approval gate.
+    // Merchant signup is a pre-approval flow: the first store is created with
+    // status 'pending' while the owner's users.merchantStatus is 'pending',
+    // and the admin approves both together. Access to the app is gated on
+    // users.merchantStatus (client-side, pending merchants see a waiting
+    // screen); a pending store is hidden from shoppers client-side and stays
+    // readable here so its owner can still edit it. isStoreOwner() does not
+    // look at merchantStatus on purpose: a pending owner must be able to
+    // create that first store.
     // is_verified (the public badge) and is_suspended (abuse takedown) are
     // server-owned: only an admin or the Admin SDK may set them. is_validated
     // is frozen on update too, because app builds released before this change
@@ -85,8 +103,9 @@ service cloud.firestore {
       // server-owned like is_verified/is_suspended -- owners may only create
       // stores as 'pending' (or without the field, for old app builds) and may
       // never change it; admins clear it to 'approved'. Reads are NOT gated on
-      // it: pending stores stay visible in the app (flag-and-review model),
-      // any hiding happens client-side. Distinct from the legacy numeric
+      // it: the app hides 'pending' stores from shoppers client-side
+      // (src/utils/storeVisibility.js) and a missing key means approved, so
+      // legacy documents stay visible. Distinct from the legacy numeric
       // storeStatus field, which the app always writes as 0.
       function moderationNeutralOnCreate() {
         return request.resource.data.get('is_verified', false) == false

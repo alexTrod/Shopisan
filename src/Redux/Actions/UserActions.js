@@ -17,14 +17,25 @@ import {
   updateDoc,
   serverTimestamp,
   setDoc,
+  addDoc,
+  deleteDoc,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { pbkdf2 } from "@react-native-module/pbkdf2";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 import {
   selectIsAuthenticated,
   selectUserData,
 } from "../Selectors/UserSelectors";
-import { USER_TYPES, normalizeUserType } from "../../utils/userTypes";
+import {
+  USER_TYPES,
+  MERCHANT_STATUS,
+  getMerchantStatus,
+  normalizeUserType,
+} from "../../utils/userTypes";
+import { buildStoreAddress } from "../../utils/storeAddress";
+import { ensureCityExists } from "../../utils/cityManagement";
 
 // Flag to prevent race condition during signup - when Firebase Auth creates a user,
 // onAuthStateChanged fires before the Firestore document is created
@@ -489,7 +500,9 @@ const fetchUserData = (uid) => async (dispatch) => {
       // User document was deleted - sign out and go to login
       logging("User document not found, signing out");
       await firebaseSignOut(auth);
-      dispatch({ type: "SIGN_OUT" });
+      // AUTH_LOGOUT is the action the reducer implements; it clears
+      // isAuthenticated so a gated screen (pending approval) is left too.
+      dispatch({ type: "AUTH_LOGOUT" });
       throw new Error("Account not found");
     }
 
@@ -542,6 +555,23 @@ const fetchUserData = (uid) => async (dispatch) => {
     }
     dispatch({ type: "SIGN_UP_ERROR", payload: error.message });
     throw error; // Re-throw so signin handler can catch it and show Alert
+  }
+};
+
+/**
+ * Re-read the signed-in user's Firestore document (e.g. "Check again" on the
+ * pending-approval screen). Resolves true when the data was refreshed, false
+ * when nobody is signed in or the read failed; never throws.
+ */
+export const refreshCurrentUser = () => async (dispatch) => {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return false;
+  try {
+    await fetchUserData(uid)(dispatch);
+    return true;
+  } catch (error) {
+    logging("refreshCurrentUser failed", error?.message);
+    return false;
   }
 };
 
@@ -646,7 +676,7 @@ const sendVerificationEmail = async (
   }
 };
 
-const sendAdminNotification = async (email, username, userType) => {
+const sendAdminNotification = async (email, username, userType, details) => {
   try {
     const { getFunctions, httpsCallable } = await import("firebase/functions");
     const functions = getFunctions();
@@ -659,12 +689,13 @@ const sendAdminNotification = async (email, username, userType) => {
       email,
       username,
       userType,
+      ...(details ? { details } : {}),
     });
 
-    console.log("Admin notification sent successfully:", result.data);
+    logging("Admin notification sent successfully", result.data);
     return result.data;
   } catch (error) {
-    console.error("Failed to send admin notification:", error);
+    logError("Failed to send admin notification", error);
     throw error;
   }
 };
@@ -674,180 +705,221 @@ export const setSelectedCountry = (country) => ({
   payload: country,
 });
 
-// Merchant signup with store creation
+const GEOCODING_API_KEY = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
+
+const errorWithCode = (code, message) => {
+  const error = new Error(message || code);
+  error.code = code;
+  return error;
+};
+
+/**
+ * Resolve the wizard's address to coordinates. Falls back to the location
+ * the user picked on the map; otherwise throws `address_not_found` (or
+ * `network_error` when the geocoder could not be reached). There is
+ * deliberately no default city: a pending store with made-up coordinates
+ * would surface in the wrong place after approval.
+ */
+const geocodeStoreAddress = async (store, countryId) => {
+  const fullAddress =
+    `${store.streetNumber || ""} ${store.street}, ${store.postalCode} ${store.city}, ${countryId}`.trim();
+  let networkFailed = false;
+
+  try {
+    const geoResponse = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&region=${countryId.toLowerCase()}&key=${GEOCODING_API_KEY}`,
+    );
+    const geoData = await geoResponse.json();
+    if (geoData.status === "OK" && geoData.results?.length > 0) {
+      const location = geoData.results[0].geometry.location;
+      return {
+        latitude: Number(location.lat),
+        longitude: Number(location.lng),
+      };
+    }
+  } catch (geoError) {
+    networkFailed = true;
+    logError("Geocoding failed", geoError);
+  }
+
+  const picked = store.selectedLocation;
+  if (
+    typeof picked?.latitude === "number" &&
+    typeof picked?.longitude === "number"
+  ) {
+    return { latitude: picked.latitude, longitude: picked.longitude };
+  }
+
+  throw networkFailed
+    ? errorWithCode("network_error", "Geocoding request failed")
+    : errorWithCode("address_not_found", "Address not found");
+};
+
+/**
+ * Merchant pre-approval signup. Creates the Auth user, the users doc
+ * (merchantStatus 'pending') and a minimal pending store, then notifies the
+ * merchant and the admin. The address is geocoded before anything is
+ * created so no account exists until it resolves. Any later failure rolls
+ * back store doc, users doc and Auth user, in that order, so
+ * onAuthStateChanged never lands a half-registered owner in the app.
+ */
 export const signUpMerchantWithStore = (data) => async (dispatch) => {
   const { email, username, password, language, store } = data;
   let userCreated = false;
+  let userDocCreated = false;
+  let storeDocRef = null;
   let userId = null;
 
   try {
     dispatch({ type: "SIGN_UP_ERROR", payload: null });
-    isSigningUp = true;
 
     const safeEmail = email.trim().toLowerCase();
+    const countryId = store.detectedCountryCode || "FR";
 
-    // Step 1: Create Firebase Auth user
-    const cred = await createUserWithEmailAndPassword(
-      auth,
-      safeEmail,
-      password,
-    );
-    userId = cred.user.uid;
-    userCreated = true;
+    // Step 1: Resolve the address. No account exists yet if this fails.
+    const { latitude, longitude } = await geocodeStoreAddress(store, countryId);
 
-    // Step 2: Generate verification token
-    const verificationToken =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
-    const verificationExpiresAt = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000,
-    );
+    isSigningUp = true;
 
-    // Step 3: Create user document in Firestore
-    const userCollection = collection(firestore, "users");
-    await setDoc(doc(userCollection, userId), {
-      userType: USER_TYPES.OWNER,
-      signupIntent: USER_TYPES.OWNER,
-      id: userId,
-      email: safeEmail,
-      username,
-      language,
-      date_of_birth: null,
-      is_validated: false, // Email not verified yet
-      is_active: true, // Account is active (not archived)
-      is_admin: false,
-      // Signup cannot be submitted without ticking the legal checkbox.
-      termsAcceptedAt: serverTimestamp(),
-      last_login: serverTimestamp(),
-      created: serverTimestamp(),
-      surname: null,
-      name: null,
-      picture_id: null,
-      reset_password_token: null,
-      reset_password_validity: null,
-      user_id: userId,
-      emailVerificationStatus: "pending",
-      verificationToken: verificationToken,
-      verificationExpiresAt: verificationExpiresAt,
-      lastVerificationSent: serverTimestamp(),
-    });
-
-    // Step 4: Create store in Firestore
-    const {
-      addDoc,
-      getDocs,
-      query: firestoreQuery,
-      orderBy,
-      limit,
-    } = await import("firebase/firestore");
-    const storesRef = collection(firestore, "stores");
-
-    // Get next store ID
-    const maxIdQuery = firestoreQuery(
-      storesRef,
-      orderBy("id", "desc"),
-      limit(1),
-    );
-    const maxIdSnapshot = await getDocs(maxIdQuery);
-    let maxId = 0;
-    if (!maxIdSnapshot.empty) {
-      const topStore = maxIdSnapshot.docs[0].data();
-      maxId = topStore.id || 0;
-    }
-    const newStoreId = maxId + 1;
-
-    // Geocode address
-    const fullAddress = `${store.streetNumber || ""} ${store.street}, ${store.postalCode} ${store.city}, France`;
-    const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
-
-    const geoResponse = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
-    );
-    const geoData = await geoResponse.json();
-
-    let latitude = store.selectedLocation?.latitude || 48.8566;
-    let longitude = store.selectedLocation?.longitude || 2.3522;
-
-    if (geoData.status === "OK" && geoData.results.length > 0) {
-      const location = geoData.results[0].geometry.location;
-      latitude = Number(location.lat);
-      longitude = Number(location.lng);
-    }
-
-    // Upload images if present. The signup wizard's StoreForm passes
-    // selectedImages (array); selectedImage (single) is the old shape, kept
-    // as a fallback.
-    const imagesToUpload =
-      store.selectedImages?.length > 0
-        ? store.selectedImages
-        : store.selectedImage
-          ? [store.selectedImage]
-          : [];
-    const images = [];
-    for (const img of imagesToUpload) {
+    // Step 2: Create the Firebase Auth user. If the email is already taken,
+    // try to resume an interrupted signup: sign in and continue only when
+    // the account is an owner without a users doc or without a store.
+    let cred;
+    let resumed = false;
+    try {
+      cred = await createUserWithEmailAndPassword(auth, safeEmail, password);
+      userCreated = true;
+    } catch (createError) {
+      if (createError.code !== "auth/email-already-in-use") {
+        throw createError;
+      }
       try {
-        const cloudflareAccountId = "e593403f5f942f93365e9cd0be4065a1";
-        const apiToken = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
-        const fileName = `photo_${Date.now()}.jpg`;
-        const imageUri =
-          Platform.OS === "android" && !img.uri.startsWith("file://")
-            ? `file://${img.uri}`
-            : img.uri;
+        cred = await signInWithEmailAndPassword(auth, safeEmail, password);
+      } catch (signInError) {
+        throw createError;
+      }
+      resumed = true;
+    }
+    userId = cred.user.uid;
 
-        const formData = new FormData();
-        formData.append("file", {
-          uri: imageUri,
-          name: fileName,
-          type: "image/jpeg",
-        });
+    const storesRef = collection(firestore, "stores");
+    const userDocRef = doc(firestore, "users", userId);
+    let existingUser = null;
 
-        const uploadResponse = await fetch(
-          `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiToken}` },
-            body: formData,
-          },
+    if (resumed) {
+      const existingSnap = await getDoc(userDocRef);
+      if (existingSnap.exists()) {
+        existingUser = existingSnap.data();
+        const ownedStores = await getDocs(
+          query(storesRef, where("owner_id", "==", userId), limit(1)),
         );
-        const uploadData = await uploadResponse.json();
-        if (uploadData.success) {
-          images.push(uploadData.result.variants[0]);
+        const isIncompleteOwner =
+          normalizeUserType(existingUser.userType) === USER_TYPES.OWNER &&
+          ownedStores.empty;
+        if (!isIncompleteOwner) {
+          // A complete account: nothing to resume.
+          await firebaseSignOut(auth);
+          throw errorWithCode(
+            "auth/email-already-in-use",
+            "The email address is already in use.",
+          );
         }
-      } catch (imgError) {
-        console.warn(
-          "Image upload failed, continuing without image:",
-          imgError,
-        );
       }
     }
+
+    // Step 3: Verification token (reuse the existing one when resuming)
+    let verificationToken = existingUser?.verificationToken || null;
+    let verificationExpiresAt = existingUser?.verificationExpiresAt || null;
+    if (!verificationToken) {
+      verificationToken =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+      verificationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const profile = {
+      name: store.managerFirstName || null,
+      surname: store.managerLastName || null,
+      phone: store.phone || "",
+      companyNumber: store.companyNumber || "",
+    };
+
+    // Step 4: Create the users document
+    if (!existingUser) {
+      await setDoc(userDocRef, {
+        userType: USER_TYPES.OWNER,
+        signupIntent: USER_TYPES.OWNER,
+        // Server-owned; the admin flips it to approved/rejected.
+        merchantStatus: MERCHANT_STATUS.PENDING,
+        id: userId,
+        email: safeEmail,
+        username,
+        language,
+        date_of_birth: null,
+        is_validated: false, // Email not verified yet
+        is_active: true, // Account is active (not archived)
+        is_admin: false,
+        // Signup cannot be submitted without ticking the legal checkbox.
+        termsAcceptedAt: serverTimestamp(),
+        last_login: serverTimestamp(),
+        created: serverTimestamp(),
+        ...profile,
+        picture_id: null,
+        reset_password_token: null,
+        reset_password_validity: null,
+        user_id: userId,
+        emailVerificationStatus: "pending",
+        verificationToken: verificationToken,
+        verificationExpiresAt: verificationExpiresAt,
+        lastVerificationSent: serverTimestamp(),
+      });
+      userDocCreated = true;
+    } else if (!existingUser.verificationToken) {
+      // updateDoc leaves merchantStatus untouched, so the rules freeze on
+      // self-updates is satisfied.
+      await updateDoc(userDocRef, {
+        verificationToken,
+        verificationExpiresAt,
+        lastVerificationSent: serverTimestamp(),
+      });
+    }
+
+    // Step 5: Create the pending store
+    const maxIdSnapshot = await getDocs(
+      query(storesRef, orderBy("id", "desc"), limit(1)),
+    );
+    let maxId = 0;
+    if (!maxIdSnapshot.empty) {
+      maxId = maxIdSnapshot.docs[0].data().id || 0;
+    }
+    const newStoreId = maxId + 1;
 
     const storeData = {
       id: newStoreId,
       name: store.name,
       owner_id: userId,
-      address: [
-        {
-          location: {
-            address: { street: store.street },
-            city: {
-              name: store.city,
-              postal_code: store.postalCode,
-              country_id: "FR",
-            },
-            geopoint: { latitude, longitude },
-          },
-        },
-      ],
+      address: buildStoreAddress({
+        street: store.street,
+        streetNumber: store.streetNumber,
+        city: store.city,
+        postalCode: store.postalCode,
+        countryId,
+        latitude,
+        longitude,
+      }),
       latitude,
       longitude,
       cityName: store.city,
-      description: { fr: store.description },
-      category: store.selectedCategories || [],
+      // Pre-approval defaults: description, categories, hours and photos are
+      // completed in Edit my store once the merchant is approved. Categories
+      // are forced empty so a guest's category filter never leaks in here.
+      description: { fr: store.description || "" },
+      category: [],
       storeStatus: 0,
       website: store.website || "",
-      openingHours: store.openingHours || {},
-      images,
-      imageUrl: images[0] || "",
+      openingHours: {},
+      images: [],
+      imageUrl: "",
       // Stores are live on creation. is_validated is legacy: it is written only
       // so app builds released before this change, which still filter their
       // store list on it, show new stores too. Distinct from the identically
@@ -858,18 +930,33 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       // only admins can change it.
       status: "pending",
       created: serverTimestamp(),
-      email: store.storeEmail || "",
+      // The wizard asks for one email: the account email is the store email
+      email: store.storeEmail || safeEmail,
       phone: store.phone || "",
       managerFirstName: store.managerFirstName || "",
       managerLastName: store.managerLastName || "",
     };
 
-    await addDoc(storesRef, storeData);
+    storeDocRef = await addDoc(storesRef, storeData);
 
-    // Step 5: Send merchant verification email (with store info)
+    // Keep the cities collection in sync (non-fatal)
     try {
-      const { getFunctions, httpsCallable } =
-        await import("firebase/functions");
+      await ensureCityExists(
+        store.city,
+        store.postalCode,
+        latitude,
+        longitude,
+        countryId,
+      );
+    } catch (cityError) {
+      logError("ensureCityExists failed", cityError);
+    }
+
+    // Step 6: Emails (request received to the merchant, request to admin)
+    try {
+      const { getFunctions, httpsCallable } = await import(
+        "firebase/functions"
+      );
       const functions = getFunctions();
 
       const sendMerchantVerificationEmailFn = httpsCallable(
@@ -885,16 +972,24 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         language,
       });
 
-      // Send admin notification
-      await sendAdminNotification(safeEmail, username, USER_TYPES.OWNER);
+      await sendAdminNotification(safeEmail, username, USER_TYPES.OWNER, {
+        name: profile.name || "",
+        surname: profile.surname || "",
+        phone: profile.phone,
+        companyNumber: profile.companyNumber,
+        storeName: store.name,
+        storeCity: store.city,
+        storeAddress:
+          `${store.street} ${store.streetNumber || ""}, ${store.postalCode} ${store.city} ${countryId}`
+            .replace(/\s+,/, ",")
+            .trim(),
+        website: store.website || "",
+      });
     } catch (emailError) {
-      console.warn(
-        "[signUpMerchantWithStore] Email sending failed:",
-        emailError,
-      );
+      logError("[signUpMerchantWithStore] Email sending failed", emailError);
     }
 
-    // Step 6: Dispatch success
+    // Step 7: Dispatch success
     dispatch({
       type: "SET_EMAIL_VERIFICATION_STATUS",
       payload: {
@@ -910,13 +1005,20 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         id: userId,
         email: safeEmail,
         username,
+        language,
         userType: USER_TYPES.OWNER,
         signupIntent: USER_TYPES.OWNER,
+        // Carried here so App.js gates the fresh merchant on the pending
+        // screen right away, not only after the next cold start.
+        // A resumed legacy owner has no field in Firestore and reads as
+        // approved there; Redux must agree or they are gated until restart.
+        merchantStatus: existingUser
+          ? getMerchantStatus({ ...existingUser, userType: USER_TYPES.OWNER })
+          : MERCHANT_STATUS.PENDING,
         is_validated: false, // Email not verified yet
         is_active: true, // Account is active
         is_admin: false,
-        name: null,
-        surname: null,
+        ...profile,
         picture_id: null,
         reset_password_token: null,
         reset_password_validity: null,
@@ -929,18 +1031,45 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
 
     isSigningUp = false;
   } catch (error) {
-    isSigningUp = false;
-    console.error("Merchant signup with store failed:", error);
+    logError("Merchant signup with store failed", error);
 
-    // Rollback: Delete user if created but something else failed
-    if (userCreated && userId) {
+    // Rollback in dependency order: store doc -> users doc -> Auth user.
+    if (storeDocRef) {
       try {
-        await auth.currentUser?.delete();
-        console.log("Rolled back user creation");
+        await deleteDoc(storeDocRef);
       } catch (rollbackError) {
-        console.error("Failed to rollback user:", rollbackError);
+        logError("Failed to roll back store doc", rollbackError);
       }
     }
+    if (userDocCreated && userId) {
+      try {
+        await deleteDoc(doc(firestore, "users", userId));
+      } catch (rollbackError) {
+        logError("Failed to roll back users doc", rollbackError);
+      }
+    }
+    if (userCreated && auth.currentUser) {
+      try {
+        await auth.currentUser.delete();
+      } catch (rollbackError) {
+        logError("Failed to roll back Auth user, signing out", rollbackError);
+        try {
+          await firebaseSignOut(auth);
+        } catch (signOutError) {
+          logError("Sign out after failed rollback failed", signOutError);
+        }
+      }
+    } else if (userId && auth.currentUser) {
+      // Resumed signup that failed again: do not delete an account we did
+      // not create, but never leave it signed in half-registered.
+      try {
+        await firebaseSignOut(auth);
+      } catch (signOutError) {
+        logError("Sign out after failed resume failed", signOutError);
+      }
+    }
+    // Only now may onAuthStateChanged act again.
+    isSigningUp = false;
 
     let message = "An error occurred during registration.";
     if (error.code === "auth/email-already-in-use") {
@@ -949,6 +1078,8 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       message = "The email address is not valid.";
     } else if (error.code === "auth/weak-password") {
       message = "The password is too weak.";
+    } else if (error.code === "address_not_found") {
+      message = "Unable to find the store address.";
     }
 
     dispatch({ type: "SIGN_UP_ERROR", payload: message });

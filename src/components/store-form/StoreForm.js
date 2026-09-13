@@ -37,6 +37,9 @@ MapboxGL.setAccessToken(
  * @param {string} props.mode - 'standalone' | 'wizard' - Controls behavior
  * @param {boolean} props.disabled - Disable all inputs
  * @param {boolean} props.showMerchantFields - Show merchant-specific fields (email, phone, etc.)
+ * @param {boolean} props.preapproval - Merchant pre-approval signup: hides
+ *   description, categories, map preview, opening hours and photos (completed
+ *   later in Edit my store) and requires the company number.
  */
 export const StoreForm = ({
   t,
@@ -47,12 +50,14 @@ export const StoreForm = ({
   mode = "standalone",
   disabled = false,
   showMerchantFields = true,
+  preapproval = false,
 }) => {
   const form = useStoreForm({
     t,
     onSuccess: mode === "standalone" ? onSubmit : undefined,
     mode,
     showMerchantFields,
+    preapproval,
   });
 
   const {
@@ -77,6 +82,8 @@ export const StoreForm = ({
     setManagerFirstName,
     managerLastName,
     setManagerLastName,
+    companyNumber,
+    setCompanyNumber,
     openingHours,
     setOpeningHours,
     selectedImages,
@@ -320,59 +327,58 @@ export const StoreForm = ({
             <Text style={styles.errorText}>{searchError}</Text>
           )}
 
-          {/* Manual entry toggle and map picker */}
-          <View style={styles.addressOptionsRow}>
-            {!manualEntryMode ? (
-              <TouchableOpacity
-                onPress={() => setManualEntryMode(true)}
-                style={styles.manualEntryLink}
-                disabled={disabled}
-              >
-                <Text style={styles.manualEntryLinkText}>
-                  {t("enter_address_manually") ||
-                    "Can't find your address? Enter manually"}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={() => setManualEntryMode(false)}
-                style={styles.manualEntryLink}
-                disabled={disabled}
-              >
-                <Text style={styles.manualEntryLinkText}>
-                  {t("back_to_search") || "Back to search"}
-                </Text>
-              </TouchableOpacity>
-            )}
+          {/* Manual entry toggle and map picker.
+              Two rows on purpose: the manual-entry sentence plus both map
+              controls do not fit on one line at phone widths, and squeezing
+              them together truncated the sentence mid-word. */}
+          <View style={styles.addressOptionsBlock}>
             <TouchableOpacity
-              onPress={() => setShowMapPicker(true)}
-              style={styles.mapPickerLink}
+              onPress={() => setManualEntryMode(!manualEntryMode)}
+              style={styles.manualEntryLink}
               disabled={disabled}
             >
-              <Ionicons name="map" size={16} color={AppColors.primary} />
-              <Text style={styles.mapPickerLinkText}>
-                {t("pick_on_map") || "Pick on map"}
+              <Text style={styles.manualEntryLinkText}>
+                {manualEntryMode
+                  ? t("back_to_search") || "Back to search"
+                  : t("enter_address_manually") ||
+                    "Can't find your address? Enter manually"}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.locationButton}
-              onPress={handleUseCurrentLocation}
-              disabled={disabled}
-            >
-              <Ionicons name="location" size={20} color={AppColors.primary} />
-            </TouchableOpacity>
+            <View style={styles.addressOptionsRow}>
+              <TouchableOpacity
+                onPress={() => setShowMapPicker(true)}
+                style={styles.mapPickerLink}
+                disabled={disabled}
+              >
+                <Ionicons name="map" size={16} color={AppColors.primary} />
+                <Text style={styles.mapPickerLinkText} numberOfLines={1}>
+                  {t("pick_on_map") || "Pick on map"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.locationButton}
+                onPress={handleUseCurrentLocation}
+                disabled={disabled}
+              >
+                <Ionicons name="location" size={20} color={AppColors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <Text style={styles.label}>{t("description")}</Text>
-          <TextInput
-            style={[getInputStyle("description"), styles.textArea]}
-            placeholder={t("description")}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-            editable={!disabled}
-          />
+          {!preapproval && (
+            <>
+              <Text style={styles.label}>{t("description")}</Text>
+              <TextInput
+                style={[getInputStyle("description"), styles.textArea]}
+                placeholder={t("description")}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={4}
+                editable={!disabled}
+              />
+            </>
+          )}
 
           {showMerchantFields && (
             <>
@@ -396,17 +402,39 @@ export const StoreForm = ({
               />
               {renderFieldError("managerLastName")}
 
-              <Text style={styles.label}>{t("store_email")}</Text>
+              <Text style={styles.label}>{t("company_number")}</Text>
               <TextInput
-                style={getInputStyle("storeEmail")}
-                placeholder={t("store_email")}
-                value={storeEmail}
-                onChangeText={setStoreEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
+                style={getInputStyle("companyNumber")}
+                placeholder={t("company_number")}
+                value={companyNumber}
+                onChangeText={setCompanyNumber}
+                autoCapitalize="characters"
+                autoCorrect={false}
                 editable={!disabled}
               />
-              {renderFieldError("storeEmail")}
+              {renderFieldError("companyNumber") || (
+                <Text style={styles.helperText}>
+                  {t("company_number_help")}
+                </Text>
+              )}
+
+              {/* At signup the account email is the store email, so the
+                  field is only shown when editing/adding a store later. */}
+              {!preapproval && (
+                <>
+                  <Text style={styles.label}>{t("store_email")}</Text>
+                  <TextInput
+                    style={getInputStyle("storeEmail")}
+                    placeholder={t("store_email")}
+                    value={storeEmail}
+                    onChangeText={setStoreEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={!disabled}
+                  />
+                  {renderFieldError("storeEmail")}
+                </>
+              )}
 
               <Text style={styles.label}>{t("phone")}</Text>
               <TextInput
@@ -433,129 +461,146 @@ export const StoreForm = ({
             </>
           )}
 
-          <Text style={styles.label}>{t("categories")}</Text>
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              hasAttemptedSubmit &&
-                validationErrors.categories &&
-                styles.categoryButtonError,
-              disabled && styles.categoryButtonDisabled,
-            ]}
-            onPress={() => setModalVisible(true)}
-            disabled={disabled}
-          >
-            <Text style={styles.categoryButtonText}>
-              {selectedCategories.length > 0
-                ? `${selectedCategories.length} ${t("categories_selected") || "category(ies) selected"}`
-                : t("select_categories")}
-            </Text>
-          </TouchableOpacity>
-
-          <ScrollView
-            horizontal={true}
-            style={styles.selectedCategoriesContainer}
-          >
-            {selectedCategories.map((categoryID) => (
-              <View key={categoryID} style={styles.selectedCategoryItem}>
-                <Text style={styles.selectedCategoryText}>
-                  {getCategoryName(categoryID)}
+          {!preapproval && (
+            <>
+              <Text style={styles.label}>{t("categories")}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.categoryButton,
+                  hasAttemptedSubmit &&
+                    validationErrors.categories &&
+                    styles.categoryButtonError,
+                  disabled && styles.categoryButtonDisabled,
+                ]}
+                onPress={() => setModalVisible(true)}
+                disabled={disabled}
+              >
+                <Text style={styles.categoryButtonText}>
+                  {selectedCategories.length > 0
+                    ? `${selectedCategories.length} ${t("categories_selected") || "category(ies) selected"}`
+                    : t("select_categories")}
                 </Text>
+              </TouchableOpacity>
+
+              <ScrollView
+                horizontal={true}
+                style={styles.selectedCategoriesContainer}
+              >
+                {selectedCategories.map((categoryID) => (
+                  <View key={categoryID} style={styles.selectedCategoryItem}>
+                    <Text style={styles.selectedCategoryText}>
+                      {getCategoryName(categoryID)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveCategory(categoryID)}
+                      disabled={disabled}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={20}
+                        color={AppColors.black}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+
+              {showMap && selectedLocation && (
+                <View style={styles.mapContainer}>
+                  <MapboxGL.MapView style={styles.map}>
+                    <MapboxGL.Camera
+                      centerCoordinate={[
+                        selectedLocation.longitude,
+                        selectedLocation.latitude,
+                      ]}
+                      zoomLevel={14}
+                    />
+                    <MapboxGL.PointAnnotation
+                      id="selected-location"
+                      coordinate={[
+                        selectedLocation.longitude,
+                        selectedLocation.latitude,
+                      ]}
+                    />
+                  </MapboxGL.MapView>
+                </View>
+              )}
+
+              <OpeningHoursPicker
+                value={openingHours}
+                onChange={setOpeningHours}
+                locale={t("locale") === "en" ? "en" : "fr"}
+                showPresets={true}
+                t={t}
+              />
+
+              {/* Image Gallery */}
+              <View style={styles.imageGalleryContainer}>
+                {selectedImages.length > 0 && (
+                  <>
+                    <FlatList
+                      data={selectedImages}
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                      onMomentumScrollEnd={(e) => {
+                        const index = Math.round(
+                          e.nativeEvent.contentOffset.x / (width(80) + 10),
+                        );
+                        setCurrentImageIndex(index);
+                      }}
+                      keyExtractor={(_, index) => index.toString()}
+                      renderItem={({ item, index }) => (
+                        <View style={styles.imageSlide}>
+                          <Image
+                            source={{ uri: item.uri }}
+                            style={styles.selectedImage}
+                          />
+                          <TouchableOpacity
+                            style={styles.removeImageButton}
+                            onPress={() => handleRemoveImage(index)}
+                            disabled={disabled}
+                          >
+                            <Ionicons
+                              name="close-circle"
+                              size={30}
+                              color="red"
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    />
+                    {selectedImages.length > 1 && (
+                      <View style={styles.paginationDots}>
+                        {selectedImages.map((_, index) => (
+                          <View
+                            key={index}
+                            style={[
+                              styles.dot,
+                              currentImageIndex === index && styles.activeDot,
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
                 <TouchableOpacity
-                  onPress={() => handleRemoveCategory(categoryID)}
+                  style={[
+                    styles.addImageButton,
+                    disabled && styles.buttonDisabled,
+                  ]}
+                  onPress={handlePickImage}
                   disabled={disabled}
                 >
-                  <Ionicons name="close" size={20} color={AppColors.black} />
+                  <Ionicons name="camera" size={24} color={AppColors.primary} />
+                  <Text style={styles.addImageButtonText}>
+                    {t("add_image")}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </ScrollView>
-
-          {showMap && selectedLocation && (
-            <View style={styles.mapContainer}>
-              <MapboxGL.MapView style={styles.map}>
-                <MapboxGL.Camera
-                  centerCoordinate={[
-                    selectedLocation.longitude,
-                    selectedLocation.latitude,
-                  ]}
-                  zoomLevel={14}
-                />
-                <MapboxGL.PointAnnotation
-                  id="selected-location"
-                  coordinate={[
-                    selectedLocation.longitude,
-                    selectedLocation.latitude,
-                  ]}
-                />
-              </MapboxGL.MapView>
-            </View>
+            </>
           )}
-
-          <OpeningHoursPicker
-            value={openingHours}
-            onChange={setOpeningHours}
-            locale={t("locale") === "en" ? "en" : "fr"}
-            showPresets={true}
-            t={t}
-          />
-
-          {/* Image Gallery */}
-          <View style={styles.imageGalleryContainer}>
-            {selectedImages.length > 0 && (
-              <>
-                <FlatList
-                  data={selectedImages}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onMomentumScrollEnd={(e) => {
-                    const index = Math.round(
-                      e.nativeEvent.contentOffset.x / (width(80) + 10),
-                    );
-                    setCurrentImageIndex(index);
-                  }}
-                  keyExtractor={(_, index) => index.toString()}
-                  renderItem={({ item, index }) => (
-                    <View style={styles.imageSlide}>
-                      <Image
-                        source={{ uri: item.uri }}
-                        style={styles.selectedImage}
-                      />
-                      <TouchableOpacity
-                        style={styles.removeImageButton}
-                        onPress={() => handleRemoveImage(index)}
-                        disabled={disabled}
-                      >
-                        <Ionicons name="close-circle" size={30} color="red" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                />
-                {selectedImages.length > 1 && (
-                  <View style={styles.paginationDots}>
-                    {selectedImages.map((_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.dot,
-                          currentImageIndex === index && styles.activeDot,
-                        ]}
-                      />
-                    ))}
-                  </View>
-                )}
-              </>
-            )}
-            <TouchableOpacity
-              style={[styles.addImageButton, disabled && styles.buttonDisabled]}
-              onPress={handlePickImage}
-              disabled={disabled}
-            >
-              <Ionicons name="camera" size={24} color={AppColors.primary} />
-              <Text style={styles.addImageButtonText}>{t("add_image")}</Text>
-            </TouchableOpacity>
-          </View>
 
           <TouchableOpacity
             style={[styles.addButton, isLoading && styles.addButtonDisabled]}
@@ -593,81 +638,83 @@ export const StoreForm = ({
           />
 
           {/* Categories Modal */}
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (selectedCategories.length === categories.length) {
-                      // Deselect all - handled in hook
-                      categories.forEach((cat) => {
-                        if (selectedCategories.includes(cat.id)) {
-                          handleRemoveCategory(cat.id);
-                        }
-                      });
-                    } else {
-                      // Select all
-                      categories.forEach((cat) => {
-                        if (!selectedCategories.includes(cat.id)) {
-                          handleSelectCategory({ value: cat.id });
-                        }
-                      });
-                    }
-                  }}
-                  style={styles.categoryItem}
-                >
-                  <Text
-                    style={[
-                      styles.categoryText,
-                      {
-                        color:
-                          selectedCategories.length === categories.length
-                            ? AppColors.primary
-                            : AppColors.black,
-                      },
-                    ]}
+          {!preapproval && (
+            <Modal
+              animationType="slide"
+              transparent={true}
+              visible={modalVisible}
+            >
+              <View style={styles.modalContainer}>
+                <View style={styles.modalContent}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedCategories.length === categories.length) {
+                        // Deselect all - handled in hook
+                        categories.forEach((cat) => {
+                          if (selectedCategories.includes(cat.id)) {
+                            handleRemoveCategory(cat.id);
+                          }
+                        });
+                      } else {
+                        // Select all
+                        categories.forEach((cat) => {
+                          if (!selectedCategories.includes(cat.id)) {
+                            handleSelectCategory({ value: cat.id });
+                          }
+                        });
+                      }
+                    }}
+                    style={styles.categoryItem}
                   >
-                    {t("select_all") || "Select all"}
-                  </Text>
-                </TouchableOpacity>
-                <FlatList
-                  data={data}
-                  keyExtractor={(item) => item.value.toString()}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => handleSelectCategory(item)}
-                      style={styles.categoryItem}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryText,
-                          {
-                            color: selectedCategories.includes(item.value)
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        {
+                          color:
+                            selectedCategories.length === categories.length
                               ? AppColors.primary
                               : AppColors.black,
-                          },
-                        ]}
+                        },
+                      ]}
+                    >
+                      {t("select_all") || "Select all"}
+                    </Text>
+                  </TouchableOpacity>
+                  <FlatList
+                    data={data}
+                    keyExtractor={(item) => item.value.toString()}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => handleSelectCategory(item)}
+                        style={styles.categoryItem}
                       >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                />
-                <TouchableOpacity
-                  onPress={() => setModalVisible(false)}
-                  style={styles.cancelButton}
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t("close") || "Close"}
-                  </Text>
-                </TouchableOpacity>
+                        <Text
+                          style={[
+                            styles.categoryText,
+                            {
+                              color: selectedCategories.includes(item.value)
+                                ? AppColors.primary
+                                : AppColors.black,
+                            },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setModalVisible(false)}
+                    style={styles.cancelButton}
+                  >
+                    <Text style={styles.cancelButtonText}>
+                      {t("close") || "Close"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </Modal>
+            </Modal>
+          )}
         </View>
       </ScrollView>
 
@@ -734,15 +781,24 @@ const styles = StyleSheet.create({
     marginTop: -10,
     marginBottom: 10,
   },
+  helperText: {
+    color: AppColors.grey_200,
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 12,
+  },
+  addressOptionsBlock: {
+    marginBottom: 15,
+  },
   addressOptionsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
-    marginBottom: 15,
+    marginTop: 4,
   },
   manualEntryLink: {
     paddingVertical: 5,
-    flex: 1,
+    alignSelf: "flex-start",
   },
   manualEntryLinkText: {
     color: AppColors.primary,
@@ -753,7 +809,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingRight: 10,
+    flexShrink: 1,
   },
   mapPickerLinkText: {
     color: AppColors.primary,

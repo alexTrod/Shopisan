@@ -45,3 +45,32 @@ export const userTypeLabelKey = (userType) =>
   normalizeUserType(userType) === USER_TYPES.OWNER
     ? "user_type_owner"
     : "user_type_shopper";
+
+/**
+ * Merchant pre-approval state, stored on users/{uid}.merchantStatus and
+ * owned by the server (admin panel writes it; firestore.rules freezes it
+ * for self-updates). Only store owners carry it: shoppers never do, and
+ * owners created before the pre-approval flow have no field at all —
+ * both read as "approved" so nothing existing is locked out.
+ */
+export const MERCHANT_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};
+
+export const getMerchantStatus = (user) => {
+  if (!isOwnerType(user)) return MERCHANT_STATUS.APPROVED;
+  const status = user?.merchantStatus;
+  return status === MERCHANT_STATUS.PENDING ||
+    status === MERCHANT_STATUS.REJECTED
+    ? status
+    : MERCHANT_STATUS.APPROVED;
+};
+
+export const isMerchantApproved = (user) =>
+  getMerchantStatus(user) === MERCHANT_STATUS.APPROVED;
+export const isMerchantPending = (user) =>
+  getMerchantStatus(user) === MERCHANT_STATUS.PENDING;
+export const isMerchantRejected = (user) =>
+  getMerchantStatus(user) === MERCHANT_STATUS.REJECTED;

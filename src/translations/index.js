@@ -47,7 +47,7 @@ export default {
     back: "Back",
     back_to_account: "Back to Account",
     merchant_registration_complete:
-      "Your account and store have been registered!",
+      "Your request has been received. We will validate it shortly and let you know by email.",
     registration_failed: "Registration failed. Please try again.",
     user_data_missing:
       "User data is missing. Please go back and fill in your details.",
@@ -100,7 +100,6 @@ export default {
     sunday: "Sunday",
 
     // Store Details
-    opening_hours: "Opening Hours",
     closed: "Closed",
     ratings: "Ratings",
     your_rating: "Your rating",
@@ -118,7 +117,6 @@ export default {
     // Auth & Errors
     login_failed_message: "Incorrect email or password. Please try again.",
     login_required: "Login Required",
-    logging_out: "Logging out...",
     login_required_favorite_message:
       "You need to be logged in to view your favorite stores. Do you want to go to the login page?",
     login_required_add_favorite_message:
@@ -149,7 +147,6 @@ export default {
     postal_code: "Postal Code",
     cant_find_address: "Can't find your address?",
     enter_manually: "Enter it manually",
-    back_to_search: "Back to search",
     select_city_for_suggestions: "Select a city first for address suggestions",
     manual_entry_active: "Manual entry — suggestions are off",
     description: "Description",
@@ -198,7 +195,6 @@ export default {
     success: "Success",
     warning: "Warning",
     account_created_successfully: "Account created successfully",
-    email_sent: "Email sent!",
     password_reset_sent: "Password reset email sent",
     no_results: "No results found",
     store_already_added_title: "This shop is already on Shopisan",
@@ -290,7 +286,6 @@ export default {
     reset_code: "Reset Code",
 
     finding_location: "Finding location...",
-    loading_stores: "Loading stores...",
 
     // Welcome messages / No stores popup
     welcome_message: "Your city is still waiting for its shops on Shopisan.",
@@ -395,6 +390,48 @@ export default {
       "Create your first post to announce products, promotions or news to your customers.",
     create_first_post: "Create Your First Post",
 
+    // Merchant pre-approval
+    company_number: "Company / trade register number",
+    company_number_help:
+      "Your official business registration number (e.g. BCE/KBO in Belgium, SIRET in France).",
+    pending_approval_title: "Request received",
+    pending_approval_message:
+      "Thank you for registering your store on Shopisan. Our team is reviewing your request and will answer shortly by email. You will be able to complete your store profile as soon as it is approved.",
+    pending_approval_check_again: "Check again",
+    merchant_rejected_title: "Request not approved",
+    merchant_rejected_message:
+      "Unfortunately we could not approve your store registration. Contact us at info@shopisan.com for more information.",
+    weak_password: "The password is too weak.",
+
+    // Store detail contact
+    store_contact: "Contact",
+    call_store: "Call",
+    email_store: "Email",
+    visit_website: "Website",
+
+    // Location
+    location_not_available: "Location not available",
+    search_your_city: "Search for your city to see nearby stores",
+    pick_location: "Pick a location",
+    confirm_location: "Confirm location",
+    pick_on_map: "Pick on map",
+    image_upload_failed: "Image upload failed. Please try again.",
+    image_upload_timeout:
+      "Image upload timed out. Check your connection and try again.",
+    invalid_location: "Invalid location",
+    invalid_store_coordinates: "This store has invalid coordinates.",
+    location_error: "Unable to get your location.",
+    location_permission_message:
+      "Please allow location access in your settings to use this feature.",
+    location_updated: "Location updated",
+    network_error: "Network error. Please check your connection.",
+    network_timeout: "The request timed out. Please try again.",
+    no_location: "No location",
+    no_store_coordinates: "This store has no coordinates.",
+    no_stores_in_city: "No stores found in this city yet.",
+    permission_denied: "Permission denied",
+    store_add_error: "Unable to add the store. Please try again.",
+
     // Image Editor
     imageEditor: {
       done: "Done",
@@ -451,7 +488,7 @@ export default {
     back: "Retour",
     back_to_account: "Retour au Compte",
     merchant_registration_complete:
-      "Votre compte et votre boutique ont été enregistrés !",
+      "Votre demande a bien été reçue. Nous la validerons rapidement et vous préviendrons par email.",
     registration_failed: "L'inscription a échoué. Veuillez réessayer.",
     user_data_missing:
       "Les données utilisateur sont manquantes. Veuillez revenir en arrière et remplir vos informations.",
@@ -505,7 +542,6 @@ export default {
     sunday: "Dimanche",
 
     // Store Details
-    opening_hours: "Horaires d'ouverture",
     closed: "Fermé",
     ratings: "Notes",
     your_rating: "Votre note",
@@ -524,7 +560,6 @@ export default {
     login_failed_message:
       "Email ou mot de passe incorrect. Veuillez réessayer.",
     login_required: "Connexion requise",
-    logging_out: "Déconnexion en cours...",
     login_required_favorite_message:
       "Vous devez être connecté pour voir vos magasins favoris. Voulez-vous aller à la page de connexion?",
     login_required_add_favorite_message:
@@ -557,7 +592,6 @@ export default {
     postal_code: "Code postal",
     cant_find_address: "Vous ne trouvez pas votre adresse ?",
     enter_manually: "Saisir manuellement",
-    back_to_search: "Retour à la recherche",
     select_city_for_suggestions:
       "Sélectionnez d'abord une ville pour les suggestions",
     manual_entry_active: "Saisie manuelle — suggestions désactivées",
@@ -608,7 +642,6 @@ export default {
     success: "Succès",
     warning: "Avertissement",
     account_created_successfully: "Compte créé avec succès",
-    email_sent: "Email envoyé !",
     password_reset_sent: "Email de réinitialisation envoyé",
     no_results: "Aucun résultat trouvé",
     store_already_added_title: "Cette boutique est déjà sur Shopisan",
@@ -703,7 +736,6 @@ export default {
     reset_code: "Code de réinitialisation",
 
     finding_location: "Recherche de localisation...",
-    loading_stores: "Chargement des magasins...",
 
     // Welcome messages / No stores popup
     welcome_message: "Votre ville attend encore ses commerces préférés.",
@@ -816,6 +848,50 @@ export default {
     no_posts_description:
       "Créez votre première annonce pour informer vos clients de vos produits, promotions ou actualités.",
     create_first_post: "Créer votre première annonce",
+
+    // Merchant pre-approval
+    company_number: "Numéro d'entreprise (BCE / SIRET)",
+    company_number_help:
+      "Votre numéro officiel d'immatriculation (BCE/KBO en Belgique, SIRET en France).",
+    pending_approval_title: "Demande reçue",
+    pending_approval_message:
+      "Merci d'avoir inscrit votre boutique sur Shopisan. Notre équipe examine votre demande et vous répondra rapidement par email. Vous pourrez compléter votre boutique dès qu'elle sera validée.",
+    pending_approval_check_again: "Vérifier à nouveau",
+    merchant_rejected_title: "Demande non approuvée",
+    merchant_rejected_message:
+      "Nous n'avons malheureusement pas pu approuver l'inscription de votre boutique. Contactez-nous à info@shopisan.com pour plus d'informations.",
+    weak_password: "Le mot de passe est trop faible.",
+
+    // Store detail contact
+    store_contact: "Contact",
+    call_store: "Appeler",
+    email_store: "Email",
+    visit_website: "Site web",
+
+    // Location
+    location_not_available: "Localisation indisponible",
+    search_your_city:
+      "Recherchez votre ville pour voir les boutiques à proximité",
+    pick_location: "Choisir un emplacement",
+    confirm_location: "Confirmer l'emplacement",
+    pick_on_map: "Choisir sur la carte",
+    image_upload_failed: "L'envoi de l'image a échoué. Veuillez réessayer.",
+    image_upload_timeout:
+      "L'envoi de l'image a expiré. Vérifiez votre connexion et réessayez.",
+    invalid_location: "Localisation invalide",
+    invalid_store_coordinates:
+      "Les coordonnées de cette boutique sont invalides.",
+    location_error: "Impossible d'obtenir votre position.",
+    location_permission_message:
+      "Veuillez autoriser l'accès à la localisation dans vos réglages pour utiliser cette fonction.",
+    location_updated: "Position mise à jour",
+    network_error: "Erreur réseau. Veuillez vérifier votre connexion.",
+    network_timeout: "La requête a expiré. Veuillez réessayer.",
+    no_location: "Pas de localisation",
+    no_store_coordinates: "Cette boutique n'a pas de coordonnées.",
+    no_stores_in_city: "Aucune boutique dans cette ville pour le moment.",
+    permission_denied: "Autorisation refusée",
+    store_add_error: "Impossible d'ajouter la boutique. Veuillez réessayer.",
 
     // Image Editor
     imageEditor: {

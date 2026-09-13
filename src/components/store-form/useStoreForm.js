@@ -23,6 +23,7 @@ import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { ensureCityExists } from "../../utils/cityManagement";
 import { buildStoreAddress } from "../../utils/storeAddress";
+import { CITIES_CONFIG } from "../../config/citiesConfig";
 
 // Mapbox token
 const MAPBOX_TOKEN =
@@ -75,6 +76,10 @@ export const useStoreForm = ({
   onSuccess,
   mode = "standalone",
   showMerchantFields = false,
+  // Merchant pre-approval signup: only the fields an admin needs to review
+  // (no description, categories, hours or photos). Those are completed in
+  // Edit my store once the account is approved.
+  preapproval = false,
 }) => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user.userData);
@@ -96,6 +101,10 @@ export const useStoreForm = ({
   const [phone, setPhone] = useState("");
   const [managerFirstName, setManagerFirstName] = useState("");
   const [managerLastName, setManagerLastName] = useState("");
+  const [companyNumber, setCompanyNumber] = useState("");
+  // ISO country code read off the Mapbox feature the user picked; null until
+  // a city/address suggestion is selected. Geocoding falls back to FR.
+  const [detectedCountryCode, setDetectedCountryCode] = useState(null);
 
   // Opening hours
   const [openingHours, setOpeningHours] = useState({
@@ -173,6 +182,17 @@ export const useStoreForm = ({
       }
     };
   }, [mode]);
+
+  // Derive the country from a Mapbox feature's context, like AddStore does.
+  const detectCountryFromFeature = (context) => {
+    const countryInfo = context.find((c) => c.id.includes("country"));
+    if (countryInfo?.short_code) {
+      const countryCode = countryInfo.short_code.toUpperCase();
+      if (CITIES_CONFIG.SUPPORTED_COUNTRIES.includes(countryCode)) {
+        setDetectedCountryCode(countryCode);
+      }
+    }
+  };
 
   const fetchAddressSuggestions = async (text) => {
     setQuery(text);
@@ -257,6 +277,7 @@ export const useStoreForm = ({
     setCity(cityName);
     setPostalCode(postalCodeValue);
     setQuery(`${streetNumberFromItem} ${streetName}`.trim());
+    detectCountryFromFeature(context);
 
     if (item.center) {
       setSelectedLocation({
@@ -313,6 +334,7 @@ export const useStoreForm = ({
     if (postcodeInfo) {
       setPostalCode(postcodeInfo.text);
     }
+    detectCountryFromFeature(context);
 
     // Store city coordinates for street search
     if (item.center) {
@@ -490,22 +512,23 @@ export const useStoreForm = ({
   // Returns an error code ("required" | "invalid_email" | "invalid_website")
   // or false when the field is valid.
   const validateField = (fieldName, value) => {
-    const requiredFields = [
-      "name",
-      "street",
-      "city",
-      "postalCode",
-      "description",
-    ];
+    const requiredFields = ["name", "street", "city", "postalCode"];
+    if (!preapproval) {
+      requiredFields.push("description");
+    }
 
     // Add merchant-specific required fields
     if (showMerchantFields) {
       requiredFields.push(
         "managerFirstName",
         "managerLastName",
-        "storeEmail",
         "phone",
+        "companyNumber",
       );
+      // The signup wizard reuses the account email as the store email
+      if (!preapproval) {
+        requiredFields.push("storeEmail");
+      }
     }
 
     const trimmed = value ? value.trim() : "";
@@ -513,10 +536,18 @@ export const useStoreForm = ({
     if (requiredFields.includes(fieldName) && trimmed === "") {
       return "required";
     }
-    if (fieldName === "storeEmail" && trimmed !== "" && !EMAIL_REGEX.test(trimmed)) {
+    if (
+      fieldName === "storeEmail" &&
+      trimmed !== "" &&
+      !EMAIL_REGEX.test(trimmed)
+    ) {
       return "invalid_email";
     }
-    if (fieldName === "website" && trimmed !== "" && !WEBSITE_REGEX.test(trimmed)) {
+    if (
+      fieldName === "website" &&
+      trimmed !== "" &&
+      !WEBSITE_REGEX.test(trimmed)
+    ) {
       return "invalid_website";
     }
     return false;
@@ -529,10 +560,12 @@ export const useStoreForm = ({
       { key: "street", value: street },
       { key: "city", value: city },
       { key: "postalCode", value: postalCode },
-      { key: "description", value: description },
       // Optional, but validated for shape when filled in.
       { key: "website", value: website },
     ];
+    if (!preapproval) {
+      requiredFields.push({ key: "description", value: description });
+    }
 
     // Add merchant-specific required fields
     if (showMerchantFields) {
@@ -541,6 +574,7 @@ export const useStoreForm = ({
         { key: "managerLastName", value: managerLastName },
         { key: "storeEmail", value: storeEmail },
         { key: "phone", value: phone },
+        { key: "companyNumber", value: companyNumber },
       );
     }
 
@@ -551,7 +585,7 @@ export const useStoreForm = ({
       }
     });
 
-    if (selectedCategories.length === 0) {
+    if (!preapproval && selectedCategories.length === 0) {
       errors.categories = true;
     }
 
@@ -591,6 +625,7 @@ export const useStoreForm = ({
         streetNumber,
         city,
         postalCode,
+        countryId: detectedCountryCode || undefined,
         latitude,
         longitude,
       }),
@@ -638,6 +673,8 @@ export const useStoreForm = ({
       phone,
       managerFirstName,
       managerLastName,
+      companyNumber,
+      detectedCountryCode,
       selectedLocation,
     };
   };
@@ -686,7 +723,8 @@ export const useStoreForm = ({
       }
 
       // Geocode address
-      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, France`;
+      const countryId = detectedCountryCode || "FR";
+      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}, ${countryId}`;
       const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
 
       const controller = new AbortController();
@@ -697,7 +735,7 @@ export const useStoreForm = ({
       let response;
       try {
         response = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&region=${countryId.toLowerCase()}&key=${apiKey}`,
           { signal: controller.signal },
         );
         clearTimeout(timeoutId);
@@ -794,7 +832,7 @@ export const useStoreForm = ({
       }
 
       // Update city in background
-      ensureCityExists(city, postalCode, latitude, longitude, "FR").catch(
+      ensureCityExists(city, postalCode, latitude, longitude, countryId).catch(
         (cityError) => {
           console.error("Error ensuring city exists:", cityError);
         },
@@ -871,6 +909,9 @@ export const useStoreForm = ({
     setManagerFirstName,
     managerLastName,
     setManagerLastName,
+    companyNumber,
+    setCompanyNumber,
+    detectedCountryCode,
     openingHours,
     setOpeningHours,
     selectedImages,
