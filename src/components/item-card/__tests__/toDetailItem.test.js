@@ -20,6 +20,11 @@ const storeDoc = {
   images: ["https://cdn.com/1.jpg", "https://cdn.com/2.jpg"],
   imageUrl: "https://cdn.com/cover.jpg",
   owner_id: "user-1",
+  phone: "+32 2 123 45 67",
+  email: "shop@example.com",
+  website: "example.com",
+  is_verified: true,
+  cityName: "Palo Alto",
 };
 
 const categoryNames = { "cat-1": "Menswear", "cat-2": "Shoes" };
@@ -104,6 +109,48 @@ describe("toDetailItem", () => {
       images: [],
       imageUrl: null,
       owner_id: null,
+      phone: "",
+      email: "",
+      website: "",
+      is_verified: false,
+      cityName: "",
+    });
+  });
+
+  describe("contact details and trust signal", () => {
+    it("carries phone, email and website so the sheet can render contact rows", () => {
+      expect(toDetailItem(storeDoc)).toMatchObject({
+        phone: "+32 2 123 45 67",
+        email: "shop@example.com",
+        website: "example.com",
+      });
+    });
+
+    it("carries is_verified for the badge next to the title", () => {
+      expect(toDetailItem(storeDoc).is_verified).toBe(true);
+    });
+
+    it("projects a missing is_verified as false, not undefined", () => {
+      expect(toDetailItem({ id: "store-1" }).is_verified).toBe(false);
+    });
+
+    it("keeps a pre-approval store's empty contact fields as empty strings", () => {
+      // The reduced signup wizard writes no phone/email; the sheet must be
+      // able to hide those rows without null checks.
+      const item = toDetailItem({ ...storeDoc, phone: null, email: undefined });
+
+      expect(item.phone).toBe("");
+      expect(item.email).toBe("");
+    });
+
+    it("prefers the top-level cityName over the address city", () => {
+      expect(toDetailItem(storeDoc).cityName).toBe("Palo Alto");
+    });
+
+    it("falls back to the address city when cityName is missing", () => {
+      const { cityName: _dropped, ...withoutCityName } = storeDoc;
+
+      expect(toDetailItem(withoutCityName).cityName).toBe("Mountain View");
     });
   });
 

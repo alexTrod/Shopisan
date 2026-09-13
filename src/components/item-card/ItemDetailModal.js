@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   Animated,
+  Linking,
 } from "react-native";
 import PostService from "../../services/PostService";
 import { AppColors } from "../../utils";
@@ -27,6 +28,10 @@ import HeartFilled from "../../../assets/icons/heart-filled";
 import HeartUnfilled from "../../../assets/icons/heart-unfilled";
 import StarIcon from "../../../assets/icons/star-icon";
 import ChevronRight from "../../../assets/icons/chevron-right";
+import CheckmarkCircleIcon from "../../../assets/icons/checkmark-circle-icon";
+import MailIcon from "../../../assets/icons/mail-icon";
+import GlobeIcon from "../../../assets/icons/globe-icon";
+import Svg, { Path } from "react-native-svg";
 
 import AddressComponent from "./AddressComponent";
 import ImageGallery from "./ImageGallery";
@@ -35,6 +40,17 @@ import PostsCarousel from "./PostsCarousel";
 import useStoreRatings from "./hooks/useStoreRatings";
 import AddCircleIcon from "../../../assets/icons/add-circle-icon";
 import PostFormModal from "../post-form-modal";
+
+// assets/icons has mail and globe icons but no phone; same shape as those
+// (Material "call" glyph) so the three contact rows match.
+const PhoneIcon = ({ height, width, color = AppColors.primary }) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+      fill={color}
+    />
+  </Svg>
+);
 
 const ItemDetailModal = ({ visible, onClose, item }) => {
   const navigation = useNavigation();
@@ -84,11 +100,53 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
             geopoint: "",
           };
     const street = location?.address?.street || "";
+    const streetNumber = location?.address?.streetNumber || "";
     const city = location?.city?.name || "";
     const postalCode = location?.city?.postal_code || "";
     const geoHash = location?.geopoint || "";
-    return { street, postalCode, city, geoHash };
+    return { street, streetNumber, postalCode, city, geoHash };
   };
+
+  // Contact rows open the phone, mail or browser app. Each is rendered only
+  // when the owner filled the field in.
+  // iOS rejects URLs containing spaces, so strip formatting before Linking.
+  const websiteUrl = (website) => {
+    const trimmed = String(website).trim();
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  };
+  const telUrl = (phone) => `tel:${String(phone).replace(/[^\d+]/g, "")}`;
+
+  const openLink = async (url) => {
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      logging("openLink error", e);
+    }
+  };
+
+  const contactRows = [
+    item.phone && {
+      key: "phone",
+      label: t("call_store"),
+      value: item.phone,
+      Icon: PhoneIcon,
+      url: telUrl(item.phone),
+    },
+    item.email && {
+      key: "email",
+      label: t("email_store"),
+      value: item.email,
+      Icon: MailIcon,
+      url: `mailto:${String(item.email).trim()}`,
+    },
+    item.website && {
+      key: "website",
+      label: t("visit_website"),
+      value: item.website,
+      Icon: GlobeIcon,
+      url: websiteUrl(item.website),
+    },
+  ].filter(Boolean);
 
   const lastFetchedStoreIdRef = useRef(null);
 
@@ -259,7 +317,22 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.title}>{item.title}</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{item.title}</Text>
+              {/* Same badge as the ItemCard: verification is a public trust
+                  signal, so shoppers see it on the sheet too. */}
+              {item.is_verified && (
+                <View style={styles.titleBadge}>
+                  <CheckmarkCircleIcon
+                    testID="verified-badge"
+                    width={18}
+                    height={18}
+                    color={AppColors.primary}
+                    accessibilityLabel={t("store_verified_badge_label")}
+                  />
+                </View>
+              )}
+            </View>
 
             {/* Compact Rating Row */}
             <View style={styles.compactRating}>
@@ -306,6 +379,28 @@ const ItemDetailModal = ({ visible, onClose, item }) => {
             </View>
 
             <AddressComponent address={address(item.address)} />
+
+            {contactRows.length > 0 && (
+              <View style={styles.contactSection}>
+                <Text style={styles.contactTitle}>{t("store_contact")}</Text>
+                {contactRows.map(({ key, label, value, Icon, url }) => (
+                  <TouchableOpacity
+                    key={key}
+                    testID={`contact-${key}`}
+                    style={styles.contactRow}
+                    onPress={() => openLink(url)}
+                    accessibilityRole="link"
+                    accessibilityLabel={label}
+                  >
+                    <Icon width={16} height={16} color={AppColors.primary} />
+                    <Text style={styles.contactValue} numberOfLines={1}>
+                      {value}
+                    </Text>
+                    <Text style={styles.contactAction}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             <View style={styles.tagsContainer}>
               {item.tags.map((tag, index) => (
@@ -427,12 +522,47 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingBottom: 20,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   title: {
     fontSize: height(2.4),
     fontWeight: "700",
-    marginBottom: 4,
     color: "#1A1A1A",
     lineHeight: height(2.8),
+    flexShrink: 1,
+  },
+  titleBadge: {
+    marginLeft: 6,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  contactSection: {
+    marginBottom: 8,
+  },
+  contactTitle: {
+    fontSize: height(1.5),
+    color: "#666",
+    fontFamily: "Roboto-Medium",
+    marginBottom: 4,
+  },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    gap: 8,
+  },
+  contactValue: {
+    flex: 1,
+    fontSize: height(1.7),
+    color: "#4A4A4A",
+  },
+  contactAction: {
+    fontSize: height(1.5),
+    color: AppColors.primary,
+    fontFamily: "Roboto-Medium",
   },
   compactRating: {
     flexDirection: "row",

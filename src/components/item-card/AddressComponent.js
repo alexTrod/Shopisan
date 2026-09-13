@@ -5,15 +5,22 @@ import logging, { logError } from '../../utils/logging';
 
 
 const AddressComponent = ({ address }) => {
-  const { street, postalCode, city } = address;
+  const { street = '', streetNumber = '', postalCode = '', city = '' } = address;
   logging('AddressComponent', address);
+  // Number after the street, as written in Belgium and France
+  // ("Rue de la Loi 16"). Legacy flat addresses already carry the number in
+  // `street` and have no streetNumber, so nothing is doubled.
   const _street = street.length > 0 ? street : '';
+  const _streetNumber =
+    _street.length > 0 && String(streetNumber).length > 0
+      ? ' ' + streetNumber
+      : '';
   const _postalCode = postalCode.length > 0 ? ', ' + postalCode : '';
   const _city = city.length > 0 ? ', ' + city : '';
   return (
     <View style={styles.container}>
       <Text style={styles.addressComponent}>
-        {_street}{_postalCode}{_city}</Text>
+        {_street}{_streetNumber}{_postalCode}{_city}</Text>
     </View>
   );
 };

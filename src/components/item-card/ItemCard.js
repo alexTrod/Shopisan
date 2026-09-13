@@ -56,6 +56,9 @@ const ItemCard = React.memo(
     openingHours,
     is_verified,
     is_suspended,
+    phone,
+    email,
+    website,
   }) => {
     const { t, locale } = useTranslation();
     const [rating, setRating] = useState({ averageRating: 0, ratingCount: 0 });
@@ -91,6 +94,10 @@ const ItemCard = React.memo(
             images,
             imageUrl,
             owner_id,
+            phone,
+            email,
+            website,
+            is_verified,
           },
           { locale },
         ),
@@ -104,6 +111,10 @@ const ItemCard = React.memo(
         images,
         imageUrl,
         owner_id,
+        phone,
+        email,
+        website,
+        is_verified,
         locale,
       ],
     );

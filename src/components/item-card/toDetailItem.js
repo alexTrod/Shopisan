@@ -41,6 +41,13 @@ const toDetailItem = (source, { getCategoryName, locale } = {}) => {
     images: Array.isArray(source.images) ? source.images : [],
     imageUrl: source.imageUrl ?? null,
     owner_id: source.owner_id ?? null,
+    // Contact details and trust signal shoppers see on the detail sheet.
+    // Owners fill these in after approval, so every one of them may be empty.
+    phone: source.phone ?? "",
+    email: source.email ?? "",
+    website: source.website ?? "",
+    is_verified: !!source.is_verified,
+    cityName: source.cityName ?? source.address?.[0]?.location?.city?.name ?? "",
   };
 };
 
