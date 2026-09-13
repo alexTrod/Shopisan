@@ -29,6 +29,7 @@ import ItemCard from "../../../components/item-card/ItemCard";
 import CustomText from "../../../components/text";
 import { AppColors } from "../../../utils";
 import { isOwnerType } from "../../../utils/userTypes";
+import { isStoreVisibleTo } from "../../../utils/storeVisibility";
 import logging from "../../../utils/logging";
 import CategoryFilter from "../../../components/category-filter";
 import CityFilter from "../../../components/city-filter";
@@ -41,6 +42,7 @@ import HeartUnfilled from "../../../../assets/icons/heart-unfilled";
 import SearchIcon from "../../../../assets/icons/search-icon";
 import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   doc,
   getDoc,
@@ -52,7 +54,8 @@ import {
 import { firestore } from "../../../../firebaseconfig";
 import { signOut } from "../../../Redux/Actions/UserActions";
 import { height, width } from "../../../utils/dimension";
-import { StoreContext } from "../../../context/StoreContext";
+import { StoreContext, canGpsOverwrite } from "../../../context/StoreContext";
+import { store as reduxStore } from "../../../Redux";
 import { setCustomLocation } from "../../../Redux/Actions/LocationActions";
 import { setSelectedCategories } from "../../../Redux/Actions/CategoriesActions";
 import SearchBar from "../../../components/search-bar";
@@ -77,6 +80,7 @@ export default function HomeScreen({ navigation, route }) {
     hasRequestedStores,
     setHasRequestedStores,
     refreshStores,
+    retryLocationIfDefault,
   } = useContext(StoreContext);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -208,6 +212,14 @@ export default function HomeScreen({ navigation, route }) {
       }, 0);
     }
   }, [allStores?.length, hasRequestedStores]);
+
+  // A permission granted after the first fetch gave up (late answer, Settings)
+  // must replace the Brussels default the next time the user lands here.
+  useFocusEffect(
+    useCallback(() => {
+      retryLocationIfDefault?.();
+    }, [retryLocationIfDefault]),
+  );
 
   const getCategoriesNamesByIds = useCallback(
     (ids) => {
@@ -345,10 +357,14 @@ export default function HomeScreen({ navigation, route }) {
 
         const { stores: newStores } = await fetchStores(storeQuery);
 
-        const updatedStores = newStores.map((store) => ({
-          ...store,
-          isFavorite: true,
-        }));
+        // A favourited store that is still awaiting approval only shows to
+        // its owner.
+        const updatedStores = newStores
+          .filter((store) => isStoreVisibleTo(store, user))
+          .map((store) => ({
+            ...store,
+            isFavorite: true,
+          }));
 
         if (isRefreshing) {
           setStores(updatedStores);
@@ -473,6 +489,12 @@ export default function HomeScreen({ navigation, route }) {
               "Store is suspended or trashed, not opening :",
               store.id,
             );
+            return;
+          }
+
+          // A pending store is only reachable by its owner until approved.
+          if (!isStoreVisibleTo(storeData, user)) {
+            console.warn("Store is pending approval, not opening :", store.id);
             return;
           }
 
@@ -622,6 +644,9 @@ export default function HomeScreen({ navigation, route }) {
         isFavorite={favoriteStores.includes(item.id)}
         onPressFavorite={() => handleToggleFavorite(item.id)}
         owner_id={item.owner_id}
+        phone={item.phone}
+        email={item.email}
+        website={item.website}
         onPress={() => {
           const geo = item?.address?.[0]?.location?.geopoint;
           const store = item;
@@ -780,7 +805,7 @@ export default function HomeScreen({ navigation, route }) {
     }
   };
 
-  const findClosestStore = async () => {
+  const findClosestStore = async ({ userInitiated = false } = {}) => {
     // Skip if we're currently navigating to a random city
     if (isNavigatingToRandomCity.current) {
       return;
@@ -802,31 +827,70 @@ export default function HomeScreen({ navigation, route }) {
         await refreshStores?.();
       }
 
-      // Prefer already-selected customLocation; fallback to user's current GPS location
-      let location = customLocation;
-      if (!location?.latitude || !location?.longitude) {
+      // Prefer already-selected customLocation; fallback to user's current GPS
+      // location. The Brussels default is not a selection: searching around
+      // it would hide the user's real position, so fall through to GPS.
+      let location =
+        customLocation?.source !== "default" ? customLocation : null;
+      let locationFromRedux = !!(location?.latitude && location?.longitude);
+      if (!locationFromRedux) {
         location = await locationManager.getUserLocation({
           useCache: true, // prefer cached to avoid permission delay on first tap
         });
+        // A city searched while the fix was pending wins over the fix, same
+        // guard as every GPS dispatch in StoreContext.
+        const current = reduxStore.getState().location?.customLocation;
+        if (
+          current?.latitude &&
+          current?.longitude &&
+          !canGpsOverwrite(current)
+        ) {
+          location = current;
+          locationFromRedux = true;
+        }
       }
 
       if (!location) {
-        Alert.alert(
-          t("location_required") || "Location Required",
-          t("enable_location_message") ||
-            "Please enable location services to find nearby stores.",
-        );
-        setLoading(false);
-        return;
+        // Granted-but-no-fix (indoors, emulator) is not "location disabled":
+        // search around whatever the app is centred on instead of alerting.
+        if (userInitiated && locationManager.isPermissionDenied()) {
+          Alert.alert(
+            t("location_required") || "Location Required",
+            t("enable_location_message") ||
+              "Please enable location services to find nearby stores.",
+          );
+          setLoading(false);
+          return;
+        }
+        if (userLocation?.latitude && userLocation?.longitude) {
+          location = userLocation;
+          locationFromRedux = true;
+        } else {
+          setLoading(false);
+          return;
+        }
       }
 
-      // Update Redux with the user's location
-      dispatch(
-        setCustomLocation({
-          latitude: location.latitude,
-          longitude: location.longitude,
-        }),
-      );
+      // Update Redux with the user's location. Only a fresh fix from the
+      // LocationManager is dispatched, and always with its real source: an
+      // "unknown" or "cache" source would sit in Redux forever because the
+      // GPS guard in StoreContext never overwrites it.
+      if (
+        !locationFromRedux &&
+        location.source &&
+        location.source !== "unknown" &&
+        location.source !== "cache"
+      ) {
+        dispatch(
+          setCustomLocation(
+            {
+              latitude: location.latitude,
+              longitude: location.longitude,
+            },
+            location.source,
+          ),
+        );
+      }
 
       // Use StoreService with expanding radius to find stores
       const { stores: nearbyStores } =
@@ -1100,7 +1164,7 @@ export default function HomeScreen({ navigation, route }) {
                       )}
 
                       <TouchableOpacity
-                        onPress={findClosestStore}
+                        onPress={() => findClosestStore({ userInitiated: true })}
                         style={[
                           styles.expandSearchButton,
                           loading && styles.nearbyButtonLoading,

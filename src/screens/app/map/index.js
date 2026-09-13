@@ -47,6 +47,7 @@ import Toast from "react-native-toast-message";
 import locationManager from "../../../services/LocationManager";
 import storeService from "../../../services/StoreService";
 import { LOCATION_CONFIG } from "../../../config/location";
+import { isStoreVisibleToShopper } from "../../../utils/storeVisibility";
 
 MapboxGL.setAccessToken(
   "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ",
@@ -247,7 +248,10 @@ export default function Map({ navigation, route }) {
             location.longitude,
             location.source,
           );
-          const nearbyStores = fetchNearbyStores(location, true);
+          // Fixed 20 km, not the expanding radius: on a cold start the
+          // location may still be the default, and widening around Brussels
+          // would draw the whole country on the map.
+          const nearbyStores = fetchNearbyStores(location);
           const autoZoom = calculateAutoZoom(nearbyStores);
           console.log("[Map] Found", nearbyStores.length, "nearby stores");
 
@@ -283,7 +287,7 @@ export default function Map({ navigation, route }) {
             ...LOCATION_CONFIG.DEFAULT_LOCATION,
             zoom: 12,
           });
-          fetchNearbyStores(LOCATION_CONFIG.DEFAULT_LOCATION, true);
+          fetchNearbyStores(LOCATION_CONFIG.DEFAULT_LOCATION);
         }
       } catch (error) {
         console.error("[Map] Error initializing map:", error);
@@ -550,8 +554,13 @@ export default function Map({ navigation, route }) {
    */
   const exploreRandomCity = useCallback(async () => {
     try {
+      // A city whose only store is still pending must not become a jump
+      // target: the shopper would land on an empty map.
+      const visibleStores = allStores.filter(isStoreVisibleToShopper);
       const citiesWithStores = [
-        ...new Set(allStores.map((store) => store.cityName).filter(Boolean)),
+        ...new Set(
+          visibleStores.map((store) => store.cityName).filter(Boolean),
+        ),
       ];
 
       if (citiesWithStores.length === 0) {
@@ -564,7 +573,7 @@ export default function Map({ navigation, route }) {
 
       const randomCity =
         citiesWithStores[Math.floor(Math.random() * citiesWithStores.length)];
-      const cityStores = allStores.filter(
+      const cityStores = visibleStores.filter(
         (store) => store.cityName === randomCity,
       );
 

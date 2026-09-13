@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { firestore } from "../../firebaseconfig";
 import { LOCATION_CONFIG, CACHE_KEYS } from "../config/location";
 import locationManager from "./LocationManager";
+import { isStoreVisibleToShopper } from "../utils/storeVisibility";
 
 class StoreService {
   constructor() {
@@ -191,7 +192,11 @@ class StoreService {
       return [];
     }
 
-    let stores = [...this.allStores];
+    // Pending stores (awaiting admin approval) are hidden from every shopper
+    // path that goes through here: Home, Map, deep links and the expanding
+    // radius steps. Owners reach their own pending store through Profile,
+    // which reads Firestore directly and never uses this filter.
+    let stores = this.allStores.filter(isStoreVisibleToShopper);
 
     // Apply category filter if specified
     if (selectedCategories && selectedCategories.length > 0) {
@@ -243,7 +248,8 @@ class StoreService {
    * @param {Object} location - Center location
    * @param {number} minStores - Minimum stores to find
    * @param {Array} selectedCategories - Optional category filter
-   * @returns {Object} { stores, radius }
+   * @returns {Object} { stores, radius } - radius is "none" when no step found
+   *   anything; stores is then empty, never the whole catalogue
    */
   findStoresWithExpandingRadius(
     location,
@@ -268,48 +274,12 @@ class StoreService {
       }
     }
 
-    // If no stores found within max radius, return all stores
-    const allWithDistance = this.allStores
-      .map((store) => {
-        const geopoint = store?.address?.[0]?.location?.geopoint;
-        if (!geopoint) return null;
-
-        const storeLat = Number(geopoint.latitude);
-        const storeLng = Number(geopoint.longitude);
-
-        if (isNaN(storeLat) || isNaN(storeLng)) return null;
-
-        const distance = locationManager.getDistanceInKm(
-          location.latitude,
-          location.longitude,
-          storeLat,
-          storeLng,
-        );
-
-        return {
-          ...store,
-          latitude: storeLat,
-          longitude: storeLng,
-          distance: Math.round(distance * 100) / 100,
-        };
-      })
-      .filter((store) => store !== null)
-      .sort((a, b) => a.distance - b.distance);
-
-    // Apply category filter if specified
-    let result = allWithDistance;
-    if (selectedCategories && selectedCategories.length > 0) {
-      const categoryStrings = selectedCategories.map((c) => String(c));
-      result = result.filter(
-        (store) =>
-          Array.isArray(store.category) &&
-          store.category.some((catId) =>
-            categoryStrings.includes(String(catId)),
-          ),
-      );
-    }
-
-    return { stores: result, radius: "all" };
+    // Nothing within the largest step. Returning every store in the country
+    // here used to be what a fresh install saw whenever GPS was slow: the map
+    // opened on Brussels with the whole catalogue "nearby". An empty result
+    // lets callers keep their last radius (the map keeps its 20 km list) and
+    // show the inline "no stores" state instead.
+    return { stores: [], radius: "none" };
   }
 
   /**
@@ -411,6 +381,7 @@ class StoreService {
 
     const lowerQuery = query.toLowerCase().trim();
     return this.allStores
+      .filter(isStoreVisibleToShopper)
       .filter((store) => store?.name?.toLowerCase().includes(lowerQuery))
       .sort((a, b) => {
         // Verified stores outrank everything else

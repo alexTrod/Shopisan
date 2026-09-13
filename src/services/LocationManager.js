@@ -23,6 +23,7 @@ class LocationManager {
     this.currentLocation = null;
     this.cachedLocation = null;
     this.abortController = null;
+    this.geocodeAbortController = null;
     this.pendingRequest = null;
     this.listeners = new Set();
     this.isInitialized = false;
@@ -110,19 +111,27 @@ class LocationManager {
       }
     }
 
-    // If there's already a request in flight, wait for it
+    // If there's already a request in flight, wait for it. A forced refresh
+    // restarts instead: it is the recovery path for a request that hung
+    // (permission dialog promise that never settled).
     if (this.pendingRequest) {
-      return this.pendingRequest;
+      if (!forceRefresh) {
+        return this.pendingRequest;
+      }
+      this.abort();
     }
 
     // Start new request with deduplication
-    this.pendingRequest = this._fetchLocation({ timeout, showToast });
+    const request = this._fetchLocation({ timeout, showToast });
+    this.pendingRequest = request;
 
     try {
-      const result = await this.pendingRequest;
+      const result = await request;
       return result;
     } finally {
-      this.pendingRequest = null;
+      if (this.pendingRequest === request) {
+        this.pendingRequest = null;
+      }
     }
   }
 
@@ -139,10 +148,16 @@ class LocationManager {
       // Request permission
       this.setState(LocationState.REQUESTING_PERMISSION);
 
-      const permissionResult = await this.withTimeout(
+      // Deliberately not wrapped in withTimeout: the OS dialog can sit open
+      // for as long as the user takes, and a clock running across it turned
+      // a slow answer into a "timeout" that locked a fresh install on the
+      // Brussels default. It is still cancellable (abort) and bounded by a
+      // long safety net for the rare dialog promise that never settles;
+      // only the GPS read further down keeps a real timeout.
+      const permissionResult = await this.withAbort(
         Location.requestForegroundPermissionsAsync(),
-        LOCATION_CONFIG.PERMISSION_TIMEOUT,
-        signal
+        signal,
+        LOCATION_CONFIG.PERMISSION_SAFETY_TIMEOUT
       );
 
       if (signal.aborted) {
@@ -258,6 +273,54 @@ class LocationManager {
   }
 
   /**
+   * Re-read the permission without prompting. Needed after the user grants
+   * location from Settings (Android keeps the process alive), otherwise the
+   * status cached at initialize()/last prompt stays "denied" forever.
+   */
+  async refreshPermissionStatus() {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      this.permissionStatus = status;
+    } catch (error) {
+      console.error('[LocationManager] Permission status refresh error:', error);
+    }
+    return this.permissionStatus;
+  }
+
+  /**
+   * Make a promise cancellable via abort signal, with an optional long
+   * safety timeout (no timer when ms is falsy).
+   */
+  withAbort(promise, signal, ms) {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error('Operation aborted'));
+        return;
+      }
+      let timeoutId = null;
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', abortHandler);
+      };
+      const abortHandler = () => {
+        cleanup();
+        reject(new Error('Operation aborted'));
+      };
+      signal?.addEventListener('abort', abortHandler);
+      if (ms) {
+        timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error('Operation timed out'));
+        }, ms);
+      }
+      promise.then(
+        result => { cleanup(); resolve(result); },
+        error => { cleanup(); reject(error); }
+      );
+    });
+  }
+
+  /**
    * Wrap a promise with timeout and abort signal
    */
   async withTimeout(promise, ms, signal) {
@@ -325,6 +388,10 @@ class LocationManager {
    * Save location to cache
    */
   async saveToCache(location) {
+    // The Brussels fallback must never be cached: a cached default would be
+    // handed back as a trusted "cache" location on the next launch and hide
+    // the real GPS fix behind it.
+    if (!location || location.source === 'default') return;
     try {
       await AsyncStorage.setItem(
         CACHE_KEYS.LAST_LOCATION,
@@ -400,10 +467,14 @@ class LocationManager {
   async geocodeCity(cityName) {
     if (!cityName?.trim()) return null;
 
-    // Cancel previous geocoding request
-    this.abort();
-    this.abortController = new AbortController();
-    const signal = this.abortController.signal;
+    // Cancel the previous geocoding request only. This controller is
+    // separate from the GPS one: a city search must not abort an in-flight
+    // location read, which would drop the app onto the Brussels default.
+    if (this.geocodeAbortController) {
+      this.geocodeAbortController.abort();
+    }
+    this.geocodeAbortController = new AbortController();
+    const signal = this.geocodeAbortController.signal;
 
     const cacheKey = `${CACHE_KEYS.GEOCODE_PREFIX}${cityName.toLowerCase().trim()}`;
 

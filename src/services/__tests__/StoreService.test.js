@@ -6,6 +6,9 @@
  * - a missing is_suspended means "not suspended" (no backfill required)
  * - search suggestions rank verified first and carry the flag through
  * - filterStoresByRadius stays strictly distance-ordered
+ * - pending stores are hidden from every shopper path; a missing status is
+ *   visible (no backfill required)
+ * - the expanding radius never falls back to the whole catalogue
  *
  * Run with: npx jest src/services/__tests__/StoreService.test.js
  */
@@ -31,6 +34,7 @@ jest.mock("../../config/location", () => ({
   LOCATION_CONFIG: {
     SEARCH_RADIUS_KM: 20,
     STORE_CACHE_TTL: 1800000,
+    RADIUS_STEPS: [5, 10, 20, 30, 50, 75, 100, 150, 200],
   },
   CACHE_KEYS: {
     STORES_CACHE: "@stores_cache_v2",
@@ -197,6 +201,85 @@ describe("StoreService", () => {
       const [result] = storeService.filterStoresByRadius(ORIGIN, 20);
 
       expect(result.distance).toBeCloseTo(1);
+    });
+
+    it("hides stores still pending admin approval", () => {
+      // This is the single shopper choke point: Home, Map, deep links and the
+      // expanding-radius steps all read through here.
+      storeService.allStores = [
+        storeAt("pending", 1, { status: "pending" }),
+        storeAt("approved", 2, { status: "approved" }),
+      ];
+
+      const results = storeService.filterStoresByRadius(ORIGIN, 20);
+
+      expect(results.map((s) => s.name)).toEqual(["approved"]);
+    });
+
+    it("keeps stores with no status field at all (missing means approved)", () => {
+      storeService.allStores = [storeAt("legacy", 1)];
+
+      const results = storeService.filterStoresByRadius(ORIGIN, 20);
+
+      expect(results.map((s) => s.name)).toEqual(["legacy"]);
+    });
+  });
+
+  describe("searchStoresByName - pending stores", () => {
+    it("never suggests a pending store", () => {
+      storeService.allStores = [
+        { id: 1, name: "Bakery Pending", status: "pending" },
+        { id: 2, name: "Bakery Live", status: "approved" },
+        { id: 3, name: "Bakery Legacy" },
+      ];
+
+      const results = storeService.searchStoresByName("bakery");
+
+      expect(results.map((s) => s.name)).toEqual([
+        "Bakery Legacy",
+        "Bakery Live",
+      ]);
+    });
+  });
+
+  describe("findStoresWithExpandingRadius", () => {
+    it("returns the first radius step that satisfies minStores", () => {
+      storeService.allStores = [storeAt("near", 8)];
+
+      const { stores, radius } = storeService.findStoresWithExpandingRadius(
+        ORIGIN,
+        1,
+      );
+
+      expect(stores.map((s) => s.name)).toEqual(["near"]);
+      expect(radius).toBe(10);
+    });
+
+    it("returns no stores at all when nothing is inside the largest step", () => {
+      // Regression guard for the fresh-install bug: a slow GPS left the app
+      // on the Brussels default and this fallback handed the whole catalogue
+      // back as "nearby".
+      storeService.allStores = [storeAt("far-away", 1000)];
+
+      const { stores, radius } = storeService.findStoresWithExpandingRadius(
+        ORIGIN,
+        1,
+      );
+
+      expect(stores).toEqual([]);
+      expect(radius).toBe("none");
+    });
+
+    it("does not let a pending store satisfy the minimum", () => {
+      storeService.allStores = [storeAt("pending", 1, { status: "pending" })];
+
+      const { stores } = storeService.findStoresWithExpandingRadius(ORIGIN, 1);
+
+      expect(stores).toEqual([]);
+    });
+
+    it("keeps calculateAutoZoom usable on the empty fallback", () => {
+      expect(storeService.calculateAutoZoom([])).toBe(12);
     });
   });
 });

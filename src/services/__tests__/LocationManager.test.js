@@ -146,6 +146,73 @@ describe('LocationManager', () => {
     });
   });
 
+  describe('Permission request', () => {
+    it('is not timed out while the OS permission dialog is open', async () => {
+      // A user who takes longer than PERMISSION_TIMEOUT to answer used to be
+      // treated as a timeout, which locked a fresh install on the Brussels
+      // default. Only the GPS read keeps a timeout.
+      jest.useFakeTimers();
+      try {
+        const answerDelay = LOCATION_CONFIG.PERMISSION_TIMEOUT * 3;
+        Location.requestForegroundPermissionsAsync.mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(() => resolve({ status: 'granted' }), answerDelay),
+            ),
+        );
+        Location.getCurrentPositionAsync.mockResolvedValue({
+          coords: { latitude: 50.717, longitude: 4.399, accuracy: 10 },
+        });
+
+        const pending = locationManager.getUserLocation({ useCache: false });
+        await jest.advanceTimersByTimeAsync(answerDelay);
+        const result = await pending;
+
+        expect(result.source).toBe('gps');
+        expect(result.latitude).toBe(50.717);
+        expect(locationManager.state).toBe(LocationState.ACQUIRED);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('only wraps the GPS read in a timeout, not the permission request', async () => {
+      const withTimeout = jest.spyOn(locationManager, 'withTimeout');
+      Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+      Location.getCurrentPositionAsync.mockResolvedValue({
+        coords: { latitude: 50.8503, longitude: 4.3517, accuracy: 10 },
+      });
+
+      await locationManager.getUserLocation({ useCache: false, timeout: 1234 });
+
+      expect(withTimeout).toHaveBeenCalledTimes(1);
+      expect(withTimeout.mock.calls[0][1]).toBe(1234);
+      withTimeout.mockRestore();
+    });
+  });
+
+  describe('saveToCache', () => {
+    it('never caches the default location', async () => {
+      await locationManager.saveToCache({
+        latitude: 50.8503,
+        longitude: 4.3517,
+        source: 'default',
+      });
+
+      expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    });
+
+    it('caches a GPS fix', async () => {
+      await locationManager.saveToCache({
+        latitude: 50.717,
+        longitude: 4.399,
+        source: 'gps',
+      });
+
+      expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('AbortController', () => {
     it('should cancel previous request when new one starts', async () => {
       Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
@@ -166,6 +233,57 @@ describe('LocationManager', () => {
 
       // First request should be aborted
       expect(locationManager.abortController).toBeNull();
+    });
+  });
+
+  describe('Recovery paths', () => {
+    it('refreshPermissionStatus re-reads the OS permission without prompting', async () => {
+      Location.getForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'granted' });
+      locationManager.permissionStatus = 'denied';
+
+      const status = await locationManager.refreshPermissionStatus();
+
+      expect(status).toBe('granted');
+      expect(locationManager.permissionStatus).toBe('granted');
+      expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    });
+
+    it('a city geocode does not abort an in-flight GPS read', async () => {
+      Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+      let resolveGps;
+      // mockReset: earlier tests leave unconsumed *Once values in the queue
+      Location.getCurrentPositionAsync.mockReset().mockImplementation(
+        () => new Promise(resolve => { resolveGps = resolve; }),
+      );
+      Location.geocodeAsync.mockResolvedValue([{ latitude: 48.85, longitude: 2.35 }]);
+
+      const gps = locationManager.getUserLocation({ useCache: false, forceRefresh: true });
+      while (!resolveGps) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      await locationManager.geocodeCity('Paris');
+      resolveGps({ coords: { latitude: 50.717, longitude: 4.399, accuracy: 10 } });
+
+      await expect(gps).resolves.toMatchObject({ latitude: 50.717, longitude: 4.399 });
+    });
+
+    it('forceRefresh restarts a request whose permission dialog never settled', async () => {
+      Location.requestForegroundPermissionsAsync
+        .mockReset()
+        .mockImplementationOnce(() => new Promise(() => {})) // never settles
+        .mockResolvedValueOnce({ status: 'granted' });
+      Location.getCurrentPositionAsync.mockReset().mockResolvedValue({
+        coords: { latitude: 50.717, longitude: 4.399, accuracy: 10 },
+      });
+
+      const hung = locationManager.getUserLocation({ useCache: false, forceRefresh: true });
+      await Promise.resolve();
+      const retry = locationManager.getUserLocation({ useCache: false, forceRefresh: true });
+
+      await expect(retry).resolves.toMatchObject({ latitude: 50.717, longitude: 4.399 });
+      // The hung request was cancelled and released, not left pending
+      await expect(hung).resolves.toBeNull();
+      expect(locationManager.pendingRequest).toBeNull();
     });
   });
 

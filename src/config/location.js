@@ -7,7 +7,8 @@ export const LOCATION_CONFIG = {
   // GPS and Location Timeouts
   GPS_TIMEOUT: 8000, // 8 seconds for GPS acquisition
   GEOCODE_TIMEOUT: 5000, // 5 seconds for geocoding
-  PERMISSION_TIMEOUT: 10000, // 10 seconds for permission request
+  PERMISSION_TIMEOUT: 10000, // legacy; the OS dialog itself is no longer timed
+  PERMISSION_SAFETY_TIMEOUT: 120000, // 2 min: only guards a dialog promise that never settles
 
   // Cache Configuration
   CACHE_TTL: 2 * 60 * 60 * 1000, // 2 hours for location cache (shorter to avoid stale location from different city)
