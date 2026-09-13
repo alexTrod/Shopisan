@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -38,19 +38,40 @@ import CloseIcon from "../../../../assets/icons/close-icon";
 import CloseCircleIcon from "../../../../assets/icons/close-circle-icon";
 import CameraIcon from "../../../../assets/icons/camera-icon";
 import StarIcon from "../../../../assets/icons/star-icon";
-import { width, height } from "../../../utils/dimension";
+import { width } from "../../../utils/dimension";
 import { getCategoriesLocale } from "../../../Redux/Reducers/CategoriesReducer";
 import { setCategories } from "../../../Redux/Actions/CategoriesActions";
-import * as Location from "expo-location";
-import MapboxGL from "@rnmapbox/maps";
 import locationManager from "../../../services/LocationManager";
 import { ensureCityExists } from "../../../utils/cityManagement";
 import * as ImagePicker from "expo-image-picker";
 import { useTranslation } from "../../../utils/useTranslation";
 import OpeningHoursPicker from "../../../components/opening-hours-picker";
 import ImageEditor from "../../../components/image-editor";
+import MapPickerModal from "../../../components/store-form/MapPickerModal";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenNames } from "../../../Routes/routes";
 import AddPostIcon from "../../../../assets/icons/add-post-icon";
+
+// Maps a validation key to the i18n label rendered above that input, so the
+// "missing fields" alert can name fields the way the form does.
+const FIELD_LABEL_KEYS = {
+  name: "store_name",
+  street: "store_address",
+  city: "city",
+  postalCode: "postal_code",
+  description: "description",
+  storeEmail: "store_email",
+  website: "website",
+  phone: "phone",
+  managerFirstName: "manager_first_name",
+  managerLastName: "manager_last_name",
+  categories: "categories",
+};
+
+// Render order of the fields above: the first errored one is scrolled into view.
+const FIELD_ORDER = Object.keys(FIELD_LABEL_KEYS);
+
+const GEOCODE_TIMEOUT_MS = 15000;
 
 export default function HandleStoreScreen({ route, navigation }) {
   const { storeId } = route.params;
@@ -68,9 +89,7 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [showMap, setShowMap] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState(null);
-  const [groupedDays, setGroupedDays] = useState([]);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [storeEmail, setStoreEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [phone, setPhone] = useState("");
@@ -84,41 +103,14 @@ export default function HandleStoreScreen({ route, navigation }) {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [addressQuery, setAddressQuery] = useState("");
   const [streetNumber, setStreetNumber] = useState("");
-  const [expandedDay, setExpandedDay] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const dispatch = useDispatch();
-
-  const timePresets = [
-    {
-      label: "9h-12h / 14h-19h",
-      morning: { start: "9", end: "12" },
-      afternoon: { start: "14", end: "19" },
-    },
-    {
-      label: "8h-12h / 13h-18h",
-      morning: { start: "8", end: "12" },
-      afternoon: { start: "13", end: "18" },
-    },
-    { label: "10h-19h", morning: { start: "10", end: "19" }, afternoon: null },
-    { label: "closed", morning: null, afternoon: null, isTranslationKey: true },
-  ];
-
-  const getPresetLabel = (preset) =>
-    preset.isTranslationKey ? t(preset.label) : preset.label;
-
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ];
-
-  const getDayLabel = (day) => t(day);
+  const scrollViewRef = useRef(null);
+  // y offset of each field label inside the ScrollView content, captured
+  // via onLayout so validation can scroll to the first error.
+  const fieldPositions = useRef({});
 
   const [openingHours, setOpeningHours] = useState({
     monday: { morning: null, afternoon: null },
@@ -215,7 +207,6 @@ export default function HandleStoreScreen({ route, navigation }) {
           };
 
           setOpeningHours(hours);
-          updateGroupedDays(hours);
         } else {
           Alert.alert(t("error"), t("store_not_found"));
           navigation.goBack();
@@ -233,7 +224,7 @@ export default function HandleStoreScreen({ route, navigation }) {
     // `t` deliberately left out: it only feeds alert copy, and re-running the
     // fetch whenever translations re-render is exactly what froze this screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId, dispatch, navigation, user]);
+  }, [storeId, dispatch, navigation, user?.id]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -345,7 +336,17 @@ export default function HandleStoreScreen({ route, navigation }) {
     }
 
     setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    return errors;
+  };
+
+  const registerFieldLayout = (fieldKey) => (event) => {
+    fieldPositions.current[fieldKey] = event.nativeEvent.layout.y;
+  };
+
+  const scrollToField = (fieldKey) => {
+    const y = fieldPositions.current[fieldKey];
+    if (typeof y !== "number") return;
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
   };
 
   const getInputStyle = (fieldName, extraStyle) => {
@@ -370,11 +371,67 @@ export default function HandleStoreScreen({ route, navigation }) {
     return <Text style={styles.errorText}>{message}</Text>;
   };
 
+  // Resolves the typed address to coordinates. Returns null (after showing
+  // the appropriate alert) when it cannot, so the caller aborts the save.
+  const geocodeAddress = async (countryId) => {
+    const fullAddress =
+      `${streetNumber} ${street}, ${postalCode} ${city}, ${countryId}`.trim();
+    const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GEOCODE_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&region=${countryId.toLowerCase()}&key=${apiKey}`,
+        { signal: controller.signal },
+      );
+    } catch (fetchError) {
+      Alert.alert(
+        t("error"),
+        fetchError.name === "AbortError"
+          ? t("network_timeout")
+          : t("network_error"),
+      );
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    const data = await response.json();
+    if (data.status === "OK" && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      return { latitude: Number(location.lat), longitude: Number(location.lng) };
+    }
+
+    // A pin dropped on the map (or a picked suggestion) is a valid location
+    // even when Google cannot resolve the reverse-geocoded text.
+    if (selectedLocation?.latitude && selectedLocation?.longitude) {
+      return {
+        latitude: Number(selectedLocation.latitude),
+        longitude: Number(selectedLocation.longitude),
+      };
+    }
+
+    Alert.alert(t("error"), t("address_not_found"));
+    return null;
+  };
+
   const handleUpdateStore = async () => {
     setHasAttemptedSubmit(true);
 
-    if (!validateAllFields()) {
-      Alert.alert(t("error"), t("required_fields_error"));
+    const errors = validateAllFields();
+    const erroredFields = FIELD_ORDER.filter((key) => errors[key]);
+    if (erroredFields.length > 0) {
+      const missingLabels = erroredFields.map((key) =>
+        t(FIELD_LABEL_KEYS[key]),
+      );
+      Alert.alert(
+        t("error"),
+        `${t("required_fields_error")}\n\n${missingLabels.join(", ")}`,
+      );
+      scrollToField(erroredFields[0]);
       return;
     }
 
@@ -386,13 +443,33 @@ export default function HandleStoreScreen({ route, navigation }) {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    let images = [...existingImageUrls];
-
     try {
-      // Upload new images
-      for (const img of selectedImages) {
-        const uploadedUrl = await uploadImageToCloudflare(img.uri);
-        images.push(uploadedUrl);
+      // 1. Geocode first: a bad address must fail before any image is
+      // uploaded, so nothing is left orphaned on Cloudflare.
+      // Preserve the country the store was created with rather than forcing
+      // FR on every edit.
+      const countryId = readStoreAddress(storeData).countryId || "FR";
+      const coords = await geocodeAddress(countryId);
+      if (!coords) return;
+      const { latitude, longitude } = coords;
+
+      // 2. Upload new images; abort the whole save on the first failure.
+      const images = [...existingImageUrls];
+      if (selectedImages.length > 0) {
+        try {
+          for (const img of selectedImages) {
+            const uploadedUrl = await uploadImageToCloudflare(img.uri);
+            images.push(uploadedUrl);
+          }
+        } catch (uploadError) {
+          Alert.alert(
+            t("error"),
+            uploadError.message === "IMAGE_UPLOAD_TIMEOUT"
+              ? t("image_upload_timeout")
+              : t("image_upload_failed"),
+          );
+          return;
+        }
       }
 
       // Reorder images so main image is first
@@ -402,26 +479,7 @@ export default function HandleStoreScreen({ route, navigation }) {
         images.unshift(mainImage);
       }
 
-      // Geocode without a hardcoded country: the store keeps the country it
-      // was created with (see countryId below), and Google resolves the rest.
-      const fullAddress = `${streetNumber} ${street}, ${postalCode} ${city}`;
-
-      const apiKey = "AIzaSyCsGAmEtEu_aox4wHgf4GOQA2nGUgjdfrA";
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`,
-      );
-      const data = await response.json();
-
-      if (data.status !== "OK" || data.results.length === 0) {
-        setIsSubmitting(false);
-        Alert.alert(t("error"), t("address_not_found"));
-        return;
-      }
-
-      const location = data.results[0].geometry.location;
-      const latitude = Number(location.lat);
-      const longitude = Number(location.lng);
-
+      // 3. Persist
       const storeRef = doc(firestore, "stores", storeDocumentId);
 
       const updatedData = {
@@ -436,9 +494,7 @@ export default function HandleStoreScreen({ route, navigation }) {
           streetNumber,
           city,
           postalCode,
-          // Preserve the country the store was created with rather than
-          // forcing FR on every edit.
-          countryId: readStoreAddress(storeData).countryId,
+          countryId,
           latitude,
           longitude,
         }),
@@ -464,24 +520,27 @@ export default function HandleStoreScreen({ route, navigation }) {
 
       await updateDoc(storeRef, updatedData);
 
-      // Ensure city exists in the cities collection
+      // 4. Ensure city exists in the cities collection (non-fatal)
       try {
         const cityResult = await ensureCityExists(
           city,
           postalCode,
           latitude,
           longitude,
-          "FR",
+          countryId,
         );
-        if (cityResult.success) {
-          console.log(cityResult.message);
-        } else {
+        if (!cityResult.success) {
           console.warn("City creation/update had issues:", cityResult.error);
         }
       } catch (cityError) {
         console.error("Error ensuring city exists:", cityError);
         // Continue even if city creation fails - store is already updated
       }
+
+      // 5. Uploaded images are now persisted: a retry must not re-upload them.
+      setSelectedImages([]);
+      setExistingImageUrls(images);
+      setMainImageIndex(0);
 
       DeviceEventEmitter.emit("stores:refresh");
       Alert.alert(t("success"), t("store_updated_success"));
@@ -557,18 +616,6 @@ export default function HandleStoreScreen({ route, navigation }) {
     setLoadingSuggestions(false);
   };
 
-  const applyPresetToAllDays = (preset) => {
-    const newOpeningHours = {};
-    days.forEach((day) => {
-      newOpeningHours[day] = {
-        morning: preset.morning ? { ...preset.morning } : null,
-        afternoon: preset.afternoon ? { ...preset.afternoon } : null,
-      };
-    });
-    setOpeningHours(newOpeningHours);
-    setSelectedPreset(preset.label);
-  };
-
   const handleUseCurrentLocation = async () => {
     const mapboxToken =
       "sk.eyJ1IjoiYWxleGZlIiwiYSI6ImNtMm1zYTVkNzByYngya3Fzamc2aDNzbHkifQ.N-lmJpX9_xjlt6ug-6uguQ";
@@ -584,7 +631,6 @@ export default function HandleStoreScreen({ route, navigation }) {
         latitude: location.latitude,
         longitude: location.longitude,
       });
-      setShowMap(true);
 
       // Use Mapbox for reverse geocoding
       const response = await fetch(
@@ -599,45 +645,6 @@ export default function HandleStoreScreen({ route, navigation }) {
     } catch (error) {
       console.error("Error getting location:", error);
       Alert.alert(t("error"), t("unable_to_get_location"));
-    }
-  };
-
-  const updateGroupedDays = (hours) => {
-    const groups = [];
-    let currentGroup = { days: [], hours: null };
-
-    days.forEach((day, index) => {
-      const dayHours = JSON.stringify(hours[day]);
-
-      if (currentGroup.hours === null) {
-        currentGroup = { days: [day], hours: dayHours };
-      } else if (currentGroup.hours === dayHours) {
-        currentGroup.days.push(day);
-      } else {
-        groups.push(currentGroup);
-        currentGroup = { days: [day], hours: dayHours };
-      }
-
-      if (index === days.length - 1) {
-        groups.push(currentGroup);
-      }
-    });
-
-    setGroupedDays(groups);
-  };
-
-  useEffect(() => {
-    updateGroupedDays(openingHours);
-  }, [openingHours]);
-
-  const copyToNextDay = (day) => {
-    const currentIndex = days.indexOf(day);
-    if (currentIndex < days.length - 1) {
-      const nextDay = days[currentIndex + 1];
-      setOpeningHours((prev) => ({
-        ...prev,
-        [nextDay]: { ...prev[day] },
-      }));
     }
   };
 
@@ -791,8 +798,12 @@ export default function HandleStoreScreen({ route, navigation }) {
         latitude: item.center[1],
         longitude: item.center[0],
       });
-      setShowMap(true);
     }
+  };
+
+  const handleMapPickerConfirm = (mapboxFeature) => {
+    setShowMapPicker(false);
+    handleAddressSelect(mapboxFeature);
   };
 
   const handleBackPress = () => {
@@ -802,144 +813,6 @@ export default function HandleStoreScreen({ route, navigation }) {
       return;
     }
     navigation.goBack();
-  };
-
-  const formatHours = (hours) => {
-    if (!hours.morning && !hours.afternoon) return t("closed");
-
-    const formatTimeDisplay = (timeStr) => {
-      if (!timeStr) return "";
-      const parts = timeStr.split(":");
-      const hour = parts[0];
-      const minute = parts[1];
-      return minute === "00" || !minute ? `${hour}h` : `${hour}h${minute}`;
-    };
-
-    let result = "";
-    if (hours.morning) {
-      result += `${formatTimeDisplay(hours.morning.start)}-${formatTimeDisplay(hours.morning.end)}`;
-    }
-    if (hours.afternoon) {
-      if (result) result += " / ";
-      result += `${formatTimeDisplay(hours.afternoon.start)}-${formatTimeDisplay(hours.afternoon.end)}`;
-    }
-    return result;
-  };
-
-  const clampHour = (v) => {
-    if (v === "" || v == null) return "";
-    const n = Math.max(
-      0,
-      Math.min(23, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0),
-    );
-    return String(n);
-  };
-
-  const clampMinute = (v) => {
-    if (v === "" || v == null) return "";
-    const n = Math.max(
-      0,
-      Math.min(59, parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0),
-    );
-    return String(n);
-  };
-
-  const parseTime = (timeStr) => {
-    if (!timeStr) return { hour: "", minute: "" };
-    const parts = timeStr.split(":");
-    return {
-      hour: parts[0] || "",
-      minute: parts[1] || "00",
-    };
-  };
-
-  const formatTime = (hour, minute) => {
-    if (!hour) return "";
-    const min = minute === "00" || !minute ? "" : `:${minute}`;
-    return `${hour}${min}`;
-  };
-
-  const setDayClosed = (day, closed) => {
-    setOpeningHours((prev) => {
-      const next = { ...prev };
-      next[day] = closed
-        ? { morning: null, afternoon: null }
-        : { morning: { start: "9:00", end: "19:00" }, afternoon: null };
-      return next;
-    });
-  };
-
-  const normalizeDay = (dayObj = {}) => {
-    const norm = { ...dayObj };
-    if (isPeriodEmpty(norm.morning)) norm.morning = null;
-    if (isPeriodEmpty(norm.afternoon)) norm.afternoon = null;
-    return norm;
-  };
-
-  const setDayMode = (day, mode) => {
-    setOpeningHours((prev) => {
-      const cur = normalizeDay(prev[day] || { morning: null, afternoon: null });
-      if (mode === "day") {
-        const start = cur.morning?.start ?? "9:00";
-        const end = cur.afternoon?.end ?? cur.morning?.end ?? "19:00";
-        return {
-          ...prev,
-          [day]: normalizeDay({ morning: { start, end }, afternoon: null }),
-        };
-      } else {
-        const mStart = cur.morning?.start ?? "9:00";
-        const mEnd = "12:00";
-        return {
-          ...prev,
-          [day]: normalizeDay({
-            morning: { start: mStart, end: mEnd },
-            afternoon: { start: "14:00", end: cur.morning?.end ?? "19:00" },
-          }),
-        };
-      }
-    });
-  };
-
-  const setTime = (day, period, field, hour, minute = "00") => {
-    const timeValue = formatTime(hour, minute);
-    setOpeningHours((prev) => {
-      const cur = prev[day] || { morning: null, afternoon: null };
-      const p = cur[period]
-        ? { ...cur[period], [field]: timeValue }
-        : {
-            [field]: timeValue,
-            ...(field === "start" ? { end: "" } : { start: "" }),
-          };
-      const next = { ...prev, [day]: normalizeDay({ ...cur, [period]: p }) };
-      return next;
-    });
-  };
-
-  const [hoursErrors, setHoursErrors] = useState({});
-
-  const validateHour = (day, period, field, value) => {
-    let error = "";
-    if (value && !/^\d{1,2}$/.test(value)) {
-      error = "notNumber";
-    }
-    const otherField = field === "start" ? "end" : "start";
-    const otherValue = openingHours[day][period]?.[otherField];
-    if (
-      value &&
-      otherValue &&
-      /^\d{1,2}$/.test(value) &&
-      /^\d{1,2}$/.test(otherValue)
-    ) {
-      const v1 = field === "start" ? value : otherValue;
-      const v2 = field === "end" ? value : otherValue;
-      if (parseInt(v1) >= parseInt(v2)) {
-        error = "order";
-      }
-    }
-    setHoursErrors((prev) => ({
-      ...prev,
-      [`${day}_${period}_${field}`]: error,
-    }));
   };
 
   if (loading) {
@@ -962,12 +835,15 @@ export default function HandleStoreScreen({ route, navigation }) {
         </Text>
       </View>
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled={true}
       >
         <View style={styles.container}>
-          <Text style={styles.label}>{t("store_name")}</Text>
+          <Text style={styles.label} onLayout={registerFieldLayout("name")}>
+            {t("store_name")}
+          </Text>
           <TextInput
             style={getInputStyle("name")}
             placeholder={t("store_name")}
@@ -976,46 +852,44 @@ export default function HandleStoreScreen({ route, navigation }) {
           />
           {renderFieldError("name")}
 
-          <Text style={styles.label}>{t("store_address")}</Text>
+          <Text style={styles.label} onLayout={registerFieldLayout("street")}>
+            {t("store_address")}
+          </Text>
           <View style={styles.addressContainer}>
             <View style={styles.addressInputWrapper}>
-              <TextInput
-                style={getInputStyle("street")}
-                value={addressQuery}
-                onChangeText={fetchAddressSuggestions}
-                placeholder={t("store_address")}
-                onBlur={() => setSuggestions([])}
-              />
+              {/* Suggestions float over the fields below instead of pushing
+                  them down: an in-flow list swallowed the page scroll. */}
+              <View style={styles.suggestionsAnchor}>
+                <TextInput
+                  style={getInputStyle("street")}
+                  value={addressQuery}
+                  onChangeText={fetchAddressSuggestions}
+                  placeholder={t("store_address")}
+                  onBlur={() => setSuggestions([])}
+                />
+                {suggestions.length > 0 && (
+                  <View style={styles.suggestionsContainer}>
+                    <FlatList
+                      data={suggestions}
+                      keyExtractor={(item, index) => `${item.id}-${index}`}
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled={true}
+                      style={{ maxHeight: 200 }}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          onPress={() => handleAddressSelect(item)}
+                          style={styles.suggestionItem}
+                        >
+                          <Text style={styles.suggestionText}>
+                            {item.place_name}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
               {renderFieldError("street")}
-
-              {suggestions.length > 0 && (
-                <View
-                  style={{
-                    height: 200,
-                    borderWidth: 1,
-                    borderColor: "#ccc",
-                    backgroundColor: "#fff",
-                  }}
-                >
-                  <FlatList
-                    data={suggestions}
-                    keyExtractor={(item, index) => `${item.id}-${index}`}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        onPress={() => handleAddressSelect(item)}
-                        style={styles.suggestionItem}
-                      >
-                        <Text style={styles.suggestionText}>
-                          {item.place_name}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled={true}
-                    scrollEnabled={true}
-                  />
-                </View>
-              )}
             </View>
 
             <TouchableOpacity
@@ -1026,26 +900,29 @@ export default function HandleStoreScreen({ route, navigation }) {
             </TouchableOpacity>
           </View>
 
-          {showMap && selectedLocation && (
-            <View style={styles.mapContainer}>
-              <MapboxGL.MapView style={styles.map}>
-                <MapboxGL.Camera
-                  centerCoordinate={[
-                    selectedLocation.longitude,
-                    selectedLocation.latitude,
-                  ]}
-                  zoomLevel={14}
+          <View style={styles.mapPickerRow}>
+            <TouchableOpacity
+              onPress={() => setShowMapPicker(true)}
+              style={styles.mapPickerLink}
+            >
+              <Ionicons name="map" size={16} color={AppColors.primary} />
+              <Text style={styles.mapPickerLinkText} numberOfLines={1}>
+                {t("pick_on_map")}
+              </Text>
+            </TouchableOpacity>
+            {selectedLocation && (
+              <View style={styles.locationSetBadge}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color={AppColors.primary}
                 />
-                <MapboxGL.PointAnnotation
-                  id="selected-location"
-                  coordinate={[
-                    selectedLocation.longitude,
-                    selectedLocation.latitude,
-                  ]}
-                />
-              </MapboxGL.MapView>
-            </View>
-          )}
+                <Text style={styles.locationSetText} numberOfLines={1}>
+                  {t("location_updated")}
+                </Text>
+              </View>
+            )}
+          </View>
 
           <Text style={styles.label}>{t("street_number")}</Text>
           <TextInput
@@ -1056,7 +933,12 @@ export default function HandleStoreScreen({ route, navigation }) {
             keyboardType="numeric"
           />
 
-          <Text style={styles.label}>{t("city")}</Text>
+          <Text
+            style={styles.label}
+            onLayout={registerFieldLayout("city")}
+          >
+            {t("city")}
+          </Text>
           <TextInput
             style={getInputStyle("city")}
             placeholder={t("city")}
@@ -1065,7 +947,12 @@ export default function HandleStoreScreen({ route, navigation }) {
           />
           {renderFieldError("city")}
 
-          <Text style={styles.label}>{t("postal_code")}</Text>
+          <Text
+            style={styles.label}
+            onLayout={registerFieldLayout("postalCode")}
+          >
+            {t("postal_code")}
+          </Text>
           <TextInput
             style={getInputStyle("postalCode")}
             placeholder={t("postal_code")}
@@ -1075,7 +962,12 @@ export default function HandleStoreScreen({ route, navigation }) {
           />
           {renderFieldError("postalCode")}
 
-          <Text style={styles.label}>{t("description")}</Text>
+          <Text
+            style={styles.label}
+            onLayout={registerFieldLayout("description")}
+          >
+            {t("description")}
+          </Text>
           <TextInput
             style={getInputStyle("description", styles.textArea)}
             placeholder={t("description")}
@@ -1095,7 +987,12 @@ export default function HandleStoreScreen({ route, navigation }) {
 
           {isOwnerType(user) && (
             <>
-              <Text style={styles.label}>{t("store_email")}</Text>
+              <Text
+                style={styles.label}
+                onLayout={registerFieldLayout("storeEmail")}
+              >
+                {t("store_email")}
+              </Text>
               <TextInput
                 style={getInputStyle("storeEmail")}
                 placeholder={t("store_email")}
@@ -1106,7 +1003,12 @@ export default function HandleStoreScreen({ route, navigation }) {
               />
               {renderFieldError("storeEmail")}
 
-              <Text style={styles.label}>{t("website")}</Text>
+              <Text
+                style={styles.label}
+                onLayout={registerFieldLayout("website")}
+              >
+                {t("website")}
+              </Text>
               <TextInput
                 style={getInputStyle("website")}
                 placeholder={t("website")}
@@ -1116,7 +1018,12 @@ export default function HandleStoreScreen({ route, navigation }) {
               />
               {renderFieldError("website")}
 
-              <Text style={styles.label}>{t("phone")}</Text>
+              <Text
+                style={styles.label}
+                onLayout={registerFieldLayout("phone")}
+              >
+                {t("phone")}
+              </Text>
               <TextInput
                 style={getInputStyle("phone")}
                 placeholder={t("phone")}
@@ -1126,7 +1033,12 @@ export default function HandleStoreScreen({ route, navigation }) {
               />
               {renderFieldError("phone")}
 
-              <Text style={styles.label}>{t("manager_first_name")}</Text>
+              <Text
+                style={styles.label}
+                onLayout={registerFieldLayout("managerFirstName")}
+              >
+                {t("manager_first_name")}
+              </Text>
               <TextInput
                 style={getInputStyle("managerFirstName")}
                 placeholder={t("manager_first_name")}
@@ -1135,7 +1047,12 @@ export default function HandleStoreScreen({ route, navigation }) {
               />
               {renderFieldError("managerFirstName")}
 
-              <Text style={styles.label}>{t("manager_last_name")}</Text>
+              <Text
+                style={styles.label}
+                onLayout={registerFieldLayout("managerLastName")}
+              >
+                {t("manager_last_name")}
+              </Text>
               <TextInput
                 style={getInputStyle("managerLastName")}
                 placeholder={t("manager_last_name")}
@@ -1146,7 +1063,12 @@ export default function HandleStoreScreen({ route, navigation }) {
             </>
           )}
 
-          <Text style={styles.label}>{t("categories")}</Text>
+          <Text
+            style={styles.label}
+            onLayout={registerFieldLayout("categories")}
+          >
+            {t("categories")}
+          </Text>
           <TouchableOpacity
             style={[
               styles.categoryButton,
@@ -1391,6 +1313,19 @@ export default function HandleStoreScreen({ route, navigation }) {
           </Modal>
         </View>
       </ScrollView>
+
+      <MapPickerModal
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirm={handleMapPickerConfirm}
+        initialLocation={
+          selectedLocation ||
+          (latitude && longitude
+            ? { latitude: Number(latitude), longitude: Number(longitude) }
+            : null)
+        }
+        t={t}
+      />
     </View>
   );
 }
@@ -1517,63 +1452,6 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingBottom: 20,
   },
-  dayContainer: {
-    marginBottom: 0,
-    padding: 5,
-    backgroundColor: "#f8f8f8",
-    borderRadius: 10,
-  },
-  dayLabel: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
-  },
-  periodContainer: {
-    marginBottom: 10,
-  },
-  periodLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 5,
-    color: "#666",
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  hourInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 14,
-    backgroundColor: "#fff",
-  },
-  toText: {
-    marginHorizontal: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#444",
-  },
-  imageButton: {
-    backgroundColor: AppColors.primary,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    marginVertical: 10,
-  },
-  imageButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  selectedImageContainer: {
-    marginVertical: 10,
-    position: "relative",
-    alignItems: "center",
-  },
   selectedImage: {
     width: width(80),
     height: width(80),
@@ -1582,38 +1460,8 @@ const styles = StyleSheet.create({
   removeImageButton: {
     padding: 2,
   },
-  imageActionButtons: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   setMainButton: {
     padding: 2,
-  },
-  setMainButtonActive: {
-    backgroundColor: "rgba(0,0,0,0.7)",
-  },
-  mainImageBadge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    backgroundColor: AppColors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  changeImageButton: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    backgroundColor: AppColors.primary,
-    borderRadius: 20,
-    padding: 8,
   },
   imageGalleryContainer: {
     marginVertical: 10,
@@ -1679,235 +1527,72 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary_faded,
     borderRadius: 8,
   },
-  mapContainer: {
-    height: 200,
-    marginBottom: 15,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  map: {
-    flex: 1,
-  },
-  presetsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 15,
-  },
-  presetButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: AppColors.primary_faded,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  selectedPreset: {
-    borderColor: AppColors.primary,
-    backgroundColor: AppColors.white,
-  },
-  presetText: {
-    color: AppColors.primary,
-    fontSize: 14,
-  },
-  selectedPresetText: {
-    fontWeight: "bold",
-  },
-  dayHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  closedButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    backgroundColor: AppColors.primary_faded,
-  },
-  closedButtonText: {
-    color: AppColors.primary,
-    fontSize: 12,
-  },
-  closedText: {
-    color: AppColors.grey_200,
-    fontStyle: "italic",
-    textAlign: "center",
-    padding: 10,
-  },
-  openingHoursContainer: {
-    marginBottom: 20,
-  },
-  dayGroup: {
-    backgroundColor: AppColors.white,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: AppColors.grey_200,
-  },
-  dayGroupHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-  },
-  dayGroupTitle: {
-    flex: 1,
-  },
-  dayGroupText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: AppColors.black,
-  },
-  dayGroupHours: {
-    fontSize: 12,
-    color: AppColors.grey_200,
-    marginTop: 2,
-  },
-  dayGroupContent: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: AppColors.grey_200,
-    backgroundColor: AppColors.white_200,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  dayRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
-    paddingHorizontal: 2,
-    minHeight: 48,
-  },
-  block: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexShrink: 1,
-    minWidth: 0,
-    marginRight: 4,
-  },
-
-  blockActions: {
-    marginTop: 6,
-  },
-
-  timeInputs: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexShrink: 1,
-  },
-
-  timeInput: {
-    width: 44,
-    height: 36,
-    borderWidth: 1,
-    borderColor: AppColors.grey_200,
-    borderRadius: 6,
-    textAlign: "center",
-    fontSize: 14,
-    marginHorizontal: 4,
-    backgroundColor: AppColors.white_100,
-    paddingVertical: 2,
-  },
-  hoursContainer: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 12,
-  },
-  timeInputGroup: {
-    flex: 1,
-  },
-  timeInputs: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  timeInput: {
-    width: 44,
-    height: 36,
-    borderWidth: 1,
-    borderColor: AppColors.grey_200,
-    borderRadius: 6,
-    textAlign: "center",
-    fontSize: 14,
-    marginHorizontal: 4,
-    backgroundColor: AppColors.white_100,
-    paddingVertical: 2,
-  },
-  timeSeparator: {
-    marginHorizontal: 4,
-    color: AppColors.grey_200,
-  },
-  dayActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  actionButton: {
-    padding: 4,
-  },
-  hoursHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-    paddingHorizontal: 2,
-  },
-  hoursHeaderBlock: {
-    flex: 1,
-    alignItems: "center",
-  },
-  hoursHeaderText: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: AppColors.primary,
-    marginBottom: 2,
-  },
-  hoursHeaderSubText: {
-    fontSize: 11,
-    color: AppColors.grey_200,
-    marginHorizontal: 8,
-  },
-  dayActionsHeader: {
-    width: 48,
-  },
-  timeInputError: {
-    borderColor: AppColors.red,
-    backgroundColor: "#fff0f0",
-  },
-  timeInputErrorText: {
-    color: AppColors.red,
-    fontSize: 11,
-    marginTop: -4,
-    marginBottom: 4,
-    marginLeft: 8,
-  },
-  dayActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    width: 48,
-    marginLeft: 4,
-  },
-  actionButton: {
-    padding: 4,
-  },
   addressContainer: {
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
+    // Lift the row above the fields that follow so the floating suggestion
+    // list draws over them (Android honours zIndex between siblings).
+    zIndex: 1000,
+    overflow: "visible",
   },
   addressInputWrapper: {
     flex: 1,
+    overflow: "visible",
   },
-  locationButton: {
-    marginLeft: 8,
+  suggestionsAnchor: {
+    position: "relative",
+    zIndex: 1000,
+    overflow: "visible",
   },
-  timeInputContainer: {
+  suggestionsContainer: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    // The input carries marginBottom 15; pull the list up to its border.
+    marginTop: -11,
+    backgroundColor: AppColors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: AppColors.grey_200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  mapPickerRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: -5,
+    marginBottom: 10,
   },
-  minuteInput: {
-    width: 36,
+  mapPickerLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5,
+    flexShrink: 1,
+  },
+  mapPickerLinkText: {
+    color: AppColors.primary,
+    fontSize: 14,
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  locationSetBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 1,
+    minWidth: 0,
+    marginLeft: 10,
+  },
+  locationSetText: {
+    color: AppColors.primary,
+    fontSize: 13,
+    marginLeft: 4,
   },
   loadingContainer: {
     flex: 1,
