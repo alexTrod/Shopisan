@@ -1,7 +1,12 @@
+import { Platform } from "react-native";
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getFunctions } from "firebase/functions";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import {
+  initializeAuth,
+  getReactNativePersistence,
+  connectAuthEmulator,
+} from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const firebaseConfig = {
@@ -21,5 +26,15 @@ const functions = getFunctions(app);
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
+
+// Local Firebase emulators for manual testing without touching production:
+//   EXPO_PUBLIC_USE_EMULATOR=1 npx expo start
+// (10.0.2.2 is the host machine as seen from the Android emulator.)
+if (process.env.EXPO_PUBLIC_USE_EMULATOR === "1") {
+  const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  connectFirestoreEmulator(firestore, host, 8080);
+  connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+  connectFunctionsEmulator(functions, host, 5001);
+}
 
 export { firestore, auth, functions };
