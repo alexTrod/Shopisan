@@ -23,7 +23,7 @@ export default function DayRow({ day, hours, locale = 'en', closedLabel, onPress
       <Ionicons
         name="chevron-forward"
         size={20}
-        color={AppColors.grey_200}
+        color={AppColors.textSecondary}
         style={styles.chevron}
       />
     </TouchableOpacity>

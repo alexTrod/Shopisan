@@ -61,8 +61,9 @@ export default StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  // No opacity here: faded rows made the "Closed" text unreadable.
   dayRowClosed: {
-    opacity: 0.6,
+    backgroundColor: AppColors.grey_300,
   },
   dayName: {
     fontSize: 15,
@@ -72,7 +73,7 @@ export default StyleSheet.create({
   },
   dayHours: {
     fontSize: 14,
-    color: AppColors.grey_200,
+    color: AppColors.textSecondary,
     flex: 2,
     textAlign: 'right',
     marginRight: 8,
@@ -142,7 +143,7 @@ export default StyleSheet.create({
   timeSlotLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.grey_200,
+    color: AppColors.textSecondary,
   },
   removeSlotButton: {
     paddingVertical: 4,
@@ -163,7 +164,7 @@ export default StyleSheet.create({
   },
   timePickerLabel: {
     fontSize: 12,
-    color: AppColors.grey_200,
+    color: AppColors.textSecondary,
     marginBottom: 4,
   },
   timePickerButton: {
@@ -181,7 +182,7 @@ export default StyleSheet.create({
   },
   timeSeparator: {
     fontSize: 16,
-    color: AppColors.grey_200,
+    color: AppColors.textSecondary,
     marginHorizontal: 8,
   },
 

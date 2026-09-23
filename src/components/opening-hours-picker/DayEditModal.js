@@ -103,9 +103,14 @@ export default function DayEditModal({
               <Switch
                 value={isClosed}
                 onValueChange={handleClosedToggle}
-                trackColor={{ false: AppColors.grey_200, true: AppColors.primary }}
-                thumbColor={AppColors.white}
-                ios_backgroundColor={AppColors.grey_200}
+                // A white thumb on a light track was near invisible: colour
+                // the thumb in both states so on/off reads at a glance.
+                trackColor={{
+                  false: AppColors.grey_400,
+                  true: AppColors.primary_faded_dark,
+                }}
+                thumbColor={isClosed ? AppColors.primary : AppColors.textSecondary}
+                ios_backgroundColor={AppColors.grey_400}
               />
             </View>
 

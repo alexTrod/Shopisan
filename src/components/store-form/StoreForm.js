@@ -51,7 +51,10 @@ export const StoreForm = ({
   disabled = false,
   showMerchantFields = true,
   preapproval = false,
+  // Prefix for e2e testIDs (.maestro flows), e.g. "add-store".
+  testIDPrefix = "store-form",
 }) => {
+  const tid = (suffix) => `${testIDPrefix}-${suffix}`;
   const form = useStoreForm({
     t,
     onSuccess: mode === "standalone" ? onSubmit : undefined,
@@ -196,6 +199,19 @@ export const StoreForm = ({
     return <Text style={styles.errorText}>{message}</Text>;
   };
 
+  // Required fields carry a red asterisk and optional ones say so, so the
+  // pre-approval form reads as mandatory without having to submit it first.
+  const renderLabel = (key, { optional = false } = {}) => (
+    <Text style={styles.label}>
+      {t(key)}
+      {optional ? (
+        <Text style={styles.optionalText}> ({t("optional")})</Text>
+      ) : (
+        <Text style={styles.requiredMark}> *</Text>
+      )}
+    </Text>
+  );
+
   const data = categories.map((category) => ({
     value: category.id,
     label: category.name,
@@ -222,23 +238,26 @@ export const StoreForm = ({
         nestedScrollEnabled={true}
       >
         <View style={styles.container}>
-          <Text style={styles.label}>{t("store_name")}</Text>
+          {renderLabel("store_name")}
           <TextInput
             style={getInputStyle("name")}
+            testID={tid("name-input")}
             placeholder={t("store_name")}
             value={name}
             onChangeText={setName}
             editable={!disabled}
           />
+          {renderFieldError("name")}
 
           {/* City - with autocomplete (same order as user flow) */}
-          <Text style={styles.label}>{t("city")}</Text>
+          {renderLabel("city")}
           <View
             style={{ position: "relative", zIndex: 1100, overflow: "visible" }}
           >
             <TextInput
               style={getInputStyle("city")}
-              placeholder={t("city")}
+              testID={tid("city-input")}
+            placeholder={t("city")}
               value={city}
               onChangeText={manualEntryMode ? setCity : fetchCitySuggestions}
               editable={!disabled}
@@ -265,20 +284,24 @@ export const StoreForm = ({
               </View>
             )}
           </View>
+          {renderFieldError("city")}
 
-          <Text style={styles.label}>{t("postal_code")}</Text>
+          {renderLabel("postal_code")}
           <TextInput
             style={getInputStyle("postalCode")}
+            testID={tid("postal-code-input")}
             placeholder={t("postal_code")}
             value={postalCode}
             onChangeText={setPostalCode}
             keyboardType="numeric"
             editable={!disabled}
           />
+          {renderFieldError("postalCode")}
 
-          <Text style={styles.label}>{t("street_number")}</Text>
+          {renderLabel("street_number", { optional: true })}
           <TextInput
             style={[styles.input, disabled && styles.inputDisabled]}
+            testID={tid("street-number-input")}
             placeholder={t("street_number")}
             value={streetNumber}
             onChangeText={setStreetNumber}
@@ -286,13 +309,14 @@ export const StoreForm = ({
             editable={!disabled}
           />
 
-          <Text style={styles.label}>{t("street")}</Text>
+          {renderLabel("street")}
           <View
             style={{ position: "relative", zIndex: 1000, overflow: "visible" }}
           >
             <TextInput
               style={getInputStyle("street")}
-              placeholder={t("street")}
+              testID={tid("street-input")}
+            placeholder={t("street")}
               value={street}
               onChangeText={
                 manualEntryMode ? form.setStreet : fetchAddressSuggestions
@@ -321,6 +345,7 @@ export const StoreForm = ({
               </View>
             )}
           </View>
+          {renderFieldError("street")}
 
           {/* Search error message */}
           {searchError && !manualEntryMode && (
@@ -346,6 +371,7 @@ export const StoreForm = ({
             </TouchableOpacity>
             <View style={styles.addressOptionsRow}>
               <TouchableOpacity
+                testID={tid("map-picker-button")}
                 onPress={() => setShowMapPicker(true)}
                 style={styles.mapPickerLink}
                 disabled={disabled}
@@ -367,24 +393,27 @@ export const StoreForm = ({
 
           {!preapproval && (
             <>
-              <Text style={styles.label}>{t("description")}</Text>
+              {renderLabel("description")}
               <TextInput
                 style={[getInputStyle("description"), styles.textArea]}
-                placeholder={t("description")}
+                testID={tid("description-input")}
+            placeholder={t("description")}
                 value={description}
                 onChangeText={setDescription}
                 multiline
                 numberOfLines={4}
                 editable={!disabled}
               />
+              {renderFieldError("description")}
             </>
           )}
 
           {showMerchantFields && (
             <>
-              <Text style={styles.label}>{t("manager_first_name")}</Text>
+              {renderLabel("manager_first_name")}
               <TextInput
                 style={getInputStyle("managerFirstName")}
+                testID={tid("manager-first-name-input")}
                 placeholder={t("manager_first_name")}
                 value={managerFirstName}
                 onChangeText={setManagerFirstName}
@@ -392,9 +421,10 @@ export const StoreForm = ({
               />
               {renderFieldError("managerFirstName")}
 
-              <Text style={styles.label}>{t("manager_last_name")}</Text>
+              {renderLabel("manager_last_name")}
               <TextInput
                 style={getInputStyle("managerLastName")}
+                testID={tid("manager-last-name-input")}
                 placeholder={t("manager_last_name")}
                 value={managerLastName}
                 onChangeText={setManagerLastName}
@@ -402,9 +432,10 @@ export const StoreForm = ({
               />
               {renderFieldError("managerLastName")}
 
-              <Text style={styles.label}>{t("company_number")}</Text>
+              {renderLabel("company_number")}
               <TextInput
                 style={getInputStyle("companyNumber")}
+                testID={tid("company-number-input")}
                 placeholder={t("company_number")}
                 value={companyNumber}
                 onChangeText={setCompanyNumber}
@@ -422,10 +453,11 @@ export const StoreForm = ({
                   field is only shown when editing/adding a store later. */}
               {!preapproval && (
                 <>
-                  <Text style={styles.label}>{t("store_email")}</Text>
+                  {renderLabel("store_email")}
                   <TextInput
                     style={getInputStyle("storeEmail")}
-                    placeholder={t("store_email")}
+                    testID={tid("store-email-input")}
+                placeholder={t("store_email")}
                     value={storeEmail}
                     onChangeText={setStoreEmail}
                     keyboardType="email-address"
@@ -436,9 +468,10 @@ export const StoreForm = ({
                 </>
               )}
 
-              <Text style={styles.label}>{t("phone")}</Text>
+              {renderLabel("phone")}
               <TextInput
                 style={getInputStyle("phone")}
+                testID={tid("phone-input")}
                 placeholder={t("phone")}
                 value={phone}
                 onChangeText={setPhone}
@@ -447,9 +480,10 @@ export const StoreForm = ({
               />
               {renderFieldError("phone")}
 
-              <Text style={styles.label}>{t("website")}</Text>
+              {renderLabel("website", { optional: true })}
               <TextInput
                 style={getInputStyle("website")}
+                testID={tid("website-input")}
                 placeholder={t("website")}
                 value={website}
                 onChangeText={setWebsite}
@@ -463,7 +497,7 @@ export const StoreForm = ({
 
           {!preapproval && (
             <>
-              <Text style={styles.label}>{t("categories")}</Text>
+              {renderLabel("categories")}
               <TouchableOpacity
                 style={[
                   styles.categoryButton,
@@ -472,6 +506,7 @@ export const StoreForm = ({
                     styles.categoryButtonError,
                   disabled && styles.categoryButtonDisabled,
                 ]}
+                testID={tid("categories-button")}
                 onPress={() => setModalVisible(true)}
                 disabled={disabled}
               >
@@ -590,6 +625,7 @@ export const StoreForm = ({
                     styles.addImageButton,
                     disabled && styles.buttonDisabled,
                   ]}
+                  testID={tid("add-image-button")}
                   onPress={handlePickImage}
                   disabled={disabled}
                 >
@@ -604,6 +640,7 @@ export const StoreForm = ({
 
           <TouchableOpacity
             style={[styles.addButton, isLoading && styles.addButtonDisabled]}
+            testID={tid("submit-button")}
             onPress={handleFormSubmit}
             disabled={isLoading}
           >
@@ -683,8 +720,9 @@ export const StoreForm = ({
                   <FlatList
                     data={data}
                     keyExtractor={(item) => item.value.toString()}
-                    renderItem={({ item }) => (
+                    renderItem={({ item, index }) => (
                       <TouchableOpacity
+                        testID={tid(`category-item-${index}`)}
                         onPress={() => handleSelectCategory(item)}
                         style={styles.categoryItem}
                       >
@@ -704,6 +742,7 @@ export const StoreForm = ({
                     )}
                   />
                   <TouchableOpacity
+                    testID={tid("categories-close-button")}
                     onPress={() => setModalVisible(false)}
                     style={styles.cancelButton}
                   >
@@ -1044,6 +1083,10 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: AppColors.white,
+    fontWeight: "bold",
+  },
+  requiredMark: {
+    color: AppColors.red,
     fontWeight: "bold",
   },
   optionalText: {

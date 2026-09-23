@@ -252,6 +252,59 @@ describe("users - merchantStatus is server-owned", () => {
     );
   });
 
+  it("blocks creating an owner doc without merchantStatus", async () => {
+    // A missing status reads as approved for owners, which would skip review.
+    const db = asUser("bypass-owner-uid");
+    await assertFails(
+      setDoc(doc(db, "users", "bypass-owner-uid"), {
+        id: "bypass-owner-uid",
+        email: "bypass@example.com",
+        username: "bypass",
+        userType: "owner",
+      }),
+    );
+  });
+
+  it("blocks creating a legacy merchant doc without merchantStatus", async () => {
+    const db = asUser("bypass-merchant-uid");
+    await assertFails(
+      setDoc(doc(db, "users", "bypass-merchant-uid"), {
+        id: "bypass-merchant-uid",
+        email: "bypass-m@example.com",
+        username: "bypass-m",
+        userType: "merchant",
+      }),
+    );
+  });
+
+  it("lets a legacy owner (no field) re-enter review as pending", async () => {
+    // A merchant signup resumed on a legacy owner account writes this.
+    const db = asUser(OWNER_A);
+    await assertSucceeds(
+      updateDoc(doc(db, "users", OWNER_A), { merchantStatus: "pending" }),
+    );
+  });
+
+  it("blocks a shopper from adding merchantStatus: pending", async () => {
+    const db = asUser(SHOPPER);
+    await assertFails(
+      updateDoc(doc(db, "users", SHOPPER), { merchantStatus: "pending" }),
+    );
+  });
+
+  it("blocks a rejected merchant from resetting themselves to pending", async () => {
+    const db = asUser("rejected-uid");
+    await testEnv.withSecurityRulesDisabled((ctx) =>
+      seedUser(ctx.firestore(), "rejected-uid", {
+        userType: "owner",
+        merchantStatus: "rejected",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, "users", "rejected-uid"), { merchantStatus: "pending" }),
+    );
+  });
+
   it("blocks a pending merchant from approving themselves", async () => {
     const db = asUser(PENDING_MERCHANT);
     await assertFails(
@@ -341,6 +394,7 @@ describe("stores - only owner accounts can create", () => {
         id: 3,
         name: "Mine",
         owner_id: OWNER_A,
+        status: "pending",
       }),
     );
   });
@@ -364,6 +418,7 @@ describe("stores - only owner accounts can create", () => {
         id: 4,
         name: "Legacy",
         owner_id: LEGACY_MERCHANT,
+        status: "pending",
       }),
     );
   });
@@ -397,6 +452,20 @@ describe("stores - only owner accounts can create", () => {
 });
 
 describe("stores - pre-approval status", () => {
+  it("blocks creating a store without a status", async () => {
+    // A missing status reads as approved, so omitting it would publish the
+    // store without review (builds released before the status field did).
+    const db = asUser(OWNER_A);
+    await assertFails(
+      setDoc(doc(db, "stores", "no-status"), {
+        id: 10,
+        name: "No status",
+        owner_id: OWNER_A,
+        is_validated: true,
+      }),
+    );
+  });
+
   it("blocks creating a store that is already approved", async () => {
     const db = asUser(OWNER_A);
     await assertFails(
@@ -531,14 +600,15 @@ describe("stores - moderation fields are server-owned", () => {
     );
   });
 
-  it("accepts is_validated: false at create, so old builds still work", async () => {
+  it("accepts is_validated: false at create", async () => {
     const db = asUser(OWNER_A);
     await assertSucceeds(
       setDoc(doc(db, "stores", "old-build-store"), {
         id: 8,
-        name: "From an old build",
+        name: "Validated false",
         owner_id: OWNER_A,
         is_validated: false,
+        status: "pending",
       }),
     );
   });
@@ -551,6 +621,7 @@ describe("stores - moderation fields are server-owned", () => {
         name: "From a current build",
         owner_id: OWNER_A,
         is_validated: true,
+        status: "pending",
       }),
     );
   });

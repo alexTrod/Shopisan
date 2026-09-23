@@ -222,6 +222,7 @@ describe("signed-in owner", () => {
         name: "New store",
         owner_id: OWNER,
         is_validated: true,
+        status: "pending",
       }),
     );
   });

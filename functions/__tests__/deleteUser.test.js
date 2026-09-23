@@ -115,35 +115,51 @@ describe("deleteUser Cloud Function", () => {
   });
 
   describe("Cascade Deletion Order", () => {
-    it("should delete posts before stores", () => {
+    it("should trash owned stores instead of hard deleting them", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // Find posts deletion section
-      const postsMatch = indexContent.match(
-        /Delete posts for each store first[\s\S]*?postsRef[\s\S]*?where\("store\.id"/,
-      );
-      expect(postsMatch).toBeTruthy();
+      const deleteUserSection = indexContent.match(
+        /exports\.deleteUser = [\s\S]*?^\}\);/m,
+      )[0];
+      // Stores must stay restorable: no hard delete of stores or posts here.
+      expect(deleteUserSection).toContain("trashOwnedStores(ownerIds");
+      expect(deleteUserSection).not.toMatch(/storesBatch\.delete|postsBatch\.delete/);
 
-      // Find stores deletion section
-      const storesMatch = indexContent.match(
-        /Now delete stores[\s\S]*?storesBatch/,
-      );
-      expect(storesMatch).toBeTruthy();
+      const helper = indexContent.match(
+        /async function trashOwnedStores[\s\S]*?^\}/m,
+      )[0];
+      expect(helper).toContain("deleted_at: admin.firestore.FieldValue.serverTimestamp()");
+      expect(helper).toContain("previous_owner_id: store.owner_id");
+      expect(helper).toContain("previous_owner_email");
     });
 
-    it("should query posts by store.id field", () => {
+    it("should match stores by legacy users-doc ids too", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      const hasPostsQuery = indexContent.includes(
-        'where("store.id", "==", storeId)',
+      const deleteUserSection = indexContent.match(
+        /exports\.deleteUser = [\s\S]*?^\}\);/m,
+      )[0];
+      expect(deleteUserSection).toContain("ownerIds.add(userDoc.data().id)");
+      expect(deleteUserSection).toContain("ownerIds.add(doc.data().id)");
+    });
+
+    it("should trash stores in adminDeleteUser as well", () => {
+      const indexContent = require("fs").readFileSync(
+        require("path").join(__dirname, "../index.js"),
+        "utf8",
       );
-      expect(hasPostsQuery).toBe(true);
+
+      const adminSection = indexContent.match(
+        /exports\.adminDeleteUser = [\s\S]*?^\}\);/m,
+      )[0];
+      expect(adminSection).toContain("trashOwnedStores(ownerIds");
+      expect(adminSection).toContain('deletedBy: "admin:user-deleted"');
     });
 
     it("should delete passwordResets document by normalized email", () => {
@@ -200,7 +216,7 @@ describe("deleteUser Cloud Function", () => {
       );
 
       const hasSuccessReturn = indexContent.includes(
-        '{ success: true, message: "User deleted successfully" }',
+        '{ success: true, message: "User deleted successfully", trashedStores }',
       );
       expect(hasSuccessReturn).toBe(true);
     });

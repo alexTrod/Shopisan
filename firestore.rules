@@ -40,12 +40,19 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
 
       // merchantStatus ('pending' | 'approved' | 'rejected') is the
-      // pre-approval gate for store owners. A fresh signup may only start as
-      // 'pending' (or omit the field: shoppers never carry it, and the default
-      // below treats a missing key as pending so the create is still allowed).
-      // Only an admin or the Admin SDK moves it to 'approved' / 'rejected'.
+      // pre-approval gate for store owners. A fresh owner signup MUST carry
+      // 'pending': the app reads a missing key as approved (legacy owners), so
+      // an owner doc created without it would skip admin review. Shoppers never
+      // carry the field. Only an admin or the Admin SDK moves it to
+      // 'approved' / 'rejected'.
+      function ownerTypeValue(data) {
+        return data.get('userType', null) == 'owner' || data.get('userType', null) == 'merchant';
+      }
+
       allow create: if signedIn() && request.auth.uid == userId
-        && request.resource.data.get('merchantStatus', 'pending') == 'pending';
+        && request.resource.data.get('merchantStatus', 'pending') == 'pending'
+        && (!ownerTypeValue(request.resource.data)
+            || request.resource.data.get('merchantStatus', null) == 'pending');
 
       // Users may edit their own profile but NOT their privileged fields.
       // Without this, any shopper could promote themselves to owner with a
@@ -69,7 +76,12 @@ service cloud.firestore {
                 && request.resource.data.get('userType', null) == resource.data.get('userType', null)
                 && request.resource.data.get('is_admin', false) == resource.data.get('is_admin', false)
                 && request.resource.data.get('signupIntent', null) == resource.data.get('signupIntent', null)
-                && request.resource.data.get('merchantStatus', null) == resource.data.get('merchantStatus', null)));
+                && (request.resource.data.get('merchantStatus', null) == resource.data.get('merchantStatus', null)
+                    // A resumed merchant signup on a legacy owner doc (no
+                    // status) re-enters review. Only ever downgrades access.
+                    || (ownerTypeValue(resource.data)
+                        && resource.data.get('merchantStatus', null) == null
+                        && request.resource.data.get('merchantStatus', null) == 'pending'))));
 
       // Self-delete, or admin moderation delete. Full account removal
       // (Auth user + owned data) still goes through the adminDeleteUser
@@ -101,7 +113,8 @@ service cloud.firestore {
     match /stores/{storeId} {
       // status is the moderation field: 'pending' | 'approved'. It is
       // server-owned like is_verified/is_suspended -- owners may only create
-      // stores as 'pending' (or without the field, for old app builds) and may
+      // stores as 'pending' (the field is required: a missing key reads as
+      // approved, so builds that omit it would publish without review) and may
       // never change it; admins clear it to 'approved'. Reads are NOT gated on
       // it: the app hides 'pending' stores from shoppers client-side
       // (src/utils/storeVisibility.js) and a missing key means approved, so
@@ -110,7 +123,7 @@ service cloud.firestore {
       function moderationNeutralOnCreate() {
         return request.resource.data.get('is_verified', false) == false
             && request.resource.data.get('is_suspended', false) == false
-            && request.resource.data.get('status', 'pending') == 'pending';
+            && request.resource.data.get('status', '') == 'pending';
       }
 
       function moderationUnchanged() {

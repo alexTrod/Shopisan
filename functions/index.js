@@ -1792,6 +1792,53 @@ exports.checkEmailExists = functions.https.onCall(async (data, _context) => {
 // userId and/or email — must match the caller). Deleting anyone else requires
 // admin (assertAdmin). Unauthenticated callers (previously allowed) are
 // rejected.
+/**
+ * Soft-deletes every store owned by a deleted account.
+ *
+ * Sets deleted_at / deleted_by exactly like the owner and admin "move to
+ * trash" actions, so the store disappears from the app at once, shows in the
+ * admin Trash view, and is hard-deleted (posts + images) by
+ * purgeTrashedStores after TRASH_RETENTION_DAYS. owner_id is cleared because
+ * the account no longer exists; previous_owner_id / previous_owner_email let
+ * the admin hand the store back if the owner signs up again. A store that was
+ * already in the trash keeps its original deleted_at.
+ *
+ * ownerIds: Set of owner_id values to match (Auth UID + legacy users-doc ids).
+ * returns: number of stores trashed.
+ */
+async function trashOwnedStores(ownerIds, { deletedBy, ownerEmail }) {
+  if (!ownerIds || ownerIds.size === 0) {
+    return 0;
+  }
+  const storesRef = admin.firestore().collection("stores");
+  const storeDocs = new Map();
+  for (const ownerId of ownerIds) {
+    const snapshot = await storesRef.where("owner_id", "==", ownerId).get();
+    snapshot.docs.forEach((doc) => storeDocs.set(doc.ref.path, doc));
+  }
+  if (storeDocs.size === 0) {
+    return 0;
+  }
+  const batch = admin.firestore().batch();
+  for (const doc of storeDocs.values()) {
+    const store = doc.data();
+    batch.update(doc.ref, {
+      owner_id: null,
+      previous_owner_id: store.owner_id,
+      previous_owner_email: ownerEmail || null,
+      ...(store.deleted_at
+        ? {}
+        : {
+            deleted_at: admin.firestore.FieldValue.serverTimestamp(),
+            deleted_by: deletedBy,
+          }),
+    });
+    console.log(`Trashing store ${doc.id} of deleted user ${store.owner_id}`);
+  }
+  await batch.commit();
+  return storeDocs.size;
+}
+
 exports.deleteUser = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
@@ -1861,12 +1908,21 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // Delete from Firestore
+    // Delete from Firestore. Remember every users-doc `id` first: legacy
+    // accounts set store owner_id from it, and it can differ from the Auth UID.
     const usersRef = admin.firestore().collection("users");
+    const ownerIds = new Set();
+    if (authUid) {
+      ownerIds.add(authUid);
+    }
 
     // Try to delete by userId first
     if (authUid) {
       try {
+        const userDoc = await usersRef.doc(authUid).get();
+        if (userDoc.exists && userDoc.data().id) {
+          ownerIds.add(userDoc.data().id);
+        }
         await usersRef.doc(authUid).delete();
         console.log(`Deleted user document ${authUid} from Firestore`);
       } catch (error) {
@@ -1875,12 +1931,15 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
     }
 
     // Also try to delete by email query (in case document ID doesn't match Auth UID)
-    if (email) {
+    if (normalizedEmail) {
       const querySnapshot = await usersRef
-        .where("email", "==", email.toLowerCase())
+        .where("email", "==", normalizedEmail)
         .get();
       const batch = admin.firestore().batch();
       querySnapshot.docs.forEach((doc) => {
+        if (doc.data().id) {
+          ownerIds.add(doc.data().id);
+        }
         batch.delete(doc.ref);
         console.log(`Deleting user document by email: ${doc.id}`);
       });
@@ -1889,42 +1948,14 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // Also delete any stores owned by this user (and their posts)
-    if (authUid) {
-      const storesRef = admin.firestore().collection("stores");
-      const storesSnapshot = await storesRef
-        .where("owner_id", "==", authUid)
-        .get();
-      if (!storesSnapshot.empty) {
-        const postsRef = admin.firestore().collection("posts");
-
-        // Delete posts for each store first
-        for (const storeDoc of storesSnapshot.docs) {
-          const storeId = storeDoc.data().id;
-          if (storeId) {
-            const postsSnapshot = await postsRef
-              .where("store.id", "==", storeId)
-              .get();
-            if (!postsSnapshot.empty) {
-              const postsBatch = admin.firestore().batch();
-              postsSnapshot.docs.forEach((postDoc) => {
-                postsBatch.delete(postDoc.ref);
-                console.log(`Deleting post ${postDoc.id} for store ${storeId}`);
-              });
-              await postsBatch.commit();
-            }
-          }
-        }
-
-        // Now delete stores
-        const storesBatch = admin.firestore().batch();
-        storesSnapshot.docs.forEach((doc) => {
-          storesBatch.delete(doc.ref);
-          console.log(`Deleting store ${doc.id} owned by user ${authUid}`);
-        });
-        await storesBatch.commit();
-      }
-    }
+    // Move the user's stores to the trash instead of deleting them: they
+    // vanish from the app right away (and their posts with them, since posts
+    // are only ever loaded through their store) but stay restorable from the
+    // admin Trash view until purgeTrashedStores removes them for good.
+    const trashedStores = await trashOwnedStores(ownerIds, {
+      deletedBy: isSelfDelete ? "owner:account-deleted" : "admin:user-deleted",
+      ownerEmail: normalizedEmail,
+    });
 
     // Delete passwordResets document for this user's email
     if (normalizedEmail) {
@@ -1944,7 +1975,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    return { success: true, message: "User deleted successfully" };
+    return { success: true, message: "User deleted successfully", trashedStores };
   } catch (error) {
     console.error("Error deleting user:", error);
     if (error instanceof functions.https.HttpsError) {
@@ -1960,13 +1991,11 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 /**
  * Admin moderation delete of a user account.
  * Deletes the Firebase Auth user, the users document(s) and the passwordResets
- * document, but DETACHES the user's stores instead of deleting them: each
- * owned store gets owner_id: null (previous owner kept in previous_owner_id)
- * so it shows up as an orphan store in the admin panel and can be reviewed or
- * deleted separately via adminDeleteStore.
+ * document, and moves the user's stores to the trash (see trashOwnedStores):
+ * hidden from the app immediately, restorable from the admin Trash view.
  *
  * data: { userId?: string, email?: string } (at least one required)
- * returns: { success: true, message: string, detachedStores: number }
+ * returns: { success: true, message: string, trashedStores: number }
  */
 exports.adminDeleteUser = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
@@ -2060,37 +2089,12 @@ exports.adminDeleteUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // Detach (do NOT delete) the user's stores so they become reviewable
-    // orphan stores in the admin panel. Query owner_id against the Auth UID
-    // AND every users-doc `id` field collected above, deduped by store doc.
-    let detachedStores = 0;
-    if (ownerIds.size > 0) {
-      const storesRef = admin.firestore().collection("stores");
-      const storeDocs = new Map();
-      for (const ownerId of ownerIds) {
-        const storesSnapshot = await storesRef
-          .where("owner_id", "==", ownerId)
-          .get();
-        storesSnapshot.docs.forEach((doc) => {
-          storeDocs.set(doc.ref.path, doc);
-        });
-      }
-      if (storeDocs.size > 0) {
-        const storesBatch = admin.firestore().batch();
-        for (const doc of storeDocs.values()) {
-          storesBatch.update(doc.ref, {
-            owner_id: null,
-            previous_owner_id: doc.data().owner_id,
-          });
-          console.log(
-            `Detaching store ${doc.id} from deleted user ` +
-              `${doc.data().owner_id}`,
-          );
-        }
-        await storesBatch.commit();
-        detachedStores = storeDocs.size;
-      }
-    }
+    // Trash (do NOT hard delete) the user's stores. Matches owner_id against
+    // the Auth UID AND every users-doc `id` field collected above.
+    const trashedStores = await trashOwnedStores(ownerIds, {
+      deletedBy: "admin:user-deleted",
+      ownerEmail: normalizedEmail,
+    });
 
     // Delete passwordResets document for this user's email
     if (normalizedEmail) {
@@ -2113,7 +2117,7 @@ exports.adminDeleteUser = functions.https.onCall(async (data, context) => {
     return {
       success: true,
       message: "User deleted successfully",
-      detachedStores,
+      trashedStores,
     };
   } catch (error) {
     console.error("Error deleting user (admin):", error);

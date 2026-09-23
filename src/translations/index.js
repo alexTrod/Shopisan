@@ -44,6 +44,7 @@ export default {
     add_your_store: "Add Your Store",
     next_step: "Next: Add Your Store",
     complete_registration: "Complete Registration",
+    request_preapproval: "Request pre-approval",
     back: "Back",
     back_to_account: "Back to Account",
     merchant_registration_complete:
@@ -223,7 +224,7 @@ export default {
     recover_password: "Recover password",
     delete_account: "Delete Account",
     delete_account_confirm:
-      "Are you sure you want to delete your account? This will permanently delete your profile, all your stores, and all your posts. This action cannot be undone.",
+      "Are you sure you want to delete your account? Your profile is deleted permanently. Your stores and posts are removed from the app right away; contact Shopisan within 30 days if you want them back.",
     delete_account_failed: "Failed to delete account. Please try again.",
 
     // Change Email Screen
@@ -312,6 +313,10 @@ export default {
     explore_city_question:
       "No stores found within 10km. Would you like to explore {city}?",
     store_saved_success: "Store saved! Thank you for growing Shopisan with us",
+    store_submitted_title: "Store submitted for review",
+    store_submitted_description:
+      "We will check it shortly. It becomes visible in the app once approved.",
+    submit_store_for_review: "Submit for review",
     store_added_title: "Thank you for adding your favorite shop!",
     store_added_description:
       "The shop is live in the app right away. You are helping grow the Shopisan community, so feel free to spread the word and add other shops you love!",
@@ -485,6 +490,7 @@ export default {
     add_your_store: "Ajoutez Votre Boutique",
     next_step: "Suivant : Ajouter Votre Boutique",
     complete_registration: "Terminer l'Inscription",
+    request_preapproval: "Demander la pré-approbation",
     back: "Retour",
     back_to_account: "Retour au Compte",
     merchant_registration_complete:
@@ -670,7 +676,7 @@ export default {
     recover_password: "Récupérer le mot de passe",
     delete_account: "Supprimer le compte",
     delete_account_confirm:
-      "Êtes-vous sûr de vouloir supprimer votre compte ? Cela supprimera définitivement votre profil, tous vos magasins et toutes vos publications. Cette action est irréversible.",
+      "Êtes-vous sûr de vouloir supprimer votre compte ? Votre profil sera supprimé définitivement. Vos magasins et publications disparaissent immédiatement de l'application ; contactez Shopisan dans les 30 jours si vous souhaitez les récupérer.",
     delete_account_failed:
       "Échec de la suppression du compte. Veuillez réessayer.",
 
@@ -763,6 +769,10 @@ export default {
       "Aucun magasin trouvé dans un rayon de 10km. Souhaitez-vous explorer {city} ?",
     store_saved_success:
       "Boutique enregistrée ! Merci de faire grandir Shopisan avec nous",
+    store_submitted_title: "Boutique envoyée pour validation",
+    store_submitted_description:
+      "Nous la vérifions rapidement. Elle sera visible dans l'application une fois approuvée.",
+    submit_store_for_review: "Envoyer pour validation",
     store_added_title: "Merci d'avoir ajouté votre boutique favorite !",
     store_added_description:
       "La boutique est immédiatement en ligne dans l'application. Vous contribuez à faire grandir la communauté Shopisan : n'hésitez pas à en parler autour de vous et à ajouter d'autres boutiques que vous aimez !",

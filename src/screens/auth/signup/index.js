@@ -463,7 +463,7 @@ export default function SignUp({ navigation }) {
     <StoreForm
       t={t}
       onSubmit={handleStoreSubmit}
-      submitButtonText={t("complete_registration") || "Complete Registration"}
+      submitButtonText={t("request_preapproval") || "Request pre-approval"}
       mode="wizard"
       showMerchantFields={true}
       preapproval

@@ -31,7 +31,6 @@ import {
 import {
   USER_TYPES,
   MERCHANT_STATUS,
-  getMerchantStatus,
   normalizeUserType,
 } from "../../utils/userTypes";
 import { buildStoreAddress } from "../../utils/storeAddress";
@@ -813,9 +812,17 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         const ownedStores = await getDocs(
           query(storesRef, where("owner_id", "==", userId), limit(1)),
         );
+        // Admin accounts and owners the admin already reviewed are never
+        // resumed: re-running the merchant signup on them would attach a new
+        // store to an account that skips (or already failed) review.
+        const reviewedStatus =
+          existingUser.merchantStatus === MERCHANT_STATUS.APPROVED ||
+          existingUser.merchantStatus === MERCHANT_STATUS.REJECTED;
         const isIncompleteOwner =
           normalizeUserType(existingUser.userType) === USER_TYPES.OWNER &&
-          ownedStores.empty;
+          ownedStores.empty &&
+          existingUser.is_admin !== true &&
+          !reviewedStatus;
         if (!isIncompleteOwner) {
           // A complete account: nothing to resume.
           await firebaseSignOut(auth);
@@ -874,13 +881,21 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         lastVerificationSent: serverTimestamp(),
       });
       userDocCreated = true;
-    } else if (!existingUser.verificationToken) {
-      // updateDoc leaves merchantStatus untouched, so the rules freeze on
-      // self-updates is satisfied.
+    } else {
+      // A resumed owner re-enters review: a legacy doc has no merchantStatus,
+      // which the app reads as approved, so without this the new store's
+      // owner would never show up in the admin's merchant requests. The rules
+      // allow exactly this missing -> 'pending' self-transition.
       await updateDoc(userDocRef, {
-        verificationToken,
-        verificationExpiresAt,
-        lastVerificationSent: serverTimestamp(),
+        merchantStatus: MERCHANT_STATUS.PENDING,
+        ...profile,
+        ...(existingUser.verificationToken
+          ? {}
+          : {
+              verificationToken,
+              verificationExpiresAt,
+              lastVerificationSent: serverTimestamp(),
+            }),
       });
     }
 
@@ -1008,13 +1023,10 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
         language,
         userType: USER_TYPES.OWNER,
         signupIntent: USER_TYPES.OWNER,
-        // Carried here so App.js gates the fresh merchant on the pending
-        // screen right away, not only after the next cold start.
-        // A resumed legacy owner has no field in Firestore and reads as
-        // approved there; Redux must agree or they are gated until restart.
-        merchantStatus: existingUser
-          ? getMerchantStatus({ ...existingUser, userType: USER_TYPES.OWNER })
-          : MERCHANT_STATUS.PENDING,
+        // Carried here so App.js gates the merchant on the pending screen
+        // right away, not only after the next cold start. Fresh and resumed
+        // signups are both pending in Firestore by now.
+        merchantStatus: MERCHANT_STATUS.PENDING,
         is_validated: false, // Email not verified yet
         is_active: true, // Account is active
         is_admin: false,

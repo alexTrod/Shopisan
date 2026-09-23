@@ -10,6 +10,7 @@ import {
   query as firestoreQuery,
   orderBy,
   limit,
+  where,
   serverTimestamp,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -96,12 +97,19 @@ export const useStoreForm = ({
   const [description, setDescription] = useState("");
   const [selectedImages, setSelectedImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [storeEmail, setStoreEmail] = useState("");
+  // An owner adding another store already gave these at signup: prefill
+  // them from the profile (editable). The signup wizard has no user yet.
+  const profile = mode === "standalone" && user ? user : {};
+  const [storeEmail, setStoreEmail] = useState(profile.email || "");
   const [website, setWebsite] = useState("");
-  const [phone, setPhone] = useState("");
-  const [managerFirstName, setManagerFirstName] = useState("");
-  const [managerLastName, setManagerLastName] = useState("");
-  const [companyNumber, setCompanyNumber] = useState("");
+  const [phone, setPhone] = useState(profile.phone || "");
+  const [managerFirstName, setManagerFirstName] = useState(profile.name || "");
+  const [managerLastName, setManagerLastName] = useState(
+    profile.surname || "",
+  );
+  const [companyNumber, setCompanyNumber] = useState(
+    profile.companyNumber || "",
+  );
   // ISO country code read off the Mapbox feature the user picked; null until
   // a city/address suggestion is selected. Geocoding falls back to FR.
   const [detectedCountryCode, setDetectedCountryCode] = useState(null);
@@ -653,6 +661,9 @@ export const useStoreForm = ({
       phone: phone || "",
       managerFirstName: managerFirstName || "",
       managerLastName: managerLastName || "",
+      // Trade register number, required from owners: lets the admin check
+      // the business when reviewing a store added after signup.
+      companyNumber: companyNumber || "",
     };
   };
 
@@ -797,6 +808,39 @@ export const useStoreForm = ({
         maxId = topStore.id || 0;
       }
 
+      // Deduplication: a Firestore write that timed out may still have
+      // landed, and the retry must not create the store twice.
+      try {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const duplicateSnapshot = await withTimeout(
+          getDocs(
+            firestoreQuery(
+              storesRef,
+              where("name", "==", name),
+              where("cityName", "==", city),
+              where("owner_id", "==", ownerId),
+            ),
+          ),
+          10000,
+          "DUPLICATE_CHECK_TIMEOUT",
+        );
+        const recentDuplicate = duplicateSnapshot.docs.find((d) => {
+          const createdAt = d.data().created?.toDate?.();
+          return createdAt && createdAt > fiveMinutesAgo;
+        });
+        if (recentDuplicate) {
+          dispatch(setSelectedCategories([]));
+          setIsSubmitting(false);
+          if (onSuccess) {
+            onSuccess({ ...recentDuplicate.data(), duplicate: true });
+          }
+          return;
+        }
+      } catch (dedupeError) {
+        // Never block the submit on the dedupe check.
+        console.warn("Store duplicate check failed:", dedupeError.message);
+      }
+
       const newStoreId = maxId + 1;
       const storeData = await buildStoreData(
         ownerId,
@@ -826,6 +870,7 @@ export const useStoreForm = ({
           city: city,
           categories: selectedCategories,
           language: t("locale") === "fr" ? "fr" : "en",
+          username: user?.username || user?.name || name,
         }).catch((emailError) => {
           console.error("Error sending store creation emails:", emailError);
         });

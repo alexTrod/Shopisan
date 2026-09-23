@@ -24,7 +24,9 @@ const formatTimeDisplay = (timeStr) => {
 const OpeningHoursDisplay = ({ openingHours }) => {
   const { t } = useTranslation();
 
-  if (!openingHours) {
+  // Signup stores `{}` until the owner fills hours in after approval;
+  // showing seven "Closed" rows for that would be wrong.
+  if (!openingHours || Object.keys(openingHours).length === 0) {
     return null;
   }
 
@@ -84,7 +86,7 @@ const styles = StyleSheet.create({
   },
   openingHourText: {
     fontSize: height(1.8),
-    color: '#666',
+    color: '#333',
     textAlign: 'right',
   },
 });

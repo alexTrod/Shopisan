@@ -5,6 +5,8 @@
  * Usage:
  *   node scripts/migrate-user-types.js --dry-run    # report only, no writes
  *   node scripts/migrate-user-types.js              # apply
+ *   ... --inspect=someone@example.com               # also print that account
+ *                                                   # and its stores (repeatable)
  *
  * Requires: serviceAccountKey.json in project root
  *
@@ -23,6 +25,13 @@
  * Also reports stores with a null owner_id, which are uneditable by anyone and
  * need manual repair.
  *
+ * Pre-approval report (read only, never written): owners with no
+ * merchantStatus (the app treats them as approved), admins that are also
+ * owners, accounts carrying only the legacy is_owner flag (shown as shoppers
+ * in the app; NOT promoted, because old signups wrote is_owner: true for any
+ * userType other than "shopper", including a missing one), and live stores
+ * whose owner account was deleted (previous_owner_id set, not in the trash).
+ *
  * Safe to re-run: every step is idempotent.
  */
 
@@ -31,6 +40,10 @@ const path = require("path");
 const fs = require("fs");
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const INSPECT_EMAILS = process.argv
+  .filter((arg) => arg.startsWith("--inspect="))
+  .map((arg) => arg.slice("--inspect=".length).trim().toLowerCase())
+  .filter(Boolean);
 const BATCH_SIZE = 500;
 
 const USER_TYPES = { SHOPPER: "user", OWNER: "owner" };
@@ -193,6 +206,120 @@ async function migratePosts(ownerByStoreId) {
   return { unresolved };
 }
 
+const printList = (items, format, max = 30) => {
+  items.slice(0, max).forEach((item) => console.log(`    ${format(item)}`));
+  if (items.length > max) {
+    console.log(`    ... and ${items.length - max} more`);
+  }
+};
+
+const tsToIso = (value) =>
+  value && typeof value.toDate === "function" ? value.toDate().toISOString() : value;
+
+/** Read-only report for the merchant pre-approval flow. */
+async function reportPreapproval() {
+  const [usersSnap, storesSnap] = await Promise.all([
+    db.collection("users").get(),
+    db.collection("stores").get(),
+  ]);
+  const stores = storesSnap.docs.map((d) => ({ docId: d.id, ...d.data() }));
+  const storesByOwner = new Map();
+  stores.forEach((store) => {
+    if (!store.owner_id) return;
+    if (!storesByOwner.has(store.owner_id)) storesByOwner.set(store.owner_id, []);
+    storesByOwner.get(store.owner_id).push(store);
+  });
+  const storesOf = (docId, user) => [
+    ...(storesByOwner.get(docId) || []),
+    ...(user.id && user.id !== docId ? storesByOwner.get(user.id) || [] : []),
+  ];
+
+  const ownersWithoutStatus = [];
+  const adminOwners = [];
+  const legacyFlagOnly = [];
+  const statusCounts = {};
+
+  usersSnap.forEach((docSnap) => {
+    const user = docSnap.data();
+    const isOwner = user.userType === "owner" || user.userType === "merchant";
+    const label = `${user.email || "(no email)"} [${docSnap.id}]`;
+    if (isOwner) {
+      const key = user.merchantStatus || "(missing = approved)";
+      statusCounts[key] = (statusCounts[key] || 0) + 1;
+      const owned = storesOf(docSnap.id, user);
+      if (!user.merchantStatus) {
+        ownersWithoutStatus.push({ label, stores: owned.length });
+      }
+      if (user.is_admin === true) {
+        adminOwners.push({ label, status: user.merchantStatus, stores: owned.length });
+      }
+    } else if (user.is_owner === true) {
+      legacyFlagOnly.push({
+        label,
+        userType: user.userType,
+        stores: storesOf(docSnap.id, user).length,
+      });
+    }
+  });
+
+  console.log("\nPre-approval report (read only)");
+  console.log("  Owners by merchantStatus:", statusCounts);
+  console.log(
+    `  ${ownersWithoutStatus.length} owner(s) without merchantStatus (treated as approved):`,
+  );
+  printList(ownersWithoutStatus, (u) => `${u.label} - ${u.stores} store(s)`);
+  console.log(`  ${adminOwners.length} admin account(s) that are also owners:`);
+  printList(adminOwners, (u) => `${u.label} - status ${u.status || "(missing)"}, ${u.stores} store(s)`);
+  console.log(
+    `  ${legacyFlagOnly.length} account(s) with only the legacy is_owner flag (shoppers in the app):`,
+  );
+  printList(legacyFlagOnly, (u) => `${u.label} - userType ${u.userType}, ${u.stores} store(s)`);
+
+  const detachedLive = stores.filter((st) => st.previous_owner_id && !st.deleted_at);
+  console.log(
+    `  ${detachedLive.length} live store(s) whose owner account was deleted (should be in the trash):`,
+  );
+  printList(detachedLive, (st) => `doc ${st.docId} (id ${st.id}) "${st.name}" - previous owner ${st.previous_owner_id}`);
+
+  const pendingStores = stores.filter((st) => st.status === "pending" && !st.deleted_at);
+  console.log(`  ${pendingStores.length} pending store(s) waiting for review`);
+
+  for (const email of INSPECT_EMAILS) {
+    console.log(`\nInspect ${email}`);
+    try {
+      const record = await admin.auth().getUserByEmail(email);
+      console.log(`  auth uid ${record.uid}, created ${record.metadata.creationTime}, claims`, record.customClaims || {});
+    } catch (error) {
+      console.log(`  no Auth user (${error.code || error.message})`);
+    }
+    const matches = usersSnap.docs.filter(
+      (d) => String(d.data().email || "").toLowerCase() === email,
+    );
+    if (matches.length === 0) console.log("  no users doc");
+    matches.forEach((d) => {
+      const u = d.data();
+      console.log(`  users/${d.id}`, {
+        id: u.id,
+        userType: u.userType,
+        is_owner: u.is_owner,
+        merchantStatus: u.merchantStatus,
+        signupIntent: u.signupIntent,
+        is_admin: u.is_admin,
+        created: tsToIso(u.created),
+      });
+      storesOf(d.id, u).forEach((st) =>
+        console.log(`    store ${st.docId}`, {
+          id: st.id,
+          name: st.name,
+          status: st.status,
+          deleted_at: tsToIso(st.deleted_at),
+          created: tsToIso(st.created),
+        }),
+      );
+    });
+  }
+}
+
 async function main() {
   console.log("=".repeat(60));
   console.log(
@@ -208,6 +335,7 @@ async function main() {
 
   await migrateUsers(ownerIds);
   await migratePosts(ownerByStoreId);
+  await reportPreapproval();
 
   if (orphanStores.length > 0) {
     console.log(

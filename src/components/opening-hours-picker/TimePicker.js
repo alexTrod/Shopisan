@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: AppColors.grey_200,
+    color: AppColors.textSecondary,
     marginBottom: 4,
   },
   button: {
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
   columnLabel: {
     fontSize: 12,
-    color: AppColors.grey_200,
+    color: AppColors.textSecondary,
     marginBottom: 8,
   },
   scrollView: {

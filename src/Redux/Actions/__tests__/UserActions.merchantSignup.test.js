@@ -55,6 +55,25 @@ describe("signUpMerchantWithStore Action", () => {
     });
   });
 
+  describe("Resumed signup", () => {
+    it("never resumes an admin or an already reviewed owner", () => {
+      expect(merchantSection).toContain("existingUser.is_admin !== true");
+      expect(merchantSection).toMatch(
+        /existingUser\.merchantStatus === MERCHANT_STATUS\.APPROVED[\s\S]*?existingUser\.merchantStatus === MERCHANT_STATUS\.REJECTED/,
+      );
+    });
+
+    it("puts the resumed owner back into review as pending", () => {
+      expect(merchantSection).toMatch(
+        /await updateDoc\(userDocRef, \{\s*merchantStatus: MERCHANT_STATUS\.PENDING,/,
+      );
+    });
+
+    it("dispatches the merchant as pending in Redux", () => {
+      expect(merchantSection).not.toContain("getMerchantStatus(");
+    });
+  });
+
   describe("Users Document", () => {
     it("is created pending with the merchant profile fields", () => {
       expect(merchantSection).toContain(
