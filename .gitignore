@@ -112,3 +112,4 @@ cleanup-empty-cities.js
 e2e/report/
 e2e/.apk-stamp
 e2e/.installed-stamp
+scripts/backups/
