@@ -1,0 +1,49 @@
+# F8 - Guest browsing, a wrong password, a real login and logout.
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- tapOn:
+    id: "signup-skip-button"
+- extendedWaitUntil:
+    visible:
+      id: "header-sign-up"
+    timeout: 30000
+- takeScreenshot: ${OUT}/01-guest-home
+- tapOn:
+    id: "header-sign-up"
+- extendedWaitUntil:
+    visible:
+      id: "signup-username-input"
+    timeout: 15000
+- runFlow:
+    file: subflows/login.yaml
+    env:
+      PASSWORD: "wrong-password"
+- extendedWaitUntil:
+    visible: "Email ou mot de passe incorrect. Veuillez réessayer."
+    timeout: 15000
+- takeScreenshot: ${OUT}/02-wrong-password
+- tapOn: "Ok"
+- tapOn:
+    id: "signin-password-input"
+- eraseText
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "signin-login-button"
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 30000
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-logout"
+- tapOn:
+    id: "profile-logout"
+- extendedWaitUntil:
+    visible:
+      id: "signup-username-input"
+    timeout: 15000
+- takeScreenshot: ${OUT}/03-logged-out

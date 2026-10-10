@@ -1,0 +1,51 @@
+# F1 - A new shopper signs up (French app) and lands on the store list.
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- takeScreenshot: ${OUT}/01-signup-screen
+- tapOn:
+    id: "signup-type-shopper"
+- scrollUntilVisible:
+    element:
+      id: "signup-username-input"
+- tapOn:
+    id: "signup-username-input"
+- inputText: "nouvelle"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-email-input"
+- tapOn:
+    id: "signup-email-input"
+- inputText: "nouvelle@e2e.test"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-password-input"
+- tapOn:
+    id: "signup-password-input"
+- inputText: "${PASSWORD}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-confirm-input"
+- tapOn:
+    id: "signup-confirm-input"
+- inputText: "${PASSWORD}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "accept-terms-box"
+- tapOn:
+    id: "accept-terms-box"
+- takeScreenshot: ${OUT}/02-form-filled
+- scrollUntilVisible:
+    element:
+      id: "signup-submit-button"
+- tapOn:
+    id: "signup-submit-button"
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 30000
+- takeScreenshot: ${OUT}/03-home-after-signup

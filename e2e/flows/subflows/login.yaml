@@ -1,0 +1,18 @@
+# From the SignUp screen: open SignIn and log in with ${EMAIL} / ${PASSWORD}.
+appId: com.ecomerce.shopisan
+---
+- tapOn: "(Se connecter|Log in)"
+- extendedWaitUntil:
+    visible:
+      id: "signin-email-input"
+    timeout: 10000
+- tapOn:
+    id: "signin-email-input"
+- inputText: ${EMAIL}
+- hideKeyboard
+- tapOn:
+    id: "signin-password-input"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "signin-login-button"

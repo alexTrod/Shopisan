@@ -1,0 +1,125 @@
+# F2 - A store owner signs up (account + store) and ends on the
+# "request received" screen, waiting for admin approval.
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- tapOn:
+    id: "signup-type-owner"
+- scrollUntilVisible:
+    element:
+      id: "signup-username-input"
+- tapOn:
+    id: "signup-username-input"
+- inputText: "fromager"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-email-input"
+- tapOn:
+    id: "signup-email-input"
+- inputText: "fromager@e2e.test"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-password-input"
+- tapOn:
+    id: "signup-password-input"
+- inputText: "${PASSWORD}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-confirm-input"
+- tapOn:
+    id: "signup-confirm-input"
+- inputText: "${PASSWORD}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "accept-terms-box"
+- tapOn:
+    id: "accept-terms-box"
+- takeScreenshot: ${OUT}/01-account-step
+- scrollUntilVisible:
+    element:
+      id: "signup-submit-button"
+- tapOn:
+    id: "signup-submit-button"
+- extendedWaitUntil:
+    visible:
+      id: "store-form-name-input"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "store-form-name-input"
+- tapOn:
+    id: "store-form-name-input"
+- inputText: "Fromagerie Test"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-city-input"
+- tapOn:
+    id: "store-form-city-input"
+- inputText: "Lyon"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-postal-code-input"
+- tapOn:
+    id: "store-form-postal-code-input"
+- inputText: "69002"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-street-number-input"
+- tapOn:
+    id: "store-form-street-number-input"
+- inputText: "5"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-street-input"
+- tapOn:
+    id: "store-form-street-input"
+- inputText: "Rue Merciere"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-manager-first-name-input"
+- tapOn:
+    id: "store-form-manager-first-name-input"
+- inputText: "Marie"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-manager-last-name-input"
+- tapOn:
+    id: "store-form-manager-last-name-input"
+- inputText: "Durand"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-company-number-input"
+- tapOn:
+    id: "store-form-company-number-input"
+- inputText: "12345678900012"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-phone-input"
+- tapOn:
+    id: "store-form-phone-input"
+- inputText: "0612345678"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "store-form-submit-button"
+- takeScreenshot: ${OUT}/02-store-step
+- tapOn:
+    id: "store-form-submit-button"
+- extendedWaitUntil:
+    visible:
+      id: "pending-log-out"
+    timeout: 30000
+- assertVisible: "Demande reçue"
+- takeScreenshot: ${OUT}/03-request-received

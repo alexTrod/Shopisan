@@ -1,0 +1,51 @@
+# F6 - An owner using the app in English switches to French, then opens
+# Manage Posts: the create button must read "Créer un post".
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- tapOn: "Log in"
+- extendedWaitUntil:
+    visible:
+      id: "signin-email-input"
+    timeout: 10000
+- tapOn:
+    id: "signin-email-input"
+- inputText: ${EMAIL}
+- hideKeyboard
+- tapOn:
+    id: "signin-password-input"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "signin-login-button"
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 30000
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "language-selector"
+- tapOn:
+    id: "language-option-fr"
+- extendedWaitUntil:
+    visible: "Profil"
+    timeout: 10000
+- takeScreenshot: ${OUT}/01-profile-french
+- scrollUntilVisible:
+    element:
+      id: "profile-manage-posts"
+- tapOn:
+    id: "profile-manage-posts"
+- extendedWaitUntil:
+    visible:
+      id: "posts-create-button"
+    timeout: 20000
+- assertVisible:
+    id: "posts-create-button"
+    text: "Créer un post"
+- takeScreenshot: ${OUT}/02-manage-posts
+- tapOn:
+    id: "posts-create-button"
+- assertVisible: "Créer un post"
+- takeScreenshot: ${OUT}/03-create-post-modal

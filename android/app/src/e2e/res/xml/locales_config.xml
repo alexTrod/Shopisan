@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- e2e build type only: lets the suite set the app language per flow with
+     `adb shell cmd locale set-app-locales` (Android 13+). -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en"/>
+    <locale android:name="fr"/>
+</locale-config>

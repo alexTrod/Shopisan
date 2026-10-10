@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- e2e build type only: the app talks plain HTTP to the Firebase emulators
+         on 10.0.2.2, and the suite sets the app language per flow. -->
+    <application
+        android:usesCleartextTraffic="true"
+        android:localeConfig="@xml/locales_config"
+        tools:targetApi="33"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>

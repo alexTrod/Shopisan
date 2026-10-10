@@ -1,0 +1,11 @@
+# F4 part 1 - An owner still waiting for approval logs in and is held on the
+# "request received" screen.
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- runFlow: subflows/login.yaml
+- extendedWaitUntil:
+    visible:
+      id: "pending-check-again"
+    timeout: 30000
+- takeScreenshot: ${OUT}/01-waiting-for-approval

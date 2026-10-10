@@ -1,0 +1,91 @@
+# F4 part 2 - Same session, after the admin approved the owner: "Check again"
+# opens the app, and the owner adds a second store from Profile.
+appId: com.ecomerce.shopisan
+---
+- tapOn:
+    id: "pending-check-again"
+- extendedWaitUntil:
+    visible:
+      id: "main-tab-bar"
+    timeout: 30000
+- takeScreenshot: ${OUT}/02-approved-home
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-add-store"
+- tapOn:
+    id: "profile-add-store"
+- extendedWaitUntil:
+    visible:
+      id: "add-store-name-input"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "add-store-name-input"
+- tapOn:
+    id: "add-store-name-input"
+- inputText: "Cave Nouvelle"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-city-input"
+- tapOn:
+    id: "add-store-city-input"
+- inputText: "Lyon"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-postal-code-input"
+- tapOn:
+    id: "add-store-postal-code-input"
+- inputText: "69002"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-street-number-input"
+- tapOn:
+    id: "add-store-street-number-input"
+- inputText: "12"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-street-input"
+- tapOn:
+    id: "add-store-street-input"
+- inputText: "Rue Merciere"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-description-input"
+- tapOn:
+    id: "add-store-description-input"
+- inputText: "Vins naturels"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-categories-button"
+- tapOn:
+    id: "add-store-categories-button"
+- tapOn:
+    id: "add-store-category-item-0"
+- tapOn:
+    id: "add-store-categories-close-button"
+- scrollUntilVisible:
+    element:
+      id: "add-store-store-email-input"
+- tapOn:
+    id: "add-store-store-email-input"
+- eraseText
+- inputText: "cave@e2e.test"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "add-store-submit-button"
+- takeScreenshot: ${OUT}/03-new-store-form
+- tapOn:
+    id: "add-store-submit-button"
+- extendedWaitUntil:
+    visible: "Boutique envoyée pour validation"
+    timeout: 30000
+- takeScreenshot: ${OUT}/04-store-submitted

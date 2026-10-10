@@ -1,0 +1,23 @@
+# F7 - The app is closed. The email's "Open the app" button links to the
+# /open page (served here by the hosting emulator); in Chrome on Android the
+# page must hand off to the installed app.
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- stopApp
+- openLink:
+    link: "http://10.0.2.2:5005/open"
+    browser: true
+# Chrome may require a user gesture before following the intent: the page
+# then shows its own "open the app" button.
+- runFlow:
+    when:
+      visible: "(Ouvrir l'application|Open the app)"
+    commands:
+      - takeScreenshot: ${OUT}/01-open-page
+      - tapOn: "(Ouvrir l'application|Open the app)"
+- extendedWaitUntil:
+    visible:
+      id: "signup-username-input"
+    timeout: 30000
+- takeScreenshot: ${OUT}/02-app-opened-from-link

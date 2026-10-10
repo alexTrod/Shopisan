@@ -12,9 +12,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:rules": "firebase emulators:exec --only firestore --project demo-shopisan \"jest --config jest.rules.config.js\"",
-    "e2e": "maestro test .maestro/flows",
-    "e2e:login": "maestro test .maestro/flows/login.yaml",
-    "e2e:add-store": "maestro test .maestro/flows/add-store.yaml"
+    "e2e": "node e2e/run.mjs",
+    "e2e:emulators": "firebase emulators:start --config firebase.e2e.json --project shopisan-bad76 --only auth,firestore,functions,hosting",
+    "e2e:build": "e2e/build-apk.sh"
   },
   "jest": {
     "preset": "jest-expo",

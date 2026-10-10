@@ -129,6 +129,14 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
         }
+        // e2e suite only (e2e/README.md): release-like (JS bundled, no Metro)
+        // but signed with the debug key and allowed plain HTTP to the local
+        // Firebase emulators (src/e2e/AndroidManifest.xml). Never shipped.
+        e2e {
+            initWith release
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+        }
     }
     packagingOptions {
         jniLibs {

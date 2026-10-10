@@ -1,0 +1,11 @@
+# Cold start. The runner has already wiped the app (pm clear), set its
+# language and granted location, so no system dialog can appear mid-flow.
+# (Maestro's own clearState would also reset the per-app language.)
+appId: com.ecomerce.shopisan
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: "signup-username-input"
+    timeout: 30000

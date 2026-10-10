@@ -1,0 +1,29 @@
+{
+  "functions": [
+    {
+      "codebase": "default",
+      "source": "functions"
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "firebase.e2e.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/verify-email", "destination": "/verify-email.html" },
+      { "source": "/confirm-email-change", "destination": "/confirm-email-change.html" },
+      { "source": "/open", "destination": "/open.html" }
+    ]
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8085 },
+    "functions": { "port": 5001 },
+    "hosting": { "port": 5005 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

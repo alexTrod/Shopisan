@@ -30,9 +30,14 @@ const auth = initializeAuth(app, {
 // Local Firebase emulators for manual testing without touching production:
 //   EXPO_PUBLIC_USE_EMULATOR=1 npx expo start
 // (10.0.2.2 is the host machine as seen from the Android emulator.)
+// EXPO_PUBLIC_FIRESTORE_EMULATOR_PORT overrides 8080 when something else
+// holds it (the e2e suite runs Firestore on 8085, see firebase.e2e.json).
 if (process.env.EXPO_PUBLIC_USE_EMULATOR === "1") {
   const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-  connectFirestoreEmulator(firestore, host, 8080);
+  const firestorePort = Number(
+    process.env.EXPO_PUBLIC_FIRESTORE_EMULATOR_PORT || 8080
+  );
+  connectFirestoreEmulator(firestore, host, firestorePort);
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
   connectFunctionsEmulator(functions, host, 5001);
 }

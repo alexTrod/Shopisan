@@ -1,0 +1,20 @@
+# F5 - A shopper in a city with no shops sees the empty-city message, then
+# taps "search another city" and lands on the nearest city with a shop.
+appId: com.ecomerce.shopisan
+---
+- runFlow: subflows/launch-fresh.yaml
+- runFlow: subflows/login.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home-empty-state"
+    timeout: 45000
+- takeScreenshot: ${OUT}/01-empty-city
+- copyTextFrom:
+    id: "home-empty-subtext"
+- evalScript: ${output.emptySubtext = maestro.copiedText}
+- tapOn:
+    id: "home-empty-search-other-city"
+- extendedWaitUntil:
+    visible: ".*Boulangerie Lyon.*"
+    timeout: 30000
+- takeScreenshot: ${OUT}/02-nearest-city-shops
