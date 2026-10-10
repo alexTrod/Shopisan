@@ -12,6 +12,27 @@
 const DEFAULT_COUNTRY_ID = "FR";
 
 /**
+ * Clean up a typed city name before it is stored: trim, collapse inner
+ * whitespace, and title-case names typed entirely in lower or upper case
+ * ("toulouse", "TOULOUSE" -> "Toulouse", "saint-étienne" -> "Saint-Étienne").
+ * Mixed-case input is kept as typed. The cities collection matches names
+ * exactly, so without this every variant became its own city.
+ *
+ * @param {string} name
+ * @returns {string}
+ */
+export const normalizeCityName = (name) => {
+  const cleaned = `${name ?? ""}`.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "";
+  const isSingleCase =
+    cleaned === cleaned.toLowerCase() || cleaned === cleaned.toUpperCase();
+  if (!isSingleCase) return cleaned;
+  return cleaned
+    .toLowerCase()
+    .replace(/(^|[\s\-'’])(\p{L})/gu, (_, sep, letter) => sep + letter.toUpperCase());
+};
+
+/**
  * Build the `address` array stored on a store document.
  *
  * @param {Object} params
@@ -40,7 +61,7 @@ export const buildStoreAddress = ({
         streetNumber: `${streetNumber}`,
       },
       city: {
-        name: city,
+        name: normalizeCityName(city),
         postal_code: postalCode,
         country_id: countryId || DEFAULT_COUNTRY_ID,
       },

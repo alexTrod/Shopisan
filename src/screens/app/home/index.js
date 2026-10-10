@@ -86,8 +86,8 @@ export default function HomeScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
-  const [isNearbyActive, setIsNearbyActive] = useState(false);
   const initialStoreFromMap = route?.params?.initialStoreFromMap;
 
   const flatListRef = useRef(null);
@@ -147,7 +147,6 @@ export default function HomeScreen({ navigation, route }) {
   );
 
   const favoriteStores = useSelector((state) => state.user.favoriteStores);
-  const [showMyStoresOnly, setShowMyStoresOnly] = useState(false);
   const [userOwnsStores, setUserOwnsStores] = useState(false);
 
   const dispatch = useDispatch();
@@ -220,6 +219,22 @@ export default function HomeScreen({ navigation, route }) {
       retryLocationIfDefault?.();
     }, [retryLocationIfDefault]),
   );
+
+  // My stores / favourites replace the nearby list until toggled off. A
+  // location, a search or a tap on the Shops tab is a request for the normal
+  // list, so leave those modes instead of silently ignoring it (owners
+  // reported being stuck in My stores).
+  const exitFilteredModes = useCallback(() => {
+    setShowMyStoresOnly(false);
+    setShowFavoritesOnly(false);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("tabPress", () => {
+      if (navigation.isFocused()) exitFilteredModes();
+    });
+    return unsubscribe;
+  }, [navigation, exitFilteredModes]);
 
   const getCategoriesNamesByIds = useCallback(
     (ids) => {
@@ -603,17 +618,15 @@ export default function HomeScreen({ navigation, route }) {
       loadFavoriteStores(true);
     } else if (showMyStoresOnly) {
       loadMyStores(true);
-    } else if (isNearbyActive) {
-      handleNearbyPress();
+    } else {
+      // Bypass the store cache so admin changes (trash, suspend, approve)
+      // show up on demand.
+      storeService.refresh().catch((error) => {
+        console.error("Error refreshing stores:", error);
+      });
     }
     setRefreshing(false);
-  }, [
-    loadFavoriteStores,
-    loadMyStores,
-    showFavoritesOnly,
-    showMyStoresOnly,
-    isNearbyActive,
-  ]);
+  }, [loadFavoriteStores, loadMyStores, showFavoritesOnly, showMyStoresOnly]);
 
   const renderFooter = useCallback(() => {
     if (!loading) return null;
@@ -766,6 +779,7 @@ export default function HomeScreen({ navigation, route }) {
 
     try {
       setSearchQuery("");
+      exitFilteredModes();
       setLoading(true);
 
       const location = await locationManager.getUserLocation({
@@ -781,11 +795,17 @@ export default function HomeScreen({ navigation, route }) {
           timestamp: new Date(location.timestamp).toLocaleString(),
         });
 
+        // "gps": this is the device position, so later GPS fixes may move
+        // it. Without a source it read as a user search and locked GPS out
+        // for the rest of the session.
         dispatch(
-          setCustomLocation({
-            latitude: location.latitude,
-            longitude: location.longitude,
-          }),
+          setCustomLocation(
+            {
+              latitude: location.latitude,
+              longitude: location.longitude,
+            },
+            "gps",
+          ),
         );
         setHasRequestedStores(true);
 
@@ -899,6 +919,33 @@ export default function HomeScreen({ navigation, route }) {
           1, // Find at least 1 store
         );
 
+      // Nothing within the largest radius: the button promises another city,
+      // so move to the nearest shop wherever it is instead of leaving the
+      // user on the same empty screen. No source on purpose: like a city
+      // search, GPS must not pull the user back to the empty city.
+      if (userInitiated && nearbyStores.length === 0) {
+        const [closestStore] = storeService.filterStoresByRadius(
+          { latitude: location.latitude, longitude: location.longitude },
+          Infinity,
+        );
+        if (closestStore) {
+          dispatch(
+            setCustomLocation({
+              latitude: closestStore.latitude,
+              longitude: closestStore.longitude,
+            }),
+          );
+          Toast.show({
+            text1: t("success") || "Success",
+            text2: `${t("nearest_store_found") || "Nearest store found"}: ${closestStore.name} (${Math.round(closestStore.distance)} km)`,
+            type: "success",
+            position: "bottom",
+            visibilityTime: 3000,
+          });
+          return;
+        }
+      }
+
       setStores(nearbyStores);
       // Note: No toast needed - inline "No stores found" message is shown on screen
     } catch (error) {
@@ -997,6 +1044,7 @@ export default function HomeScreen({ navigation, route }) {
   const handleCitySearch = useCallback(
     (arg1, arg2) => {
       setHasRequestedStores(true);
+      exitFilteredModes();
 
       if (
         typeof arg1 === "string" &&
@@ -1043,12 +1091,13 @@ export default function HomeScreen({ navigation, route }) {
         setSearchQuery("");
       }
     },
-    [dispatch, setSearchQuery, setHasRequestedStores],
+    [dispatch, setSearchQuery, setHasRequestedStores, exitFilteredModes],
   );
 
   const handleStoreSearch = useCallback(
     (storeSuggestion) => {
       setHasRequestedStores(true);
+      exitFilteredModes();
       const filteredByName = filteredStores.filter((store) =>
         store.name.toLowerCase().includes(storeSuggestion.label.toLowerCase()),
       );
@@ -1061,7 +1110,7 @@ export default function HomeScreen({ navigation, route }) {
       setStores(filteredByName);
       setSearchQuery(storeSuggestion.label);
     },
-    [filteredStores, dispatch, setSearchQuery],
+    [filteredStores, dispatch, setSearchQuery, exitFilteredModes],
   );
 
   const handleSearchChange = useCallback(
@@ -1119,7 +1168,7 @@ export default function HomeScreen({ navigation, route }) {
               showsVerticalScrollIndicator={true}
               bounces={true}
             >
-              <View style={styles.noStoreContent}>
+              <View style={styles.noStoreContent} testID="home-empty-state">
                 {selectedCategories &&
                 selectedCategories.length > 0 &&
                 hasRequestedStores ? (
@@ -1144,10 +1193,10 @@ export default function HomeScreen({ navigation, route }) {
                         t("welcome_message") ||
                         "Your city is still waiting for its shops on Shopisan."}
                     </Text>
-                    <Text style={styles.noStoreSubText}>
+                    <Text style={styles.noStoreSubText} testID="home-empty-subtext">
                       {t("help_us_grow") ||
                         t("welcome_description") ||
-                        "Help us grow: add your favorite shops."}
+                        "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by."}
                     </Text>
                     <View style={styles.welcomeButtonsContainer}>
                       {canAddStore && (
@@ -1164,6 +1213,7 @@ export default function HomeScreen({ navigation, route }) {
                       )}
 
                       <TouchableOpacity
+                        testID="home-empty-search-other-city"
                         onPress={() => findClosestStore({ userInitiated: true })}
                         style={[
                           styles.expandSearchButton,

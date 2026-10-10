@@ -8,7 +8,7 @@
  * Run with: npx jest src/utils/__tests__/storeAddress.test.js
  */
 
-import { buildStoreAddress, readStoreAddress } from "../storeAddress";
+import { buildStoreAddress, readStoreAddress, normalizeCityName } from "../storeAddress";
 
 describe("buildStoreAddress", () => {
   it("should write the street number alongside the street", () => {
@@ -176,5 +176,33 @@ describe("round trip", () => {
     expect(readStoreAddress(edited).streetNumber).toBe("2");
     expect(readStoreAddress(edited).street).toBe("Rue");
     expect(readStoreAddress(edited).city).toBe("Nice");
+  });
+});
+
+describe("normalizeCityName", () => {
+  it.each([
+    ["toulouse", "Toulouse"],
+    ["TOULOUSE", "Toulouse"],
+    ["  Toulouse  ", "Toulouse"],
+    ["saint-étienne", "Saint-Étienne"],
+    ["aix  en provence", "Aix En Provence"],
+    ["l'île-d'yeu", "L'Île-D'Yeu"],
+  ])("normalizes %p to %p", (input, expected) => {
+    expect(normalizeCityName(input)).toBe(expected);
+  });
+
+  it("keeps mixed-case input as typed", () => {
+    expect(normalizeCityName("Aix-en-Provence")).toBe("Aix-en-Provence");
+    expect(normalizeCityName("La Roche-sur-Yon")).toBe("La Roche-sur-Yon");
+  });
+
+  it("returns an empty string for missing input", () => {
+    expect(normalizeCityName(undefined)).toBe("");
+    expect(normalizeCityName("   ")).toBe("");
+  });
+
+  it("is applied to the stored city name", () => {
+    const [entry] = buildStoreAddress({ city: " toulouse " });
+    expect(entry.location.city.name).toBe("Toulouse");
   });
 });

@@ -33,7 +33,7 @@ import {
   MERCHANT_STATUS,
   normalizeUserType,
 } from "../../utils/userTypes";
-import { buildStoreAddress } from "../../utils/storeAddress";
+import { buildStoreAddress, normalizeCityName } from "../../utils/storeAddress";
 import { ensureCityExists } from "../../utils/cityManagement";
 
 // Flag to prevent race condition during signup - when Firebase Auth creates a user,
@@ -924,7 +924,7 @@ export const signUpMerchantWithStore = (data) => async (dispatch) => {
       }),
       latitude,
       longitude,
-      cityName: store.city,
+      cityName: normalizeCityName(store.city),
       // Pre-approval defaults: description, categories, hours and photos are
       // completed in Edit my store once the merchant is approved. Categories
       // are forced empty so a guest's category filter never leaks in here.

@@ -35,7 +35,7 @@ export default {
     create_account_later: "Create an account later",
 
     // Merchant Signup Wizard
-    merchant_signup_title: "Merchant Registration",
+    merchant_signup_title: "Store owner registration",
     step_account: "Account",
     step_store: "Store",
     step_1_of_2: "Step 1 of 2",
@@ -109,7 +109,7 @@ export default {
     rating: "rating",
     ratings_plural: "ratings",
     updating: "Updating...",
-    posted_announcements: "Posted Announcements",
+    posted_announcements: "Published posts",
     see_all_posts: "See all posts",
     no_post_description: "No description.",
     price: "Price",
@@ -290,10 +290,10 @@ export default {
 
     // Welcome messages / No stores popup
     welcome_message: "Your city is still waiting for its shops on Shopisan.",
-    welcome_description: "Help us grow: add your favorite shops.",
+    welcome_description: "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by.",
     city_waiting_for_shops:
       "Your city is still waiting for its shops on Shopisan.",
-    help_us_grow: "Help us grow: add your favorite shops.",
+    help_us_grow: "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by.",
     or_search_another_city: "Or search for another city.",
 
     // Email verification banner
@@ -324,7 +324,7 @@ export default {
     store_suspended: "This shop is suspended and is not visible in the app.",
     no_stores_in_area: "Your city is still waiting for its shops on Shopisan.",
     loading_stores: "Loading stores...",
-    no_stores_modal_description: "Help us grow: add your favorite shops.",
+    no_stores_modal_description: "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by.",
     add_store_or_explore: "Add your favorite shops",
     no_stores_available: "No stores available at the moment.",
     explore_random_city: "Explore a random city",
@@ -392,7 +392,7 @@ export default {
     post_description_placeholder: "Enter post description...",
     no_posts_yet: "No posts yet",
     no_posts_description:
-      "Create your first post to announce products, promotions or news to your customers.",
+      "Create your first post to share products, promotions or news with your customers.",
     create_first_post: "Create Your First Post",
 
     // Merchant pre-approval
@@ -481,7 +481,7 @@ export default {
     create_account_later: "Créer un compte plus tard",
 
     // Merchant Signup Wizard
-    merchant_signup_title: "Inscription Commerçant",
+    merchant_signup_title: "Inscription propriétaire de magasin",
     step_account: "Compte",
     step_store: "Boutique",
     step_1_of_2: "Étape 1 sur 2",
@@ -556,8 +556,8 @@ export default {
     rating: "note",
     ratings_plural: "notes",
     updating: "Mise à jour...",
-    posted_announcements: "Annonces postées",
-    see_all_posts: "Voir toutes les annonces",
+    posted_announcements: "Posts publiés",
+    see_all_posts: "Voir tous les posts",
     no_post_description: "Pas de description.",
     price: "Prix",
     select_currency: "Sélectionner la devise",
@@ -746,9 +746,9 @@ export default {
     // Welcome messages / No stores popup
     welcome_message: "Votre ville attend encore ses commerces préférés.",
     welcome_description:
-      "Aidez-nous à grandir : ajoutez vos commerces préférés.",
+      "Votre boutique préférée n'est pas encore là ? Parlez-leur de Shopisan lors de votre prochain passage.",
     city_waiting_for_shops: "Votre ville attend encore ses commerces préférés.",
-    help_us_grow: "Aidez-nous à grandir : ajoutez vos commerces préférés.",
+    help_us_grow: "Votre boutique préférée n'est pas encore là ? Parlez-leur de Shopisan lors de votre prochain passage.",
     or_search_another_city: "Ou recherchez une autre ville.",
 
     // Email verification banner
@@ -782,7 +782,7 @@ export default {
     no_stores_in_area: "Votre ville attend encore ses commerces préférés.",
     loading_stores: "Chargement des magasins...",
     no_stores_modal_description:
-      "Aidez-nous à grandir : ajoutez vos commerces préférés.",
+      "Votre boutique préférée n'est pas encore là ? Parlez-leur de Shopisan lors de votre prochain passage.",
     add_store_or_explore: "Ajoutez vos commerces préférés",
     no_stores_available: "Aucun magasin disponible pour le moment.",
     explore_random_city: "Explorer une ville aléatoire",
@@ -833,31 +833,31 @@ export default {
     no_stores_to_edit: "Ajoutez d'abord un magasin pour le modifier.",
 
     // Posts Management
-    manage_posts: "Gérer les annonces",
+    manage_posts: "Gérer les posts",
     select_store_for_posts: "Sélectionnez un magasin",
     no_stores_for_posts:
-      "Ajoutez d'abord un magasin pour publier des annonces.",
-    add_post: "Ajouter une annonce",
-    create_post: "Créer une annonce",
-    edit_post: "Modifier l'annonce",
-    delete_post: "Supprimer l'annonce",
+      "Ajoutez d'abord un magasin pour publier des posts.",
+    add_post: "Ajouter un post",
+    create_post: "Créer un post",
+    edit_post: "Modifier le post",
+    delete_post: "Supprimer le post",
     delete_post_confirm:
-      "Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action est irréversible.",
-    post_created_success: "Annonce créée avec succès !",
-    post_updated_success: "Annonce mise à jour avec succès !",
-    post_deleted_success: "Annonce supprimée avec succès !",
+      "Êtes-vous sûr de vouloir supprimer ce post ? Cette action est irréversible.",
+    post_created_success: "Post créé avec succès !",
+    post_updated_success: "Post mis à jour avec succès !",
+    post_deleted_success: "Post supprimé avec succès !",
     post_create_failed:
-      "Échec de la création de l'annonce. Veuillez réessayer.",
+      "Échec de la création du post. Veuillez réessayer.",
     post_update_failed:
-      "Échec de la mise à jour de l'annonce. Veuillez réessayer.",
+      "Échec de la mise à jour du post. Veuillez réessayer.",
     post_delete_failed:
-      "Échec de la suppression de l'annonce. Veuillez réessayer.",
+      "Échec de la suppression du post. Veuillez réessayer.",
     post_image_required: "Au moins une image est requise.",
-    post_description_placeholder: "Entrez la description de l'annonce...",
-    no_posts_yet: "Pas encore d'annonces",
+    post_description_placeholder: "Entrez la description du post...",
+    no_posts_yet: "Pas encore de posts",
     no_posts_description:
-      "Créez votre première annonce pour informer vos clients de vos produits, promotions ou actualités.",
-    create_first_post: "Créer votre première annonce",
+      "Créez votre premier post pour informer vos clients de vos produits, promotions ou actualités.",
+    create_first_post: "Créer votre premier post",
 
     // Merchant pre-approval
     company_number: "Numéro d'entreprise (BCE / SIRET)",

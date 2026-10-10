@@ -33,6 +33,7 @@ const LanguageSelector = ({
   return (
     <View style={[styles.container, containerStyle]}>
       <TouchableOpacity
+        testID="language-selector"
         style={[styles.dropdownButton, boxStyle]}
         onPress={() => {
           console.log('Dropdown toggled, isOpen:', !isOpen);
@@ -55,12 +56,15 @@ const LanguageSelector = ({
           {languageOptions.map((option) => (
             <TouchableOpacity
               key={option.key}
+              testID={`language-option-${option.key}`}
               style={[
                 styles.dropdownItem,
                 option.key === currentLocale && styles.selectedItem
               ]}
               onPress={() => handleSelect(option.key)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ selected: option.key === currentLocale }}
             >
               <CustomText style={[styles.itemText, dropdownTextStyles]}>
                 {option.value}
@@ -95,11 +99,9 @@ const styles = StyleSheet.create({
     color: AppColors.black,
     fontSize: height(1.8),
   },
+  // In the layout flow rather than absolute: an absolute list hangs outside
+  // the parent's bounds and Android drops it from the accessibility tree.
   dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     borderColor: AppColors.grey_400,
     borderWidth: 1,

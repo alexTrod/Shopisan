@@ -87,6 +87,7 @@ jest.mock("../../services/LocationManager", () => ({
 const mockStoreService = {
   fetchAllStores: jest.fn().mockResolvedValue([]),
   refresh: jest.fn().mockResolvedValue([]),
+  refreshIfStale: jest.fn().mockResolvedValue([]),
   filterStoresByRadius: jest.fn().mockReturnValue([]),
   subscribe: jest.fn(() => jest.fn()),
 };
@@ -438,6 +439,8 @@ describe("StoreContext", () => {
       await waitFor(() =>
         expect(ctx.current.userLocation).toMatchObject(GPS_POSITION),
       );
+      // Admin changes (trash, suspend, approve) reach a running app.
+      expect(mockStoreService.refreshIfStale).toHaveBeenCalled();
     });
 
     it("does not run on background transitions", async () => {

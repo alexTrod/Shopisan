@@ -31,6 +31,7 @@ import { isOwnerType, ownsStore } from "../../../utils/userTypes";
 import {
   buildStoreAddress,
   readStoreAddress,
+  normalizeCityName,
 } from "../../../utils/storeAddress";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
 import LocationIcon from "../../../../assets/icons/location-icon";
@@ -502,7 +503,7 @@ export default function HandleStoreScreen({ route, navigation }) {
         latitude,
         longitude,
 
-        cityName: city,
+        cityName: normalizeCityName(city),
         description: { fr: description },
         category: storeCategories,
         storeStatus: storeData?.storeStatus ?? 0,

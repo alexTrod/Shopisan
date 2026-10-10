@@ -23,8 +23,9 @@ import {
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { ensureCityExists } from "../../utils/cityManagement";
-import { buildStoreAddress } from "../../utils/storeAddress";
+import { buildStoreAddress, normalizeCityName } from "../../utils/storeAddress";
 import { CITIES_CONFIG } from "../../config/citiesConfig";
+import { LOCATION_CONFIG } from "../../config/location";
 
 // Mapbox token
 const MAPBOX_TOKEN =
@@ -42,6 +43,13 @@ const withTimeout = (promise, ms, errorMessage) => {
     ),
   ]);
 };
+
+// Countries the city and street autocompletes search in (Mapbox codes).
+const SUPPORTED_COUNTRIES_PARAM = "fr,be,ch,lu,mc";
+
+// GPS fixes without a deadline could hang the form indefinitely.
+const withGpsTimeout = (promise) =>
+  withTimeout(promise, LOCATION_CONFIG.GPS_TIMEOUT, "GPS_TIMEOUT");
 
 // Helper for delay
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -140,6 +148,8 @@ export const useStoreForm = ({
 
   // Address search robustness
   const abortControllerRef = useRef(null);
+  // Latest city query; older responses that land after it are dropped.
+  const cityRequestIdRef = useRef(0);
   const [searchError, setSearchError] = useState(null);
   const [manualEntryMode, setManualEntryMode] = useState(false);
 
@@ -161,7 +171,9 @@ export const useStoreForm = ({
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
-          const location = await Location.getCurrentPositionAsync({});
+          const location = await withGpsTimeout(
+            Location.getCurrentPositionAsync({}),
+          );
           setUserProximity({
             longitude: location.coords.longitude,
             latitude: location.coords.latitude,
@@ -221,10 +233,13 @@ export const useStoreForm = ({
     setLoadingSuggestions(true);
 
     try {
-      // Use Mapbox with French language preference for better French results
-      // Add proximity biasing if user location is available
-      const proximityParam = userProximity
-        ? `&proximity=${userProximity.longitude},${userProximity.latitude}`
+      // Use Mapbox with French language preference for better French results.
+      // Bias towards the city the owner picked, else the device location, and
+      // keep results in the supported countries (same list as the city field)
+      // so a street in another town or country doesn't rank first.
+      const proximity = selectedCityCoords || userProximity;
+      const proximityParam = proximity
+        ? `&proximity=${proximity.longitude},${proximity.latitude}`
         : "";
       const url =
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
@@ -233,6 +248,7 @@ export const useStoreForm = ({
         `&limit=10` +
         `&language=fr` +
         `&types=address,poi,place,locality,neighborhood` +
+        `&country=${SUPPORTED_COUNTRIES_PARAM}` +
         proximityParam;
 
       const response = await fetchWithRetry(
@@ -312,8 +328,11 @@ export const useStoreForm = ({
       return;
     }
 
+    const requestId = ++cityRequestIdRef.current;
+
     if (text.length < 2) {
       setCitySuggestions([]);
+      setLoadingCitySuggestions(false);
       return;
     }
     setLoadingCitySuggestions(true);
@@ -321,11 +340,16 @@ export const useStoreForm = ({
     try {
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?` +
-          `access_token=${MAPBOX_TOKEN}&types=place,locality&country=fr,be,ch,lu,mc&limit=5&language=fr`,
+          `access_token=${MAPBOX_TOKEN}&types=place,locality&country=${SUPPORTED_COUNTRIES_PARAM}&limit=5&language=fr`,
       );
       const data = await response.json();
+      // One request per keystroke and no ordering guarantee: the answer for
+      // "Tou" (e.g. Toujouse) could land after the one for "Toulouse" and
+      // replace it, so the owner picked a misspelled city.
+      if (requestId !== cityRequestIdRef.current) return;
       setCitySuggestions(data.features || []);
     } catch (error) {
+      if (requestId !== cityRequestIdRef.current) return;
       console.error("City search error:", error);
       setCitySuggestions([]);
     }
@@ -369,7 +393,9 @@ export const useStoreForm = ({
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
+      const location = await withGpsTimeout(
+        Location.getCurrentPositionAsync({}),
+      );
       setSelectedLocation({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -639,7 +665,7 @@ export const useStoreForm = ({
       }),
       latitude,
       longitude,
-      cityName: city,
+      cityName: normalizeCityName(city),
       description: { fr: description },
       category: selectedCategories,
       storeStatus: 0,

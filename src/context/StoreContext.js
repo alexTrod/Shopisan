@@ -409,6 +409,9 @@ export const StoreProvider = ({ children }) => {
       (nextState) => {
         if (nextState === "active") {
           retryLocationIfDefaultRef.current();
+          storeService.refreshIfStale().catch((error) => {
+            console.error("Error refreshing stores:", error);
+          });
         }
       },
     );

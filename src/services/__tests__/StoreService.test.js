@@ -34,6 +34,7 @@ jest.mock("../../config/location", () => ({
   LOCATION_CONFIG: {
     SEARCH_RADIUS_KM: 20,
     STORE_CACHE_TTL: 1800000,
+    STORE_FOREGROUND_REFRESH_MS: 300000,
     RADIUS_STEPS: [5, 10, 20, 30, 50, 75, 100, 150, 200],
   },
   CACHE_KEYS: {
@@ -50,6 +51,7 @@ jest.mock("../LocationManager", () => ({
   },
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import storeService from "../StoreService";
 
 /** Build a store doc snapshot as Firestore would hand it back. */
@@ -82,6 +84,48 @@ describe("StoreService", () => {
     storeService.isInitialized = false;
     storeService.pendingFetch = null;
     storeService.pendingFirebaseFetch = null;
+    storeService.lastFetchTime = 0;
+  });
+
+  describe("cache revalidation", () => {
+    const cacheWith = (stores) =>
+      AsyncStorage.getItem.mockResolvedValueOnce(
+        JSON.stringify({ stores, timestamp: Date.now() }),
+      );
+
+    it("serves a fresh cache but still revalidates on the first load", async () => {
+      // A store trashed in the admin panel stayed in the cached list.
+      cacheWith([{ id: "a", name: "Trashed since" }]);
+      mockGetDocs.mockResolvedValue({ docs: [] });
+
+      const stores = await storeService.fetchAllStores();
+
+      expect(stores.map((s) => s.name)).toEqual(["Trashed since"]);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(mockGetDocs).toHaveBeenCalledTimes(1);
+      expect(storeService.allStores).toEqual([]);
+    });
+
+    it("does not refetch a fresh cache once the session has fetched", async () => {
+      storeService.lastFetchTime = Date.now();
+      cacheWith([{ id: "a", name: "Cached" }]);
+
+      await storeService.fetchAllStores();
+
+      expect(mockGetDocs).not.toHaveBeenCalled();
+    });
+
+    it("refreshIfStale refetches only after the foreground window", async () => {
+      mockGetDocs.mockResolvedValue({ docs: [docOf("a", { name: "Live" })] });
+
+      storeService.lastFetchTime = Date.now();
+      await storeService.refreshIfStale();
+      expect(mockGetDocs).not.toHaveBeenCalled();
+
+      storeService.lastFetchTime = Date.now() - 300001;
+      await storeService.refreshIfStale();
+      expect(mockGetDocs).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("_doFetchFromFirebase - visibility", () => {

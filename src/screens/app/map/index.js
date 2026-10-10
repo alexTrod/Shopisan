@@ -509,7 +509,10 @@ export default function Map({ navigation, route }) {
         forceRefresh: true,
       });
 
-      if (!location) return;
+      if (!location) {
+        shouldIgnoreRegionChangeRef.current = false;
+        return;
+      }
 
       setHasRequestedStores?.(true);
       dispatch(
@@ -545,6 +548,7 @@ export default function Map({ navigation, route }) {
         shouldIgnoreRegionChangeRef.current = false;
       }, 1500);
     } catch (error) {
+      shouldIgnoreRegionChangeRef.current = false;
       console.error("Error getting location:", error);
     }
   }, [dispatch, fetchNearbyStores, calculateAutoZoom, setHasRequestedStores]);
@@ -733,6 +737,11 @@ export default function Map({ navigation, route }) {
       if (matchingStore) {
         setSelectedStore(matchingStore);
       }
+      // Tab params outlive the visit: while initialStore stayed set, every
+      // location change re-centred the map on that store and city searches
+      // were ignored, so the map felt stuck on it. It has done its job once
+      // the camera is there and the store is selected.
+      navigation.setParams({ initialStore: undefined });
     }
   }, [initialStore?.id, stores.length]);
 
@@ -864,7 +873,7 @@ export default function Map({ navigation, route }) {
                   </Text>
                   <Text style={styles.noStoreSubtext}>
                     {t("help_us_grow") ||
-                      "Help us grow: add your favorite shops."}
+                      "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by."}
                   </Text>
 
                   <TouchableOpacity

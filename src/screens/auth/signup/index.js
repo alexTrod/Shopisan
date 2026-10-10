@@ -88,6 +88,10 @@ export default function SignUp({ navigation }) {
   const [userType, setUserType] = useState(USER_TYPES.SHOPPER);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [termsError, setTermsError] = useState(false);
+  const toggleTerms = () => {
+    setAcceptedTerms((v) => !v);
+    setTermsError(false);
+  };
   const isOwnerSignup = userType === USER_TYPES.OWNER;
 
   const {
@@ -283,6 +287,7 @@ export default function SignUp({ navigation }) {
           />
         }
         name="username"
+        testID="signup-username-input"
         keyboardType="default"
         containerStyles={{
           width: "90%",
@@ -311,6 +316,7 @@ export default function SignUp({ navigation }) {
           />
         }
         name="email"
+        testID="signup-email-input"
         keyboardType="email-address"
         containerStyles={{
           width: "90%",
@@ -333,6 +339,7 @@ export default function SignUp({ navigation }) {
         control={control}
         prefix={<Unlock_outline height={height(3)} width={height(3)} />}
         name="password"
+        testID="signup-password-input"
         containerStyles={{ width: "90%", alignSelf: "center" }}
         textFieldContainer={{
           width: "100%",
@@ -368,6 +375,7 @@ export default function SignUp({ navigation }) {
         control={control}
         prefix={<Unlock_outline height={height(3)} width={height(3)} />}
         name="confirmPassword"
+        testID="signup-confirm-input"
         containerStyles={{ width: "90%", alignSelf: "center" }}
         textFieldContainer={{
           width: "100%",
@@ -401,28 +409,34 @@ export default function SignUp({ navigation }) {
           </TouchableOpacity>
         }
       />
-      <TouchableOpacity
-        testID="accept-terms-checkbox"
+      {/* Only the box and the plain words toggle; the two links are their
+          own tap targets so a tap on the row never leaves the app by accident. */}
+      <View
         style={[
           styles.termsRow,
           termsError && !acceptedTerms && styles.termsRowError,
         ]}
-        onPress={() => {
-          setAcceptedTerms((v) => !v);
-          setTermsError(false);
-        }}
-        activeOpacity={0.8}
       >
-        <View
-          style={[
-            styles.checkbox,
-            acceptedTerms && styles.checkboxChecked,
-            termsError && !acceptedTerms && styles.checkboxError,
-          ]}
+        <TouchableOpacity
+          testID="accept-terms-checkbox"
+          onPress={toggleTerms}
+          activeOpacity={0.8}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: acceptedTerms }}
         >
-          {acceptedTerms ? <Text style={styles.checkboxTick}>✓</Text> : null}
-        </View>
-        <Text style={styles.termsText}>
+          <View
+            testID="accept-terms-box"
+            style={[
+              styles.checkbox,
+              acceptedTerms && styles.checkboxChecked,
+              termsError && !acceptedTerms && styles.checkboxError,
+            ]}
+          >
+            {acceptedTerms ? <Text style={styles.checkboxTick}>✓</Text> : null}
+          </View>
+        </TouchableOpacity>
+        <Text style={styles.termsText} onPress={toggleTerms}>
           {t("i_accept_the")}{" "}
           <Text
             style={styles.termsLink}
@@ -439,7 +453,7 @@ export default function SignUp({ navigation }) {
             {t("privacy_policy")}
           </Text>
         </Text>
-      </TouchableOpacity>
+      </View>
       {termsError && !acceptedTerms && (
         <Text testID="terms-error" style={styles.termsError}>
           *{t("must_accept_terms")}
@@ -450,6 +464,7 @@ export default function SignUp({ navigation }) {
         textStyle={{ fontFamily: "Roboto-Medium" }}
         containerStyle={styles.button}
         onPress={handleSubmit(signupHandler)}
+        testID="signup-submit-button"
       >
         {isOwnerSignup
           ? t("next_step") || "Next: Add Your Store"
@@ -509,6 +524,7 @@ export default function SignUp({ navigation }) {
               }}
             >
               <TouchableOpacity
+                testID="signup-type-shopper"
                 style={{
                   flex: 1,
                   backgroundColor: !isOwnerSignup
@@ -537,6 +553,7 @@ export default function SignUp({ navigation }) {
                 </CustomText>
               </TouchableOpacity>
               <TouchableOpacity
+                testID="signup-type-owner"
                 style={{
                   flex: 1,
                   backgroundColor: isOwnerSignup
@@ -633,6 +650,7 @@ export default function SignUp({ navigation }) {
                 onPress={async () => {
                   await dispatch(setNoAuthenticationWanted(true));
                 }}
+                testID="signup-skip-button"
               >
                 {t("create_account_later")}
               </Button>

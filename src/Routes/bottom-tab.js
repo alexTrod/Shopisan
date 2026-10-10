@@ -109,7 +109,11 @@ function TabsWithSearch() {
       <View style={styles.headerContainer}>
         {/* Sign Up button - only show if not logged in */}
         {!user && (
-          <TouchableOpacity onPress={handleSignUp} style={styles.signUpButton}>
+          <TouchableOpacity
+            testID="header-sign-up"
+            onPress={handleSignUp}
+            style={styles.signUpButton}
+          >
             <CustomText
               size={1.8}
               color={AppColors.white}
@@ -187,17 +191,17 @@ function TabsWithSearch() {
         <Tab.Screen
           name={ScreenNames.HOME}
           component={HomeScreen}
-          options={{ title: t("home_title") }}
+          options={{ title: t("home_title"), tabBarButtonTestID: "tab-home" }}
         />
         <Tab.Screen
           name={ScreenNames.MAP}
           component={MapScreen}
-          options={{ title: t("map_title") }}
+          options={{ title: t("map_title"), tabBarButtonTestID: "tab-map" }}
         />
         <Tab.Screen
           name={ScreenNames.PROFILE}
           component={Profile}
-          options={{ title: t("profile_title") }}
+          options={{ title: t("profile_title"), tabBarButtonTestID: "tab-profile" }}
         />
       </Tab.Navigator>
     </View>

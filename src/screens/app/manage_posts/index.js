@@ -116,6 +116,7 @@ export default function ManagePostsScreen({ route, navigation }) {
       {/* Create Button */}
       {hasPosts && (
         <TouchableOpacity
+          testID="posts-create-button"
           style={styles.createButton}
           onPress={handleOpenCreate}
         >

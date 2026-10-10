@@ -244,10 +244,11 @@ export default function Profile({ navigation }) {
               color={AppColors.primary}
               style={{ marginLeft: 4, fontWeight: "bold" }}
             >
-              Store
+              {t("store")}
             </CustomText>
             <View style={{ height: 20 }} />
             <TouchableOpacity
+              testID="profile-add-store"
               style={styles.optionTile}
               onPress={() => handlePress("AddStoreScreen")}
             >
@@ -283,6 +284,7 @@ export default function Profile({ navigation }) {
               </View>
             </TouchableOpacity>
             <TouchableOpacity
+              testID="profile-manage-posts"
               style={styles.optionTile}
               onPress={() => handleStoreActionPress("posts")}
               disabled={!!loadingStores}
@@ -355,6 +357,7 @@ export default function Profile({ navigation }) {
         </View>
 
         <TouchableOpacity
+          testID="profile-logout"
           style={styles.logoutButton}
           onPress={handleLogout}
           activeOpacity={0.8}

@@ -6,6 +6,7 @@
 import { firestore } from '../../firebaseconfig';
 import { collection, addDoc, getDocs, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
 import { refreshCitiesCache } from './citiesService';
+import { normalizeCityName } from './storeAddress';
 
 /**
  * Generate a simple geohash (for basic geolocation)
@@ -67,7 +68,8 @@ function generateGeohash(latitude, longitude, precision = 7) {
  * @param {string} countryId - Country ID (e.g., 'FR', 'BE', 'UK')
  * @returns {Promise<Object>} Result object with success status and city info
  */
-export async function ensureCityExists(cityName, postalCode, latitude, longitude, countryId = 'FR') {
+export async function ensureCityExists(rawCityName, postalCode, latitude, longitude, countryId = 'FR') {
+  const cityName = normalizeCityName(rawCityName);
   try {
     if (!cityName || !latitude || !longitude) {
       console.warn('Missing required parameters for ensureCityExists');

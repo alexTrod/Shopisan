@@ -85,13 +85,15 @@ class StoreService {
 
         // Check if cache is still valid
         const cacheAge = Date.now() - (cached.timestamp || 0);
-        if (cacheAge < LOCATION_CONFIG.STORE_CACHE_TTL) {
-          // Cache is valid, return immediately
+        // Serve the cache immediately but always revalidate on the first
+        // load of a session: admin trash/suspend/approve happen outside the
+        // app, and a cache-only start kept trashed stores on screen (and
+        // approved ones hidden) for up to the whole TTL.
+        if (cacheAge < LOCATION_CONFIG.STORE_CACHE_TTL && this.lastFetchTime) {
           this.isInitialized = true;
           return this.allStores;
         }
 
-        // Cache expired, refresh in background
         this.fetchFromFirebase().catch(() => {});
         this.isInitialized = true;
         return this.allStores;
@@ -408,6 +410,15 @@ class StoreService {
    * Force refresh from Firebase
    */
   async refresh() {
+    return await this.fetchFromFirebase();
+  }
+
+  /**
+   * Refetch when the last network fetch is older than maxAgeMs. Used when the
+   * app returns to the foreground, so admin changes reach running sessions.
+   */
+  async refreshIfStale(maxAgeMs = LOCATION_CONFIG.STORE_FOREGROUND_REFRESH_MS) {
+    if (Date.now() - this.lastFetchTime < maxAgeMs) return this.allStores;
     return await this.fetchFromFirebase();
   }
 

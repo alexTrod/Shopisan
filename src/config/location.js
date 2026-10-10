@@ -13,6 +13,7 @@ export const LOCATION_CONFIG = {
   // Cache Configuration
   CACHE_TTL: 2 * 60 * 60 * 1000, // 2 hours for location cache (shorter to avoid stale location from different city)
   STORE_CACHE_TTL: 30 * 60 * 1000, // 30 minutes for store cache
+  STORE_FOREGROUND_REFRESH_MS: 5 * 60 * 1000, // refetch stores on app resume if older than 5 minutes
   GEOCODE_CACHE_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days for geocoding cache
 
   // Search Configuration
