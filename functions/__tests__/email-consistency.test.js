@@ -185,21 +185,25 @@ describe("Email Consistency Tests", () => {
       expect(hasUsername).toBeTruthy();
     });
 
-    it("sendStoreCreationEmail should use username with generic fallback (NOT storeName)", () => {
+    it("sendStoreCreationEmail should not email the store owner (admin FYI only)", () => {
       const indexContent = require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
 
-      // Check that template does NOT fallback to storeName (bug fix)
-      const hasBuggyFallback = indexContent.includes(
-        "username: username || storeName",
+      // An approved owner adding another store gets no validation/welcome
+      // email: the handler must not render any owner-facing template.
+      const section = indexContent.match(
+        /exports\.sendStoreCreationEmail[\s\S]*?\n\);\n/,
       );
-      expect(hasBuggyFallback).toBe(false);
+      expect(section).toBeTruthy();
+      expect(section[0]).not.toContain("merchantEmailTemplate");
+      expect(section[0]).toContain("to: ADMIN_EMAIL");
+      expect(section[0]).not.toContain("to: storeEmail");
 
-      // Should use generic greeting instead
-      const hasGenericFallback = indexContent.includes("cher commerçant");
-      expect(hasGenericFallback).toBe(true);
+      // Owner-facing copy says "store owner", not "merchant"/"commerçant"
+      expect(indexContent).not.toContain("cher commerçant");
+      expect(indexContent).not.toContain("valued merchant");
     });
 
     it("sendStoreCreationEmail should have same email fallback logic as onStoreVerified", () => {

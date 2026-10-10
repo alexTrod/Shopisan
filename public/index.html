@@ -1,9 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shopisan</title>
+  <script>
+    // Store listings. Leave a URL empty until the client confirms the
+    // published listing: its button stays hidden, and when both are empty a
+    // "coming soon" line is shown instead. Keep in sync with LINKS in
+    // functions/index.js.
+    window.SHOPISAN_LINKS = {
+      playStore: "",
+      appStore: "",
+    };
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -13,66 +23,67 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 16px;
     }
     .container {
       background: white;
       border-radius: 16px;
-      padding: 40px;
+      padding: 40px 24px;
       max-width: 500px;
       width: 100%;
       text-align: center;
       box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     }
-    .logo { font-size: 64px; margin-bottom: 20px; }
+    .logo { margin-bottom: 16px; }
+    .logo img { width: 100px; height: 100px; object-fit: contain; }
+    .logo-fallback { font-size: 64px; }
     h1 { color: #6B2D5C; margin-bottom: 10px; font-size: 32px; font-weight: bold; }
-    .tagline { color: #666; margin-bottom: 30px; line-height: 1.6; font-size: 18px; }
-    .message { color: #333; margin-bottom: 30px; line-height: 1.6; }
+    .tagline { color: #666; margin-bottom: 24px; line-height: 1.6; font-size: 18px; }
+    .message { color: #333; margin-bottom: 24px; line-height: 1.6; }
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
     .button {
-      display: inline-block;
+      display: block;
+      width: 100%;
+      max-width: 320px;
       background: #6B2D5C;
       color: white;
-      padding: 16px 32px;
+      padding: 16px 24px;
       border-radius: 30px;
       text-decoration: none;
       font-weight: 600;
       font-size: 16px;
-      margin: 10px;
-      transition: all 0.3s;
+      transition: background 0.3s, transform 0.3s;
       box-shadow: 0 4px 15px rgba(107, 45, 92, 0.3);
     }
-    .button:hover {
-      background: #8B4D7C;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(107, 45, 92, 0.4);
-    }
-    .buttons { margin-top: 20px; }
+    .button:hover { background: #8B4D7C; transform: translateY(-2px); }
+    .button.store { background: #000000; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
+    .button.store:hover { background: #333333; }
+    .coming-soon { color: #666; font-size: 15px; line-height: 1.5; }
+    .hidden { display: none; }
     .footer {
       margin-top: 30px;
       padding-top: 20px;
       border-top: 1px solid #eee;
       font-size: 14px;
       color: #666;
+      line-height: 1.5;
     }
-    .footer a {
-      color: #6B2D5C;
-      text-decoration: none;
-    }
-    .footer a:hover {
-      text-decoration: underline;
-    }
-    .social-links {
-      margin-top: 15px;
-    }
-    .social-links a {
-      margin: 0 10px;
-    }
+    .footer a { color: #6B2D5C; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .social-links { margin-top: 15px; }
+    .social-links a { margin: 0 8px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="logo">
-      <img src="https://shopisan-bad76.web.app/logo.png" alt="Shopisan" style="width: 100px; height: 100px; border-radius: 20px;" onerror="this.style.display='none'; this.parentElement.innerHTML='&#x1F6CD;';">
+      <img src="/logo.png" alt="Shopisan" onerror="this.parentElement.innerHTML='<span class=&quot;logo-fallback&quot;>&#x1F6CD;</span>';">
     </div>
     <h1>Shopisan</h1>
     <p class="tagline" id="tagline"></p>
@@ -80,7 +91,10 @@
     <p class="message" id="message"></p>
 
     <div class="buttons">
-      <a href="https://apps.apple.com/app/shopisan" class="button" id="downloadBtn"></a>
+      <a href="#" class="button store hidden" id="playStoreBtn"></a>
+      <a href="#" class="button store hidden" id="appStoreBtn"></a>
+      <p class="coming-soon hidden" id="comingSoon"></p>
+      <a href="/open" class="button" id="openAppBtn"></a>
     </div>
 
     <div class="footer">
@@ -97,31 +111,48 @@
       en: {
         tagline: "Discover local shops near you",
         message: "Support local businesses and discover unique shops in your neighborhood. Download the Shopisan app to get started!",
-        downloadBtn: "Download on App Store",
+        playStoreBtn: "Get it on Google Play",
+        appStoreBtn: "Download on the App Store",
+        comingSoon: "Coming soon to Google Play and the App Store",
+        openAppBtn: "Open the app",
         footerText: "Already have the app? Open it to sign in to your account.",
-        contactLink: "Contact Us"
+        contactLink: "Contact us"
       },
       fr: {
-        tagline: "Decouvrez les commerces pres de chez vous",
-        message: "Soutenez les commerces locaux et decouvrez des boutiques uniques dans votre quartier. Telechargez l'application Shopisan pour commencer !",
-        downloadBtn: "Telecharger sur l'App Store",
-        footerText: "Vous avez deja l'application ? Ouvrez-la pour acceder a votre compte.",
+        tagline: "Découvrez les commerces près de chez vous",
+        message: "Soutenez les commerces locaux et découvrez des boutiques uniques dans votre quartier. Téléchargez l'application Shopisan pour commencer !",
+        playStoreBtn: "Télécharger sur Google Play",
+        appStoreBtn: "Télécharger sur l'App Store",
+        comingSoon: "Bientôt disponible sur Google Play et l'App Store",
+        openAppBtn: "Ouvrir l'application",
+        footerText: "Vous avez déjà l'application ? Ouvrez-la pour accéder à votre compte.",
         contactLink: "Nous contacter"
       }
     };
 
-    // Detect browser language
-    const userLang = navigator.language || navigator.userLanguage;
-    const lang = userLang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+    // Detect browser language (default French)
+    const userLang = navigator.language || navigator.userLanguage || 'fr';
+    const lang = userLang.toLowerCase().startsWith('en') ? 'en' : 'fr';
+    const t = translations[lang];
 
-    // Apply translations
-    document.getElementById('tagline').textContent = translations[lang].tagline;
-    document.getElementById('message').textContent = translations[lang].message;
-    document.getElementById('downloadBtn').textContent = translations[lang].downloadBtn;
-    document.getElementById('footerText').textContent = translations[lang].footerText;
-    document.getElementById('contactLink').textContent = translations[lang].contactLink;
+    ['tagline', 'message', 'playStoreBtn', 'appStoreBtn', 'comingSoon', 'openAppBtn', 'footerText', 'contactLink']
+      .forEach((id) => { document.getElementById(id).textContent = t[id]; });
 
-    // Update html lang attribute
+    // Store buttons: shown only when the listing URL is set
+    const links = window.SHOPISAN_LINKS || {};
+    const showStoreButton = (id, url) => {
+      if (!url) return false;
+      const el = document.getElementById(id);
+      el.href = url;
+      el.classList.remove('hidden');
+      return true;
+    };
+    const hasPlay = showStoreButton('playStoreBtn', links.playStore);
+    const hasApple = showStoreButton('appStoreBtn', links.appStore);
+    if (!hasPlay && !hasApple) {
+      document.getElementById('comingSoon').classList.remove('hidden');
+    }
+
     document.documentElement.lang = lang;
   </script>
 </body>

@@ -6,7 +6,7 @@ const handlebars = require("handlebars");
 admin.initializeApp();
 
 // Namecheap Private Email SMTP configuration
-const transporter = nodemailer.createTransport({
+const smtpTransporter = nodemailer.createTransport({
   host: "mail.privateemail.com",
   port: 465,
   secure: true,
@@ -15,6 +15,29 @@ const transporter = nodemailer.createTransport({
     pass: "xW4MFyjIMCA0eo",
   },
 });
+
+// Under the Functions emulator (it sets FUNCTIONS_EMULATOR=true; deployed
+// functions never have it) emails are captured into the emulator's own
+// Firestore collection e2e_outbox instead of going out over SMTP, so local
+// runs and the e2e suite can never mail real people.
+const captureTransporter = {
+  sendMail: async (mail) => {
+    const ref = await admin.firestore().collection("e2e_outbox").add({
+      from: mail.from || null,
+      to: mail.to || null,
+      subject: mail.subject || null,
+      html: mail.html || null,
+      text: mail.text || null,
+      capturedAt: new Date(),
+    });
+    return { messageId: `e2e-${ref.id}`, accepted: [mail.to] };
+  },
+};
+
+const transporter =
+  process.env.FUNCTIONS_EMULATOR === "true"
+    ? captureTransporter
+    : smtpTransporter;
 
 // Support email transporter (for receiving feedback)
 const _supportTransporter = nodemailer.createTransport({
@@ -30,6 +53,89 @@ const _supportTransporter = nodemailer.createTransport({
 const ADMIN_EMAIL = "info@shopisan.com";
 const SENDER_EMAIL = "info@shopisan.com";
 const SUPPORT_EMAIL = "support@shopisan.com";
+
+// Every public link used in emails. playStore / appStore stay empty until the
+// client confirms the published store listings: the footer download buttons
+// are wrapped in {{#if}} so they stay hidden while the URL is empty.
+// openApp is the hosted public/open.html page, which opens the installed app
+// (Android intent with Play/web fallback) or points to the landing page.
+const LINKS = {
+  website: "https://shopisan.com",
+  openApp: "https://shopisan-bad76.web.app/open",
+  instagram: "https://instagram.com/shopisanapp",
+  playStore: "",
+  appStore: "",
+};
+
+// Handlebars data every owner/shopper-facing template needs for the shared
+// footer and the "open the app" body buttons. Spread into each render call.
+const FOOTER_DATA = {
+  websiteUrl: LINKS.website,
+  openAppUrl: LINKS.openApp,
+  instagramUrl: LINKS.instagram,
+  playStoreUrl: LINKS.playStore,
+  appStoreUrl: LINKS.appStore,
+};
+
+/**
+ * Shared email footer (FR / EN). Table-based with inline styles only so it
+ * stays centred and stacks cleanly in mobile mail clients (no flex, no
+ * floats). Never put a one-time link (verificationUrl) in here: footers are
+ * clicked long after the token has been used.
+ */
+const buildEmailFooter = (lang) => {
+  const t =
+    lang === "en"
+      ? {
+          openApp: "Open the app",
+          website: "Website",
+          playStore: "Get it on Google Play",
+          appStore: "Download on the App Store",
+        }
+      : {
+          openApp: "Ouvrir l'application",
+          website: "Site internet",
+          playStore: "Télécharger sur Google Play",
+          appStore: "Télécharger sur l'App Store",
+        };
+  const button = (href, label, bg) => `
+          <tr>
+            <td align="center" style="padding: 6px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+                <tr>
+                  <td align="center" bgcolor="${bg}" style="background-color: ${bg}; border-radius: 6px;">
+                    <a href="${href}" style="display: inline-block; padding: 12px 24px; font-family: Arial, sans-serif; font-size: 15px; font-weight: bold; line-height: 20px; color: #FFFFFF; text-decoration: none; border-radius: 6px;">${label}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 40px; border-top: 1px solid #eeeeee;">
+      <tr>
+        <td align="center" style="padding: 20px 0 0 0;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">${button("{{openAppUrl}}", t.openApp, "#6B2D5C")}
+          {{#if playStoreUrl}}${button("{{playStoreUrl}}", t.playStore, "#000000")}
+          {{/if}}
+          {{#if appStoreUrl}}${button("{{appStoreUrl}}", t.appStore, "#000000")}
+          {{/if}}
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="padding: 16px 0 8px 0; font-family: Arial, sans-serif; font-size: 14px; line-height: 20px;">
+          <a href="{{websiteUrl}}" style="color: #6B2D5C; text-decoration: none;">${t.website}</a>
+          <span style="color: #CCCCCC;">&nbsp;&nbsp;|&nbsp;&nbsp;</span>
+          <a href="{{instagramUrl}}" style="color: #6B2D5C; text-decoration: none;">Instagram</a>
+        </td>
+      </tr>
+    </table>`;
+};
+
+const EMAIL_FOOTER = {
+  fr: buildEmailFooter("fr"),
+  en: buildEmailFooter("en"),
+};
 
 /**
  * Store owner account check.
@@ -51,9 +157,12 @@ const CLOUDFLARE_API_TOKEN = "mPV6icwf2TUu5e3KWXCRT1L8bo7_0hmg9zqGyi4K";
  * (https://imagedelivery.net/<accountHash>/<imageId>/<variant>).
  * Returns true if the image was deleted (or already gone), false otherwise.
  * Never throws: image cleanup must not block the Firestore delete.
+ * Skipped under the Functions emulator: emulated stores may point at real
+ * production images.
  */
 const deleteCloudflareImage = async (imageUrl) => {
   try {
+    if (process.env.FUNCTIONS_EMULATOR === "true") return false;
     if (!imageUrl || typeof imageUrl !== "string") return false;
     const url = new URL(imageUrl);
     if (url.hostname !== "imagedelivery.net") return false;
@@ -116,6 +225,7 @@ const shopperEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bienvenue sur Shopisan</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -123,9 +233,6 @@ const shopperEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -136,16 +243,16 @@ const shopperEmailTemplate = {
     <div class="content">
       <p>Bonjour {{username}},</p>
       <p>Merci pour ton inscription ! Tu fais maintenant partie de la communauté Shopisan qui aide les commerces de proximité à gagner en visibilité.</p>
-      <p>On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli. En attendant, n'hésite pas à en parler autour de toi et à ajouter tes commerces préférés sur Shopisan.</p>
+      <p>On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli. En attendant, n'hésite pas à en parler autour de toi.</p>
+      {{#if verificationUrl}}
+      <p>Pour finaliser ton inscription, confirme ton adresse email :</p>
+      <p style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Vérifier mon email</a>
+      </p>
+      {{/if}}
       <p>À très vite,<br>L'équipe Shopisan</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a> |
-        <a href="{{verificationUrl}}">Lien vers l'application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -158,6 +265,7 @@ const shopperEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Welcome to Shopisan</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -165,9 +273,6 @@ const shopperEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -178,16 +283,16 @@ const shopperEmailTemplate = {
     <div class="content">
       <p>Hello {{username}},</p>
       <p>Thank you for signing up! You are now part of the Shopisan community that helps local businesses gain visibility.</p>
-      <p>We'll send you a message as soon as your favorite shops arrive on the app. In the meantime, feel free to spread the word and add your favorite shops on Shopisan.</p>
+      <p>We'll send you a message as soon as your favorite shops arrive on the app. In the meantime, feel free to tell people around you about it.</p>
+      {{#if verificationUrl}}
+      <p>To complete your registration, please confirm your email address:</p>
+      <p style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Verify my email</a>
+      </p>
+      {{/if}}
       <p>See you soon,<br>The Shopisan Team</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Website</a> |
-        <a href="{{verificationUrl}}">Link to application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -203,6 +308,7 @@ const merchantEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bienvenue sur Shopisan</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -210,9 +316,6 @@ const merchantEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -223,16 +326,16 @@ const merchantEmailTemplate = {
     <div class="content">
       <p>Bonjour {{username}},</p>
       <p>Merci pour votre inscription sur Shopisan ! Nous sommes ravis de vous accueillir dans la communauté qui met en avant les commerces de proximité.</p>
-      <p>Votre boutique est déjà en ligne : elle apparaît dès maintenant sur la carte, dans les listes et dans la recherche. Vous pouvez configurer votre compte et présenter vos produits aux utilisateurs de l'application quand vous le souhaitez.</p>
+      <p>Votre demande est en cours de validation. Nous vérifions les informations de votre boutique et vous préviendrons par email dès qu'elle sera approuvée et visible dans l'application.</p>
+      {{#if verificationUrl}}
+      <p>Pour finaliser votre inscription, confirmez votre adresse email :</p>
+      <p style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Vérifier mon email</a>
+      </p>
+      {{/if}}
       <p>À bientôt,<br>L'équipe Shopisan</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a> |
-        <a href="{{verificationUrl}}">Lien vers l'application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -245,6 +348,7 @@ const merchantEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Welcome to Shopisan</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -252,9 +356,6 @@ const merchantEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 10px 5px; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -265,16 +366,16 @@ const merchantEmailTemplate = {
     <div class="content">
       <p>Hello {{username}},</p>
       <p>Thank you for registering on Shopisan! We are delighted to welcome you to the community that highlights local businesses.</p>
-      <p>Your store is already live: it shows up on the map, in listings and in search right away. You can set up your account and present your products to the app's users whenever you like.</p>
+      <p>Your request is being reviewed. We are checking your store's details and will email you as soon as it is approved and visible in the app.</p>
+      {{#if verificationUrl}}
+      <p>To complete your registration, please confirm your email address:</p>
+      <p style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Verify my email</a>
+      </p>
+      {{/if}}
       <p>See you soon,<br>The Shopisan Team</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Website</a> |
-        <a href="{{verificationUrl}}">Link to application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -287,6 +388,7 @@ const adminNotificationTemplate = `
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>New User Registration</title>
   <style>
     body { font-family: Arial, sans-serif; }
@@ -296,13 +398,13 @@ const adminNotificationTemplate = `
 </head>
 <body>
   <div class="container">
-    <h2>{{#if details}}New merchant request{{else}}New user registered{{/if}}</h2>
+    <h2>{{#if details}}New store owner request{{else}}New user registered{{/if}}</h2>
     <p>Username: {{username}}</p>
     <p>Email: {{email}}</p>
     <p>Type: {{userType}}</p>
     <p>Date: {{registrationDate}}</p>
     {{#if details}}
-    <h3>Merchant details</h3>
+    <h3>Store owner details</h3>
     <p>First name: {{details.name}}</p>
     <p>Last name: {{details.surname}}</p>
     <p>Phone: {{details.phone}}</p>
@@ -312,7 +414,7 @@ const adminNotificationTemplate = `
     <p>Address: {{details.storeAddress}}</p>
     <p>City: {{details.storeCity}}</p>
     <p>Website: {{details.website}}</p>
-    <p>Review and approve this request in the admin panel (Merchant requests).</p>
+    <p>Review and approve this request in the admin panel (Store owner requests).</p>
     {{/if}}
     <div class="footer">
       <p>Shopisan</p>
@@ -333,6 +435,7 @@ const storeVerifiedEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Boutique vérifiée</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -340,9 +443,6 @@ const storeVerifiedEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
     .contact { margin-top: 20px; font-size: 13px; color: #666; }
   </style>
 </head>
@@ -356,19 +456,13 @@ const storeVerifiedEmailTemplate = {
       <p>Bonne nouvelle : votre boutique est désormais vérifiée sur Shopisan.</p>
       <p>Un badge de vérification apparaît maintenant à côté de votre nom, partout dans l'application. C'est un gage de confiance pour les personnes qui découvrent votre commerce, et votre boutique remonte plus haut dans les suggestions de recherche.</p>
       <p style="text-align: center;">
-        <a href="{{appUrl}}" class="button">Voir ma boutique</a>
+        <a href="{{openAppUrl}}" class="button">Voir ma boutique</a>
       </p>
       <p>Merci de faire vivre les commerces de proximité avec nous !</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
       <p class="contact">Notre équipe est à votre disposition à info@shopisan.com</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a> |
-        <a href="{{appUrl}}">Lien vers l'application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -381,6 +475,7 @@ const storeVerifiedEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Store Verified</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -388,9 +483,6 @@ const storeVerifiedEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
     .contact { margin-top: 20px; font-size: 13px; color: #666; }
   </style>
 </head>
@@ -404,19 +496,13 @@ const storeVerifiedEmailTemplate = {
       <p>Good news: your store is now verified on Shopisan.</p>
       <p>A verification badge appears next to your name everywhere in the app. It is a mark of trust for people discovering your business, and your store now ranks higher in search suggestions.</p>
       <p style="text-align: center;">
-        <a href="{{appUrl}}" class="button">View my store</a>
+        <a href="{{openAppUrl}}" class="button">View my store</a>
       </p>
       <p>Thank you for keeping local business alive with us!</p>
       <p>See you soon,<br>The Shopisan Team</p>
       <p class="contact">Our team is at your disposal at info@shopisan.com</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Website</a> |
-        <a href="{{appUrl}}">Link to app</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -436,6 +522,7 @@ const merchantApprovedEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inscription validée</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -443,9 +530,6 @@ const merchantApprovedEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
     .contact { margin-top: 20px; font-size: 13px; color: #666; }
   </style>
 </head>
@@ -460,19 +544,13 @@ const merchantApprovedEmailTemplate = {
       <p>Votre boutique rejoint dès aujourd'hui la communauté qui met en avant les commerces de proximité.</p>
       <p>Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
       <p style="text-align: center;">
-        <a href="{{appUrl}}" class="button">Accéder à mon compte</a>
+        <a href="{{openAppUrl}}" class="button">Accéder à mon compte</a>
       </p>
       <p>Bienvenue dans l'aventure Shopisan ! Nous sommes ravis de vous compter parmi nous !</p>
       <p>À bientôt,<br>L'équipe Shopisan</p>
       <p class="contact">Notre équipe est à votre disposition à info@shopisan.com</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a> |
-        <a href="{{appUrl}}">Lien vers l'application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -485,6 +563,7 @@ const merchantApprovedEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registration validated</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -492,9 +571,6 @@ const merchantApprovedEmailTemplate = {
     .header { text-align: center; margin-bottom: 30px; }
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 6px; margin: 20px 0; border: 1px solid #000000; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
     .contact { margin-top: 20px; font-size: 13px; color: #666; }
   </style>
 </head>
@@ -509,19 +585,13 @@ const merchantApprovedEmailTemplate = {
       <p>Your store is joining today the community that highlights local businesses.</p>
       <p>All that's left is for you to configure your account to present your products and welcome your first customers through the app.</p>
       <p style="text-align: center;">
-        <a href="{{appUrl}}" class="button">Access my account</a>
+        <a href="{{openAppUrl}}" class="button">Access my account</a>
       </p>
       <p>Welcome to the Shopisan adventure! We are delighted to have you on board!</p>
       <p>See you soon,<br>The Shopisan Team</p>
       <p class="contact">Our team is at your disposal at info@shopisan.com</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Website</a> |
-        <a href="{{appUrl}}">Link to app</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -540,6 +610,7 @@ const storeSuspendedEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Boutique suspendue</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -548,9 +619,6 @@ const storeSuspendedEmailTemplate = {
     .content { margin-bottom: 30px; }
     .reasons { margin: 20px 0; padding-left: 20px; }
     .reasons li { margin: 8px 0; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -572,13 +640,7 @@ const storeSuspendedEmailTemplate = {
       <p>Nous vous remercions de votre compréhension.</p>
       <p>Cordialement,<br>L'équipe Shopisan</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a> |
-        <a href="{{instagramUrl}}">Instagram</a> |
-        <a href="{{appStoreUrl}}">App Store</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -591,6 +653,7 @@ const storeSuspendedEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Store Suspended</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -599,9 +662,6 @@ const storeSuspendedEmailTemplate = {
     .content { margin-bottom: 30px; }
     .reasons { margin: 20px 0; padding-left: 20px; }
     .reasons li { margin: 8px 0; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -623,13 +683,7 @@ const storeSuspendedEmailTemplate = {
       <p>Thank you for your understanding.</p>
       <p>Kind regards,<br>The Shopisan Team</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Website</a> |
-        <a href="{{instagramUrl}}">Instagram</a> |
-        <a href="{{appStoreUrl}}">App Store</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -637,13 +691,17 @@ const storeSuspendedEmailTemplate = {
   },
 };
 
-// Store creation notification template (for admin)
+// Store creation notification template (admin only). Sent when an already
+// approved store owner adds another store: the store waits (status
+// 'pending') until the admin approves it in the admin panel. The owner gets
+// no email.
 const storeCreationAdminTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>New Store Is Live</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Store To Review</title>
   <style>
     body { font-family: Arial, sans-serif; }
     .container { max-width: 500px; margin: 0 auto; padding: 24px; }
@@ -655,17 +713,18 @@ const storeCreationAdminTemplate = `
 <body>
   <div class="container">
     <div class="header">
-      <h2>New Store Is Live</h2>
+      <h2>New Store To Review</h2>
     </div>
     <div class="content">
       <p><strong>Store Name:</strong> {{storeName}}</p>
       <p><strong>City:</strong> {{city}}</p>
+      <p><strong>Store owner:</strong> {{ownerName}}</p>
       <p><strong>Email:</strong> {{email}}</p>
       <p><strong>Categories:</strong> {{categories}}</p>
       <p><strong>Date:</strong> {{registrationDate}}</p>
     </div>
     <div class="footer">
-      <p>The store was created as pending: review and approve it in the admin panel (Stores) before it appears to shoppers.</p>
+      <p>This store was added by an already approved store owner. It stays hidden from shoppers until you approve it in the admin panel (Store owner requests, "New stores from approved owners"). No email was sent to the owner.</p>
       <p>To grant the verification badge: node scripts/verify-store.js &lt;storeId&gt;</p>
       <p>To take it down: node scripts/suspend-store.js &lt;storeId&gt; --reason="..."</p>
     </div>
@@ -687,6 +746,7 @@ const merchantVerificationEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Demande d'inscription reçue</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -697,9 +757,6 @@ const merchantVerificationEmailTemplate = {
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
     .pending-badge { display: inline-block; background-color: #E8A33D; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -730,13 +787,7 @@ const merchantVerificationEmailTemplate = {
 
       <p>À bientôt,<br>L'équipe Shopisan</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Site internet</a> |
-        <a href="{{appUrl}}">Lien vers l'application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -749,6 +800,7 @@ const merchantVerificationEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registration request received</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -759,9 +811,6 @@ const merchantVerificationEmailTemplate = {
     .store-info { background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6B2D5C; }
     .store-info h3 { margin-top: 0; color: #6B2D5C; }
     .pending-badge { display: inline-block; background-color: #E8A33D; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; }
-    .social-links { margin: 20px 0; }
-    .social-links a { margin: 0 10px; color: #6B2D5C; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -792,13 +841,7 @@ const merchantVerificationEmailTemplate = {
 
       <p>See you soon,<br>The Shopisan Team</p>
     </div>
-    <div class="footer">
-      <div class="social-links">
-        <a href="{{appUrl}}">Website</a> |
-        <a href="{{appUrl}}">Link to application</a> |
-        <a href="{{instagramUrl}}">Instagram</a>
-      </div>
-    </div>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -806,18 +849,14 @@ const merchantVerificationEmailTemplate = {
   },
 };
 
-// Function to send store creation notification (called when a new store is added)
+// Called by the app after an already approved store owner adds another store.
+// The store waits for admin approval; the owner receives NO email (no welcome,
+// no validation notice): only the admin is told there is a store to review. The app still sends
+// `language`; it is ignored now that nothing owner-facing is rendered here.
 exports.sendStoreCreationEmail = functions.https.onCall(
   async (data, _context) => {
     try {
-      const {
-        storeName,
-        storeEmail,
-        city,
-        categories,
-        language = "fr",
-        username,
-      } = data;
+      const { storeName, storeEmail, city, categories, username } = data;
 
       if (!storeName || !storeEmail) {
         throw new functions.https.HttpsError(
@@ -826,43 +865,12 @@ exports.sendStoreCreationEmail = functions.https.onCall(
         );
       }
 
-      // Handle locale strings like 'en-US', 'fr-FR', etc. Default to French
-      const lang = (language || "fr").toLowerCase().startsWith("en")
-        ? "en"
-        : "fr";
-
-      // Send confirmation to merchant
-      const emailTemplate = merchantEmailTemplate[lang];
-      const subject = emailTemplate.subject;
-
-      const template = handlebars.compile(emailTemplate.template);
-      const htmlContent = template({
-        storeName,
-        // Always use username for greeting, never storeName
-        // If username missing, use a generic greeting based on language
-        username:
-          username || (lang === "fr" ? "cher commerçant" : "valued merchant"),
-        appUrl: "https://shopisan-bad76.web.app",
-        verificationUrl: "https://shopisan-bad76.web.app",
-        instagramUrl: "https://instagram.com/shopisanapp",
-      });
-
-      // Send to merchant
-      const merchantMailOptions = {
-        from: `"Shopisan" <${SENDER_EMAIL}>`,
-        to: storeEmail,
-        subject: subject,
-        html: htmlContent,
-      };
-
-      await transporter.sendMail(merchantMailOptions);
-      console.log("Store creation email sent to merchant:", storeEmail);
-
       // Send notification to admin
       const adminTemplate = handlebars.compile(storeCreationAdminTemplate);
       const adminHtmlContent = adminTemplate({
         storeName,
         city: city || "Not specified",
+        ownerName: username || "Not specified",
         email: storeEmail,
         categories: Array.isArray(categories)
           ? categories.join(", ")
@@ -873,7 +881,7 @@ exports.sendStoreCreationEmail = functions.https.onCall(
       const adminMailOptions = {
         from: `"Shopisan System" <${SENDER_EMAIL}>`,
         to: ADMIN_EMAIL,
-        subject: `New store is live: ${storeName}`,
+        subject: `New store to review: ${storeName}`,
         html: adminHtmlContent,
       };
 
@@ -882,7 +890,7 @@ exports.sendStoreCreationEmail = functions.https.onCall(
 
       return {
         success: true,
-        message: "Store creation emails sent successfully",
+        message: "Store creation admin notification sent successfully",
       };
     } catch (error) {
       console.error("Error sending store creation email:", error);
@@ -933,8 +941,7 @@ exports.sendVerificationEmail = functions.https.onCall(
         storeName: storeName || username,
         verificationUrl,
         email,
-        appUrl: "https://shopisan-bad76.web.app",
-        instagramUrl: "https://instagram.com/shopisanapp",
+        ...FOOTER_DATA,
       });
 
       // Send email using Nodemailer with Gmail
@@ -999,8 +1006,7 @@ exports.sendMerchantVerificationEmail = functions.https.onCall(
         storeName,
         storeCity: storeCity || "Non specifie",
         verificationUrl,
-        appUrl: "https://shopisan-bad76.web.app",
-        instagramUrl: "https://instagram.com/shopisanapp",
+        ...FOOTER_DATA,
       });
 
       // Send email
@@ -1088,7 +1094,7 @@ exports.sendAdminNotification = functions.https.onCall(
       });
 
       const subject = details
-        ? `New merchant request: ${details.storeName}`
+        ? `New store owner request: ${details.storeName}`
         : `New ${userType} registration`;
 
       // Send admin notification
@@ -1172,6 +1178,11 @@ exports.verifyEmail = functions.https.onCall(async (data, _context) => {
     };
   } catch (error) {
     console.error("Error verifying email:", error);
+    // Pass known errors (invalid / already used / expired token) through so
+    // public/verify-email.html can show the real reason.
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
     throw new functions.https.HttpsError("internal", "Failed to verify email");
   }
 });
@@ -1270,8 +1281,7 @@ exports.resendVerificationEmail = functions.https.onCall(
         storeName: storeName || username,
         verificationUrl,
         email,
-        appUrl: "https://shopisan-bad76.web.app",
-        instagramUrl: "https://instagram.com/shopisanapp",
+        ...FOOTER_DATA,
       });
 
       const mailOptions = {
@@ -1330,6 +1340,7 @@ exports.sendFeedback = functions.https.onRequest(async (req, res) => {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Feedback from Shopisan App</title>
   <style>
     body { font-family: Arial, sans-serif; }
@@ -1449,8 +1460,7 @@ exports.onStoreVerified = functions.firestore
         const template = handlebars.compile(emailTemplate.template);
         const htmlContent = template({
           storeName,
-          appUrl: "https://shopisan-bad76.web.app",
-          instagramUrl: "https://instagram.com/shopisanapp",
+          ...FOOTER_DATA,
         });
 
         // Send verification confirmation email
@@ -1528,8 +1538,7 @@ exports.onMerchantApproved = functions.firestore
       const template = handlebars.compile(emailTemplate.template);
       const htmlContent = template({
         storeName,
-        appUrl: "https://shopisan-bad76.web.app",
-        instagramUrl: "https://instagram.com/shopisanapp",
+        ...FOOTER_DATA,
       });
 
       const mailOptions = {
@@ -1605,9 +1614,7 @@ exports.onStoreSuspended = functions.firestore
         const template = handlebars.compile(emailTemplate.template);
         const htmlContent = template({
           storeName,
-          appUrl: "https://shopisan-bad76.web.app",
-          instagramUrl: "https://instagram.com/shopisanapp",
-          appStoreUrl: "https://apps.apple.com/app/shopisan",
+          ...FOOTER_DATA,
         });
 
         // Send suspension email
@@ -1643,13 +1650,14 @@ const emailChangeTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Changement d'email</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <table width="600" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
             <td style="background-color: #6B2D5C; padding: 30px 40px; text-align: center;">
@@ -1683,6 +1691,12 @@ const emailChangeTemplate = {
               <p style="margin: 30px 0 0 0;">À bientôt,<br><strong>L'équipe Shopisan</strong></p>
             </td>
           </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              ${EMAIL_FOOTER.fr}
+            </td>
+          </tr>
         </table>
       </td>
     </tr>
@@ -1698,13 +1712,14 @@ const emailChangeTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Email Change</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <table width="600" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
             <td style="background-color: #6B2D5C; padding: 30px 40px; text-align: center;">
@@ -1736,6 +1751,12 @@ const emailChangeTemplate = {
               </table>
               <!-- Footer text -->
               <p style="margin: 30px 0 0 0;">See you soon,<br><strong>The Shopisan Team</strong></p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              ${EMAIL_FOOTER.en}
             </td>
           </tr>
         </table>
@@ -2337,6 +2358,7 @@ exports.sendEmailChangeVerification = functions.https.onCall(
         oldEmail,
         newEmail,
         verificationUrl,
+        ...FOOTER_DATA,
       });
 
       // Send email to the NEW email address
@@ -2468,6 +2490,7 @@ const passwordResetEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Réinitialisation de mot de passe</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -2476,7 +2499,6 @@ const passwordResetEmailTemplate = {
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 14px 28px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 8px; font-weight: bold; border: 1px solid #000000; }
     .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; color: #666; }
     .code { font-size: 32px; font-weight: bold; color: #6B2D5C; letter-spacing: 4px; text-align: center; padding: 20px; background-color: #f8f4f9; border-radius: 8px; margin: 20px 0; }
   </style>
 </head>
@@ -2495,10 +2517,8 @@ const passwordResetEmailTemplate = {
         <strong>⚠️ Important :</strong> Ce code expire dans 1 heure. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
       </div>
     </div>
-    <div class="footer">
-      <p>L'équipe Shopisan</p>
-      <p><a href="https://shopisan.com">shopisan.com</a></p>
-    </div>
+    <p>L'équipe Shopisan</p>
+    ${EMAIL_FOOTER.fr}
   </div>
 </body>
 </html>
@@ -2511,6 +2531,7 @@ const passwordResetEmailTemplate = {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Password Reset</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
@@ -2519,7 +2540,6 @@ const passwordResetEmailTemplate = {
     .content { margin-bottom: 30px; }
     .button { display: inline-block; padding: 14px 28px; background-color: #FFFFFF; color: #000000; text-decoration: none; border-radius: 8px; font-weight: bold; border: 1px solid #000000; }
     .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 14px; color: #666; }
     .code { font-size: 32px; font-weight: bold; color: #6B2D5C; letter-spacing: 4px; text-align: center; padding: 20px; background-color: #f8f4f9; border-radius: 8px; margin: 20px 0; }
   </style>
 </head>
@@ -2538,10 +2558,8 @@ const passwordResetEmailTemplate = {
         <strong>⚠️ Important:</strong> This code expires in 1 hour. If you didn't request this reset, please ignore this email.
       </div>
     </div>
-    <div class="footer">
-      <p>The Shopisan Team</p>
-      <p><a href="https://shopisan.com">shopisan.com</a></p>
-    </div>
+    <p>The Shopisan Team</p>
+    ${EMAIL_FOOTER.en}
   </div>
 </body>
 </html>
@@ -2605,6 +2623,7 @@ exports.sendCustomPasswordReset = functions.https.onCall(
       const htmlContent = template({
         email: normalizedEmail,
         resetCode: resetCode,
+        ...FOOTER_DATA,
       });
 
       // Send email

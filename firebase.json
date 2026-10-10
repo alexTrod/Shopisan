@@ -46,6 +46,10 @@
       {
         "source": "/confirm-email-change",
         "destination": "/confirm-email-change.html"
+      },
+      {
+        "source": "/open",
+        "destination": "/open.html"
       }
     ]
   }

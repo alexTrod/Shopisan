@@ -55,11 +55,14 @@ const sampleData = {
   city: 'Paris',
   categories: 'Boulangerie, Patisserie',
   registrationDate: new Date().toLocaleDateString('fr-FR'),
-  appUrl: 'https://shopisan-bad76.web.app',
+  // Same values as LINKS in index.js (store URLs empty until confirmed)
+  websiteUrl: 'https://shopisan.com',
+  openAppUrl: 'https://shopisan-bad76.web.app/open',
+  playStoreUrl: '',
+  appStoreUrl: '',
   verificationUrl: 'https://shopisan-bad76.web.app/verify-email?token=test123',
   resetUrl: 'https://shopisan-bad76.web.app/reset-password?token=test123',
-  instagramUrl: 'https://instagram.com/shopisanapp',
-  appStoreUrl: 'https://apps.apple.com/app/shopisan'
+  instagramUrl: 'https://instagram.com/shopisanapp'
 };
 
 // Professional email template wrapper
@@ -94,11 +97,12 @@ const professionalTemplate = (content, lang = 'fr') => `
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center" style="padding-bottom: 20px;">
-                    <a href="{{appUrl}}" style="color: #6B2D5C; text-decoration: none; margin: 0 12px; font-size: 14px;">${lang === 'fr' ? 'Site internet' : 'Website'}</a>
+                    ${ctaButton('{{openAppUrl}}', lang === 'fr' ? "Ouvrir l'application" : 'Open the app')}
+                    {{#if playStoreUrl}}${ctaButton('{{playStoreUrl}}', lang === 'fr' ? 'Télécharger sur Google Play' : 'Get it on Google Play')}{{/if}}
+                    {{#if appStoreUrl}}${ctaButton('{{appStoreUrl}}', lang === 'fr' ? "Télécharger sur l'App Store" : 'Download on the App Store')}{{/if}}
+                    <a href="{{websiteUrl}}" style="color: #6B2D5C; text-decoration: none; margin: 0 12px; font-size: 14px;">${lang === 'fr' ? 'Site internet' : 'Website'}</a>
                     <span style="color: #ccc;">|</span>
                     <a href="{{instagramUrl}}" style="color: #6B2D5C; text-decoration: none; margin: 0 12px; font-size: 14px;">Instagram</a>
-                    <span style="color: #ccc;">|</span>
-                    <a href="{{appStoreUrl}}" style="color: #6B2D5C; text-decoration: none; margin: 0 12px; font-size: 14px;">App Store</a>
                   </td>
                 </tr>
                 <tr>
@@ -158,8 +162,8 @@ const templates = {
       <h2 style="color: #6B2D5C; margin: 0 0 20px; font-size: 22px; font-weight: 600;">Bienvenue dans l'aventure Shopisan !</h2>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Bonjour {{username}},</p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Merci pour ton inscription ! Tu fais maintenant partie de la communauté Shopisan qui aide les commerces de proximité à gagner en visibilité.</p>
-      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli. En attendant, n'hésite pas à en parler autour de toi et à ajouter tes commerces préférés sur Shopisan.</p>
-      ${ctaButton('{{appUrl}}', 'Découvrir Shopisan')}
+      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">On t'enverra un petit message dès que tes commerces préférés arrivent sur l'appli. En attendant, n'hésite pas à en parler autour de toi.</p>
+      ${ctaButton('{{openAppUrl}}', 'Découvrir Shopisan')}
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0;">À très vite,<br><strong style="color: #6B2D5C;">L'équipe Shopisan</strong></p>
     `, 'fr')
   },
@@ -169,8 +173,8 @@ const templates = {
       <h2 style="color: #6B2D5C; margin: 0 0 20px; font-size: 22px; font-weight: 600;">Welcome to the Shopisan adventure!</h2>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Hello {{username}},</p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Thank you for signing up! You are now part of the Shopisan community that helps local businesses gain visibility.</p>
-      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">We'll send you a message as soon as your favorite shops arrive on the app. In the meantime, feel free to spread the word and add your favorite shops on Shopisan.</p>
-      ${ctaButton('{{appUrl}}', 'Discover Shopisan')}
+      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">We'll send you a message as soon as your favorite shops arrive on the app. In the meantime, feel free to tell people around you about it.</p>
+      ${ctaButton('{{openAppUrl}}', 'Discover Shopisan')}
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0;">See you soon,<br><strong style="color: #6B2D5C;">The Shopisan Team</strong></p>
     `, 'en')
   },
@@ -203,7 +207,7 @@ const templates = {
     html: professionalTemplate(`
       <h2 style="color: #6B2D5C; margin: 0 0 20px; font-size: 22px; font-weight: 600;">Bienvenue sur Shopisan !</h2>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Bonjour {{username}},</p>
-      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">Merci pour votre inscription en tant que commerçant sur Shopisan. Nous sommes ravis de vous accueillir dans notre communauté de commerces locaux !</p>
+      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">Merci pour votre inscription en tant que propriétaire de magasin sur Shopisan. Nous sommes ravis de vous accueillir dans notre communauté de commerces locaux !</p>
       ${infoBox(`
         <h3 style="color: #6B2D5C; margin: 0 0 16px; font-size: 18px; font-weight: 600;">Votre boutique enregistrée</h3>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
@@ -237,7 +241,7 @@ const templates = {
     html: professionalTemplate(`
       <h2 style="color: #6B2D5C; margin: 0 0 20px; font-size: 22px; font-weight: 600;">Welcome to Shopisan!</h2>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Hello {{username}},</p>
-      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">Thank you for registering as a merchant on Shopisan. We're thrilled to welcome you to our community of local shops!</p>
+      <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">Thank you for registering as a store owner on Shopisan. We're thrilled to welcome you to our community of local shops!</p>
       ${infoBox(`
         <h3 style="color: #6B2D5C; margin: 0 0 16px; font-size: 18px; font-weight: 600;">Your registered store</h3>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
@@ -273,7 +277,7 @@ const templates = {
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Bonjour {{storeName}},</p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Votre inscription sur Shopisan a été validée.</p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">Votre boutique rejoint dès aujourd'hui la communauté qui met en avant les commerces de proximité. Il ne vous reste plus qu'à configurer votre compte pour présenter vos produits et accueillir vos premiers clients via l'application.</p>
-      ${ctaButton('{{appUrl}}', 'Accéder à mon compte')}
+      ${ctaButton('{{openAppUrl}}', 'Accéder à mon compte')}
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Bienvenue sur Shopisan. Nous sommes ravis de vous avoir parmi nous.</p>
       <p style="color: #888; font-size: 14px; line-height: 1.6; margin: 16px 0 0;">Notre équipe est à votre disposition à <a href="mailto:info@shopisan.com" style="color: #6B2D5C;">info@shopisan.com</a></p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 16px 0 0;">À bientôt,<br><strong style="color: #6B2D5C;">L'équipe Shopisan</strong></p>
@@ -286,7 +290,7 @@ const templates = {
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Hello {{storeName}},</p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Your registration on Shopisan has been validated.</p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">Your store is joining today the community that highlights local businesses. All that's left is for you to configure your account to present your products and welcome your first customers through the app.</p>
-      ${ctaButton('{{appUrl}}', 'Access my account')}
+      ${ctaButton('{{openAppUrl}}', 'Access my account')}
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Welcome to Shopisan. We are delighted to have you with us.</p>
       <p style="color: #888; font-size: 14px; line-height: 1.6; margin: 16px 0 0;">Our team is at your disposal at <a href="mailto:info@shopisan.com" style="color: #6B2D5C;">info@shopisan.com</a></p>
       <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 16px 0 0;">See you soon,<br><strong style="color: #6B2D5C;">The Shopisan Team</strong></p>
@@ -345,12 +349,12 @@ const templates = {
     `, 'en')
   },
   'store-creation-admin-fr': {
-    subject: "Nouvelle inscription boutique : {{storeName}}",
+    subject: "Nouvelle boutique à valider : {{storeName}}",
     html: professionalTemplate(`
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
         <tr>
           <td align="center">
-            <span style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">Nouvelle boutique en attente</span>
+            <span style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">Nouvelle boutique à valider</span>
           </td>
         </tr>
       </table>
@@ -387,16 +391,16 @@ const templates = {
           </td>
         </tr>
       </table>
-      <p style="color: #666; font-size: 14px; line-height: 1.6; text-align: center; margin: 0;">Veuillez valider cette boutique dans le tableau de bord admin.</p>
+      <p style="color: #666; font-size: 14px; line-height: 1.6; text-align: center; margin: 0;">Boutique ajoutée par un propriétaire de magasin déjà approuvé : elle reste masquée aux utilisateurs jusqu'à votre validation dans le tableau de bord admin.</p>
     `, 'fr')
   },
   'store-creation-admin-en': {
-    subject: "New Store Registration: {{storeName}}",
+    subject: "New store to review: {{storeName}}",
     html: professionalTemplate(`
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
         <tr>
           <td align="center">
-            <span style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">New Store Pending</span>
+            <span style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">New Store To Review</span>
           </td>
         </tr>
       </table>
@@ -433,7 +437,7 @@ const templates = {
           </td>
         </tr>
       </table>
-      <p style="color: #666; font-size: 14px; line-height: 1.6; text-align: center; margin: 0;">Please validate this store in the admin dashboard.</p>
+      <p style="color: #666; font-size: 14px; line-height: 1.6; text-align: center; margin: 0;">Added by an already approved store owner: it stays hidden from shoppers until you approve it in the admin dashboard.</p>
     `, 'en')
   },
   'admin-notification-fr': {

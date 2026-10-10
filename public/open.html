@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Ouvrir Shopisan</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #6B2D5C 0%, #8B4D7C 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px 24px;
+      max-width: 450px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .logo { margin-bottom: 16px; }
+    .logo img { width: 80px; height: 80px; object-fit: contain; }
+    .logo-fallback { font-size: 48px; }
+    h1 { color: #333; margin-bottom: 12px; font-size: 22px; }
+    .message { color: #666; margin-bottom: 24px; line-height: 1.6; }
+    .button {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto 12px;
+      background: #6B2D5C;
+      color: white;
+      padding: 14px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+    .button:hover { background: #8B4D7C; }
+    .button.secondary { background: #ffffff; color: #6B2D5C; border: 1px solid #6B2D5C; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="/logo.png" alt="Shopisan" onerror="this.parentElement.innerHTML='<span class=&quot;logo-fallback&quot;>&#x1F6CD;</span>';">
+    </div>
+    <h1 id="title"></h1>
+    <p class="message" id="message"></p>
+    <a href="#" class="button hidden" id="openBtn"></a>
+    <a href="/" class="button secondary" id="homeBtn"></a>
+  </div>
+
+  <script>
+    // Opens the installed Shopisan app. Android: intent:// URL with the app's
+    // custom scheme; Chrome falls back to the landing page when the app is not
+    // installed. Other platforms (iOS, desktop): no universal links yet, so
+    // just explain and link to the landing page.
+    const APP_SCHEME = 'com.ecomerce.shopisan';
+    const APP_PACKAGE = 'com.ecomerce.shopisan';
+    const FALLBACK_URL = 'https://shopisan-bad76.web.app/';
+
+    const translations = {
+      fr: {
+        pageTitle: 'Ouvrir Shopisan',
+        androidTitle: "Ouverture de l'application…",
+        androidMessage: "Si l'application ne s'ouvre pas automatiquement, appuyez sur le bouton ci-dessous.",
+        otherTitle: 'Ouvrez Shopisan sur votre téléphone',
+        otherMessage: "Ce lien ouvre l'application Shopisan sur un téléphone où elle est installée. Sinon, découvrez Shopisan sur notre site.",
+        openBtn: "Ouvrir l'application",
+        homeBtn: 'Découvrir Shopisan'
+      },
+      en: {
+        pageTitle: 'Open Shopisan',
+        androidTitle: 'Opening the app…',
+        androidMessage: "If the app doesn't open automatically, tap the button below.",
+        otherTitle: 'Open Shopisan on your phone',
+        otherMessage: 'This link opens the Shopisan app on a phone where it is installed. Otherwise, discover Shopisan on our website.',
+        openBtn: 'Open the app',
+        homeBtn: 'Discover Shopisan'
+      }
+    };
+
+    const userLang = navigator.language || navigator.userLanguage || 'fr';
+    const lang = userLang.toLowerCase().startsWith('en') ? 'en' : 'fr';
+    const t = translations[lang];
+    document.documentElement.lang = lang;
+    document.title = t.pageTitle;
+    document.getElementById('homeBtn').textContent = t.homeBtn;
+
+    const isAndroid = /android/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      const intentUrl = 'intent://open#Intent;scheme=' + APP_SCHEME +
+        ';package=' + APP_PACKAGE +
+        ';S.browser_fallback_url=' + encodeURIComponent(FALLBACK_URL) +
+        ';end';
+      document.getElementById('title').textContent = t.androidTitle;
+      document.getElementById('message').textContent = t.androidMessage;
+      const openBtn = document.getElementById('openBtn');
+      openBtn.href = intentUrl;
+      openBtn.textContent = t.openBtn;
+      openBtn.classList.remove('hidden');
+      window.location.replace(intentUrl);
+    } else {
+      document.getElementById('title').textContent = t.otherTitle;
+      document.getElementById('message').textContent = t.otherMessage;
+    }
+  </script>
+</body>
+</html>

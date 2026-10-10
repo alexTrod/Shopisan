@@ -122,6 +122,86 @@ describe("Merchant pre-approval Cloud Functions", () => {
     resetDocs();
   });
 
+  describe("sendStoreCreationEmail - extra store by an approved owner", () => {
+    it("emails only the admin, never the store owner", async () => {
+      await index.sendStoreCreationEmail(
+        {
+          storeName: "Zaza 2",
+          storeEmail: "owner@example.com",
+          city: "Namur",
+          categories: ["Mode"],
+          language: "fr",
+          username: "Laurence",
+        },
+        {},
+      );
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      const mail = lastMail();
+      expect(mail.to).toBe("info@shopisan.com");
+      // The store waits for admin approval (client feedback 2026-10-10).
+      expect(mail.subject).toBe("New store to review: Zaza 2");
+      expect(mail.html).toContain("already approved store owner");
+      expect(mail.html).toContain("Laurence");
+      expect(mail.html).toContain("hidden from shoppers until you approve it");
+      expect(mail.html).not.toMatch(/is live/i);
+    });
+  });
+
+  describe("shared email footer", () => {
+    it("links the open-app page, never the one-time verification link", async () => {
+      await index.sendVerificationEmail(
+        {
+          email: "s@example.com",
+          username: "Sam",
+          token: "tok123",
+          userType: "user",
+          language: "fr",
+        },
+        {},
+      );
+      const html = lastMail().html;
+      const footer = html.slice(html.lastIndexOf("border-top: 1px solid #eeeeee"));
+      expect(footer).toContain('href="https://shopisan-bad76.web.app/open"');
+      expect(footer).toContain("Ouvrir l'application");
+      expect(footer).toContain('href="https://shopisan.com"');
+      expect(footer).toContain('href="https://instagram.com/shopisanapp"');
+      expect(footer).not.toContain("verify-email");
+      // Store URLs are empty until the listings are confirmed: no buttons.
+      expect(footer).not.toContain("Google Play");
+      expect(footer).not.toContain("App Store");
+      expect(html).not.toContain("apps.apple.com");
+      // The verification link still exists, as a body button.
+      // (Handlebars HTML-escapes "=" in the href; browsers decode it.)
+      expect(html).toMatch(/verify-email\?token(=|&#x3D;)tok123/);
+    });
+
+    it("drops the 'add your favourite shops' line from the shopper email", async () => {
+      await index.sendVerificationEmail(
+        {
+          email: "s@example.com",
+          username: "Sam",
+          token: "tok",
+          userType: "user",
+          language: "en",
+        },
+        {},
+      );
+      const html = lastMail().html;
+      expect(html).toContain("feel free to tell people around you about it.");
+      expect(html).not.toContain("add your favorite shops");
+      expect(html).toContain("Open the app");
+    });
+  });
+
+  describe("verifyEmail - error passthrough", () => {
+    it("surfaces an invalid / already used token as not-found", async () => {
+      await expect(index.verifyEmail({ token: "used" }, {})).rejects.toMatchObject({
+        code: "not-found",
+        message: "Invalid verification token",
+      });
+    });
+  });
+
   describe("sendMerchantVerificationEmail - request received copy", () => {
     const call = (language) =>
       index.sendMerchantVerificationEmail(
@@ -181,7 +261,7 @@ describe("Merchant pre-approval Cloud Functions", () => {
       expect(mail.subject).toBe("New user registration");
       expect(mail.html).toContain("New user registered");
       expect(mail.html).toContain("Type: user");
-      expect(mail.html).not.toContain("Merchant details");
+      expect(mail.html).not.toContain("Store owner details");
     });
 
     it("lists every merchant field and names the store in the subject", async () => {
@@ -204,8 +284,8 @@ describe("Merchant pre-approval Cloud Functions", () => {
         {},
       );
       const mail = lastMail();
-      expect(mail.subject).toBe("New merchant request: Zaza");
-      expect(mail.html).toContain("New merchant request");
+      expect(mail.subject).toBe("New store owner request: Zaza");
+      expect(mail.html).toContain("New store owner request");
       expect(mail.html).toContain("Type: owner");
       expect(mail.html).toContain("First name: Laurence");
       expect(mail.html).toContain("Last name: Wandela");
