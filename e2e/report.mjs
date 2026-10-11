@@ -11,7 +11,7 @@ export const POINTS = [
   { id: "2", title: "“Créer un post”", ask: "French label for creating a post." },
   { id: "3", title: "Empty-city message", ask: "Shoppers can no longer add stores, so the empty-city message must not ask them to." },
   { id: "4", title: "Owner sign-up email", ask: "Must say the request is being reviewed, not that the store is already online." },
-  { id: "5", title: "City spelling", ask: "Clean misspelled cities (e.g. “Toujouse”) in the database.", manual: "Production data, not a user flow: handled by a read-only audit, then a reviewed cleanup. Not part of this suite." },
+  { id: "5", title: "City spelling", ask: "Clean misspelled cities (e.g. “Toujouse”) in the database.", manual: "Production data, not a user flow, so not part of this suite. Done 2026-10-10: a read-only audit (scripts/audit-city-names.mjs) found the variants (“paris”, “toulouse”, “Fienze”…); scripts/fix-city-names.mjs renamed 46 stores and 1 city, nothing deleted, with a backup and undo. New entries are normalised on save. Same city in two languages (Brussels/Bruxelles…) waits for the client's choice.", done: true },
   { id: "6", title: "“Open the app” link", ask: "The email button opens the app directly, on Android and iPhone." },
   { id: "core", title: "Core journeys", ask: "Sign-up, login, guest mode and logout keep working." },
 ];
@@ -35,7 +35,7 @@ function flowStatus(f) {
 }
 
 function pointStatus(point, flows) {
-  if (point.manual) return "manual";
+  if (point.manual) return point.done ? "pass" : "manual";
   const checks = flows.flatMap((f) => f.checks.filter((c) => (c.point || (f.points.length === 1 ? f.points[0] : null)) === point.id));
   const uiFail = flows.some((f) => f.points.includes(point.id) && f.steps.some((s) => !s.ok));
   if (uiFail || checks.some((c) => c.status === "fail")) return "fail";
