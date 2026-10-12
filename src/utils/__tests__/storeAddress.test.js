@@ -185,9 +185,22 @@ describe("normalizeCityName", () => {
     ["TOULOUSE", "Toulouse"],
     ["  Toulouse  ", "Toulouse"],
     ["saint-étienne", "Saint-Étienne"],
-    ["aix  en provence", "Aix En Provence"],
+    ["saint  jean de luz", "Saint Jean De Luz"],
     ["l'île-d'yeu", "L'Île-D'Yeu"],
   ])("normalizes %p to %p", (input, expected) => {
+    expect(normalizeCityName(input)).toBe(expected);
+  });
+
+  it.each([
+    ["Milano", "Milan"],
+    ["Brussels", "Bruxelles"],
+    ["bxl", "Bruxelles"],
+    ["firenze ", "Florence"],
+    ["LONDON", "Londres"],
+    ["aix en provence", "Aix-en-Provence"],
+    ["Aix-En-Provence", "Aix-en-Provence"],
+    ["les sables d’Olonne", "Les Sables-d'Olonne"],
+  ])("maps the known spelling %p to %p", (input, expected) => {
     expect(normalizeCityName(input)).toBe(expected);
   });
 

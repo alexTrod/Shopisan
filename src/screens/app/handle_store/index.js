@@ -635,7 +635,7 @@ export default function HandleStoreScreen({ route, navigation }) {
 
       // Use Mapbox for reverse geocoding
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.longitude},${location.latitude}.json?access_token=${mapboxToken}`,
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.longitude},${location.latitude}.json?access_token=${mapboxToken}&language=fr`,
       );
       const data = await response.json();
 

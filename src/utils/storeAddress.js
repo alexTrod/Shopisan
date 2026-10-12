@@ -11,12 +11,45 @@
 
 const DEFAULT_COUNTRY_ID = "FR";
 
+// One spelling per city, in French like the cities collection. Keys are
+// folded (no case, accents, spaces or punctuation), so "Milano", "MILANO" and
+// "milano " all land on "Milan". Covers the other-language names that came
+// from geocoding without a language and from owners typing the city by hand.
+const fold = (s) =>
+  `${s}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+const CITY_SPELLINGS = Object.fromEntries(
+  [
+    ["Bruxelles", ["Brussels", "Brussel", "bxl"]],
+    ["Milan", ["Milano"]],
+    ["Florence", ["Firenze", "Fienze"]],
+    ["Londres", ["London"]],
+    ["Rome", ["Roma"]],
+    ["Edimbourg", ["Edinburgh"]],
+    ["Bologne", ["Bologna"]],
+    ["Ravenne", ["Ravenna"]],
+    ["Gênes", ["Genova"]],
+    ["Gand", ["Gent"]],
+    ["Anvers", ["Antwerpen", "Antwerp"]],
+    ["Louvain", ["Leuven"]],
+    ["Grenade", ["Granada"]],
+    ["Mantoue", ["Mantova"]],
+    ["Rhode-Saint-Genèse", ["Sint-Genesius-Rode"]],
+    ["Watermael-Boitsfort", ["Watermaal-Bosvoorde"]],
+    ["Aix-en-Provence", []],
+    ["Romans-sur-Isère", []],
+    ["Saint-Sébastien-sur-Loire", []],
+    ["Les Sables-d'Olonne", ["Les Sables d'Olonnes"]],
+    ["Perros-Guirec", []],
+  ].flatMap(([name, others]) => [name, ...others].map((o) => [fold(o), name])),
+);
+
 /**
  * Clean up a typed city name before it is stored: trim, collapse inner
- * whitespace, and title-case names typed entirely in lower or upper case
+ * whitespace, map known spellings to the one in CITY_SPELLINGS, and
+ * title-case names typed entirely in lower or upper case
  * ("toulouse", "TOULOUSE" -> "Toulouse", "saint-étienne" -> "Saint-Étienne").
- * Mixed-case input is kept as typed. The cities collection matches names
- * exactly, so without this every variant became its own city.
+ * Other mixed-case input is kept as typed. The cities collection matches
+ * names exactly, so without this every variant became its own city.
  *
  * @param {string} name
  * @returns {string}
@@ -24,6 +57,8 @@ const DEFAULT_COUNTRY_ID = "FR";
 export const normalizeCityName = (name) => {
   const cleaned = `${name ?? ""}`.trim().replace(/\s+/g, " ");
   if (!cleaned) return "";
+  const known = CITY_SPELLINGS[fold(cleaned)];
+  if (known) return known;
   const isSingleCase =
     cleaned === cleaned.toLowerCase() || cleaned === cleaned.toUpperCase();
   if (!isSingleCase) return cleaned;

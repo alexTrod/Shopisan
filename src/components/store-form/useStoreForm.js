@@ -404,7 +404,7 @@ export const useStoreForm = ({
 
       // Use Mapbox for reverse geocoding
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${MAPBOX_TOKEN}`,
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${location.coords.longitude},${location.coords.latitude}.json?access_token=${MAPBOX_TOKEN}&language=fr`,
       );
       const data = await response.json();
 

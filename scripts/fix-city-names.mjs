@@ -4,12 +4,14 @@
  * scripts/audit-city-names.mjs. Renames only: nothing is ever deleted.
  *
  * - Stores: `cityName` and `address[0].location.city.name` get one spelling
- *   per city (case/space variants and a few typos, see RENAMES).
+ *   per city: the app's save-time rules (case/space variants, one French name
+ *   per city, see CITY_SPELLINGS), and street names saved as a city take the
+ *   nearest city (NOT_A_CITY).
  * - City docs: one misspelled doc is renamed (CITY_DOC_RENAMES).
  *
- * Left alone on purpose (client decision): the same city under two languages
- * (Brussels/Bruxelles, Milano/Milan, ...), duplicate city docs, and junk test
- * stores ("a", "bddfbfd", street names as city).
+ * Duplicate city docs and test stores are removed by hand in the admin panel
+ * (Cities page; Stores → delete, which keeps them in Trash for 30 days).
+ * Runs are idempotent: a second run finds nothing left to change.
  *
  * Safety:
  *   - Dry run by default: prints every change, writes nothing.
@@ -43,32 +45,52 @@ if (process.env.FIRESTORE_EMULATOR_HOST) {
 }
 const db = admin.firestore();
 
-// Store city spellings to replace, keyed by the name with spaces trimmed and
-// collapsed. A name that differs from its key only by spaces is fixed too.
-const RENAMES = {
-  paris: "Paris",
-  PARIS: "Paris",
-  toulouse: "Toulouse",
-  lyon: "Lyon",
-  nancy: "Nancy",
-  NANCY: "Nancy",
-  caen: "Caen",
-  CAEN: "Caen",
-  CANNES: "Cannes",
-  bordeaux: "Bordeaux",
-  rome: "Rome",
-  LILLE: "Lille",
-  "le havre": "Le Havre",
-  "PERROS-GUIREC": "Perros-Guirec",
-  pertuis: "Pertuis",
-  "aix en provence": "Aix-en-Provence",
-  "Aix en Provence": "Aix-en-Provence",
-  "Aix-En-Provence": "Aix-en-Provence",
-  "Romans sur Isère": "Romans-sur-Isère",
-  "saint Sébastien sur Loire": "Saint-Sébastien-sur-Loire",
-  Fienze: "Firenze",
-  "les sables d’Olonne": "Les Sables-d'Olonne",
+// Same rules the app applies on save (src/utils/storeAddress.js
+// normalizeCityName): one French spelling per known city, title case for
+// names typed all lower or upper case. Keep the two lists in sync.
+const fold = (s) =>
+  `${s}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+const CITY_SPELLINGS = Object.fromEntries(
+  [
+    ["Bruxelles", ["Brussels", "Brussel", "bxl"]],
+    ["Milan", ["Milano"]],
+    ["Florence", ["Firenze", "Fienze"]],
+    ["Londres", ["London"]],
+    ["Rome", ["Roma"]],
+    ["Edimbourg", ["Edinburgh"]],
+    ["Bologne", ["Bologna"]],
+    ["Ravenne", ["Ravenna"]],
+    ["Gênes", ["Genova"]],
+    ["Gand", ["Gent"]],
+    ["Anvers", ["Antwerpen", "Antwerp"]],
+    ["Louvain", ["Leuven"]],
+    ["Grenade", ["Granada"]],
+    ["Mantoue", ["Mantova"]],
+    ["Rhode-Saint-Genèse", ["Sint-Genesius-Rode"]],
+    ["Watermael-Boitsfort", ["Watermaal-Bosvoorde"]],
+    ["Aix-en-Provence", []],
+    ["Romans-sur-Isère", []],
+    ["Saint-Sébastien-sur-Loire", []],
+    ["Les Sables-d'Olonne", ["Les Sables d'Olonnes"]],
+    ["Perros-Guirec", []],
+  ].flatMap(([name, others]) => [name, ...others].map((o) => [fold(o), name])),
+);
+const normalizeCityName = (name) => {
+  const cleaned = `${name ?? ""}`.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "";
+  const known = CITY_SPELLINGS[fold(cleaned)];
+  if (known) return known;
+  const isSingleCase = cleaned === cleaned.toLowerCase() || cleaned === cleaned.toUpperCase();
+  if (!isSingleCase) return cleaned;
+  return cleaned.toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu, (_, sep, letter) => sep + letter.toUpperCase());
 };
+
+// Street or country names saved as the city. These take the nearest city in
+// the cities collection (by the store's coordinates, within 30 km).
+const NOT_A_CITY = new Set(
+  ["Cheam Common Road", "Corporation Street", "Leith Walk", "Monmouth Street", "Newington", "England"].map(fold),
+);
+const NEAREST_MAX_KM = 30;
 
 // City docs whose name itself is misspelled.
 const CITY_DOC_RENAMES = {
@@ -82,7 +104,30 @@ const withAddressCity = (address, name) =>
   address.map((a, i) =>
     i === 0 ? { ...a, location: { ...a.location, city: { ...a.location.city, name } } } : a,
   );
-const fixName = (name) => (typeof name === "string" ? RENAMES[squash(name)] ?? squash(name) : name);
+
+const km = (a, b) => {
+  const r = (d) => (d * Math.PI) / 180;
+  const h =
+    Math.sin(r(b.latitude - a.latitude) / 2) ** 2 +
+    Math.cos(r(a.latitude)) * Math.cos(r(b.latitude)) * Math.sin(r(b.longitude - a.longitude) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+};
+let cityPoints = [];
+const nearestCity = (point) => {
+  if (!(Number.isFinite(point?.latitude) && Number.isFinite(point?.longitude))) return null;
+  let best = null;
+  for (const c of cityPoints) {
+    const d = km(point, c);
+    if (d <= NEAREST_MAX_KM && (!best || d < best.d)) best = { name: c.name, d };
+  }
+  return best?.name ?? null;
+};
+// `point` is the store's geopoint, used only for names in NOT_A_CITY.
+const fixName = (name, point) => {
+  if (typeof name !== "string") return name;
+  if (NOT_A_CITY.has(fold(name))) return nearestCity(point) ?? name;
+  return normalizeCityName(name);
+};
 
 if (UNDO) {
   const backup = JSON.parse(fs.readFileSync(UNDO, "utf8"));
@@ -112,18 +157,34 @@ if (UNDO) {
 
 const [citiesSnap, storesSnap] = await Promise.all([db.collection("cities").get(), db.collection("stores").get()]);
 
+cityPoints = citiesSnap.docs
+  .map((d) => {
+    const c = d.data();
+    const latitude = Number(c.coordinates?.latitude ?? c.latitude);
+    const longitude = Number(c.coordinates?.longitude ?? c.longitude);
+    const name = c.name?.fr ?? c.name?.en;
+    return name && Number.isFinite(latitude) && Number.isFinite(longitude) ? { name, latitude, longitude } : null;
+  })
+  .filter(Boolean);
+
 const storeChanges = [];
+const unresolved = [];
 for (const doc of storesSnap.docs) {
   const s = doc.data();
+  const gp = s.address?.[0]?.location?.geopoint;
+  const point = gp ? { latitude: Number(gp.latitude), longitude: Number(gp.longitude) } : null;
   const update = {};
   const original = {};
-  if (typeof s.cityName === "string" && fixName(s.cityName) !== s.cityName) {
-    update.cityName = fixName(s.cityName);
+  for (const n of [s.cityName, s.address?.[0]?.location?.city?.name]) {
+    if (typeof n === "string" && NOT_A_CITY.has(fold(n)) && fixName(n, point) === n) unresolved.push(`${s.name ?? doc.id}: "${n}"`);
+  }
+  if (typeof s.cityName === "string" && fixName(s.cityName, point) !== s.cityName) {
+    update.cityName = fixName(s.cityName, point);
     original.cityName = s.cityName;
   }
   const addrCity = s.address?.[0]?.location?.city?.name;
-  if (typeof addrCity === "string" && fixName(addrCity) !== addrCity) {
-    update.address = withAddressCity(s.address, fixName(addrCity));
+  if (typeof addrCity === "string" && fixName(addrCity, point) !== addrCity) {
+    update.address = withAddressCity(s.address, fixName(addrCity, point));
     original.addressCity = addrCity;
   }
   if (Object.keys(update).length) {
@@ -147,6 +208,10 @@ console.log(`Stores to rename: ${storeChanges.length}`);
 for (const c of storeChanges) console.log(`  ${c.label}`);
 console.log(`City docs to rename: ${cityChanges.length}`);
 for (const c of cityChanges) console.log(`  ${c.label}`);
+if (unresolved.length) {
+  console.log(`Street/country names with no city within ${NEAREST_MAX_KM} km (left as is): ${new Set(unresolved).size}`);
+  for (const u of [...new Set(unresolved)]) console.log(`  ${u}`);
+}
 console.log("Deleted: nothing (this script never deletes).");
 
 if (!APPLY) {
