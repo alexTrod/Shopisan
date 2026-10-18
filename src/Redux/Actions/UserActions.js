@@ -22,7 +22,6 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { pbkdf2 } from "@react-native-module/pbkdf2";
 import { Alert } from "react-native";
 import {
   selectIsAuthenticated,
@@ -473,22 +472,6 @@ export const checkVerificationStatus = () => async (dispatch) => {
   }
 };
 
-const verifyPassword = async (password, userData) => {
-  logging(password, "password");
-  logging(userData.password, "userData.password");
-  const key = pbkdf2(
-    password,
-    new TextEncoder().encode(userData.salt),
-    260000,
-    256,
-    "sha256",
-  );
-  const hashedPassword = Array.from(new Uint8Array(key))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return hashedPassword === userData.password;
-};
-
 const fetchUserData = (uid) => async (dispatch) => {
   logging("start to fetch user data", uid);
   try {
@@ -578,7 +561,6 @@ const fetchUserDataByLoginIdentifier =
   (loginIdentifier, password) => async (dispatch) => {
     try {
       let userCredential;
-      let userData;
       let userRef;
 
       logging("start fetching data using loginIdentifier", loginIdentifier);
@@ -591,33 +573,13 @@ const fetchUserDataByLoginIdentifier =
         );
         userRef = userCredential.user.uid;
       } else {
-        logging("start to fetch user data by username");
-        // firestore.rules only lets a signed-in user read their own document,
-        // so this unauthenticated collection scan is always denied. Username
-        // login needs a Cloud Function lookup before it can work again.
-        const usersRef = collection(firestore, "users");
-        const querySnapshot = await getDocs(usersRef);
-        const userDoc = querySnapshot.docs.find(
-          (doc) => doc.data().username === loginIdentifier,
-        );
-
-        if (userDoc) {
-          userData = userDoc.data();
-          const isPasswordValid = await verifyPassword(password, userData);
-
-          if (isPasswordValid) {
-            await auth().currentUser.updatePassword(password);
-            userCredential = await auth().signInWithEmailAndPassword(
-              userData.email,
-              password,
-            );
-            userRef = userCredential.user.uid;
-          } else {
-            throw new Error("Invalid password");
-          }
-        } else {
-          throw new Error("User not found");
-        }
+        // Username login used to scan the users collection while signed out;
+        // firestore.rules denies that, so it failed every time and the
+        // sign-in screen reported it as a wrong password. Say what is
+        // actually needed instead.
+        const error = new Error("Sign in with your email address");
+        error.code = "app/username-login-unsupported";
+        throw error;
       }
 
       await fetchUserData(userRef)(dispatch);

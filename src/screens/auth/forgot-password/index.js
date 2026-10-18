@@ -15,11 +15,12 @@ import { useTranslation } from "../../../utils/useTranslation";
 import MailIcon from "../../../../assets/icons/mail-icon";
 import Unlock_outline from "../../../../assets/icons/unlock";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
+import { ScreenNames } from "../../../Routes/routes";
 import EyeIcon from "../../../../assets/icons/eye-icon";
 import EyeOffIcon from "../../../../assets/icons/eye-off-icon";
 
 // Styled input component matching the app style - defined outside to prevent re-creation
-const StyledInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, maxLength, suffix, error }) => (
+const StyledInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, maxLength, suffix, error, autoComplete, textContentType }) => (
   <>
   <View style={[styles.inputWrapper, error && styles.inputWrapperError]}>
     <View style={styles.inputIconContainer}>
@@ -35,6 +36,8 @@ const StyledInput = ({ icon, placeholder, value, onChangeText, secureTextEntry, 
       keyboardType={keyboardType}
       maxLength={maxLength}
       autoCapitalize="none"
+      autoComplete={autoComplete}
+      textContentType={textContentType}
     />
     {suffix && (
       <View style={styles.suffixContainer}>
@@ -145,7 +148,13 @@ export default function ForgotPassword({ navigation }) {
         text2: t('password_reset_success'),
       });
 
-      navigation.goBack();
+      // Back to the sign-in screen that is still mounted underneath, telling
+      // it which account was reset so it clears the stale password field.
+      navigation.navigate({
+        name: ScreenNames.SIGN_IN,
+        params: { passwordResetEmail: email.trim() },
+        merge: true,
+      });
     } catch (error) {
       console.error('Error resetting password:', error);
       let errorMessage = error.message || t('failed_reset_password');
@@ -287,6 +296,8 @@ export default function ForgotPassword({ navigation }) {
                 }}
                 keyboardType="number-pad"
                 maxLength={6}
+                autoComplete="one-time-code"
+                textContentType="oneTimeCode"
               />
 
               <StyledInput
@@ -298,6 +309,8 @@ export default function ForgotPassword({ navigation }) {
                   if (formError) setFormError(null);
                 }}
                 secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
                 suffix={
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                     {showPassword ? (
@@ -318,6 +331,8 @@ export default function ForgotPassword({ navigation }) {
                   if (formError) setFormError(null);
                 }}
                 secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
                 error={formError}
               />
 

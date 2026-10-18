@@ -869,11 +869,7 @@ export default function Map({ navigation, route }) {
                 <>
                   <Text style={styles.noStoreText}>
                     {t("city_waiting_for_shops") ||
-                      "Your city is still waiting for its shops on Shopisan."}
-                  </Text>
-                  <Text style={styles.noStoreSubtext}>
-                    {t("help_us_grow") ||
-                      "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by."}
+                      "Your favorite shops aren't on Shopisan here yet."}
                   </Text>
 
                   <TouchableOpacity
@@ -891,7 +887,7 @@ export default function Map({ navigation, route }) {
                   >
                     <Text style={styles.exploreButtonText}>
                       {t("or_search_another_city") ||
-                        "Or search for another city."}
+                        "Explore another city"}
                     </Text>
                   </TouchableOpacity>
                 </>

@@ -44,8 +44,6 @@ import Button from "../../../components/button";
 import { ScreenNames } from "../../../Routes/routes";
 import { useFocusEffect } from "@react-navigation/native";
 import {
-  doc,
-  getDoc,
   collection,
   getDocs,
   query,
@@ -128,9 +126,6 @@ export default function HomeScreen({ navigation, route }) {
     };
 
     applyStores();
-    if (showMyStoresOnly) {
-      loadMyStores(true);
-    }
   }, [
     filteredStores,
     showFavoritesOnly,
@@ -224,10 +219,27 @@ export default function HomeScreen({ navigation, route }) {
   // location, a search or a tap on the Shops tab is a request for the normal
   // list, so leave those modes instead of silently ignoring it (owners
   // reported being stuck in My stores).
+  // Bumped whenever My stores is left or reloaded: a load that finishes
+  // after that must not overwrite the nearby list (the client saw her own
+  // shop stay on screen after switching My stores off, because the slow
+  // load from switching it on landed afterwards).
+  const myStoresRequestRef = useRef(0);
+
   const exitFilteredModes = useCallback(() => {
+    myStoresRequestRef.current += 1;
     setShowMyStoresOnly(false);
     setShowFavoritesOnly(false);
   }, []);
+
+  // Picking a category is a request for the normal list too: in My stores
+  // the category filter is not applied, so staying there showed shops that
+  // did not match it, and the only way out was the location button.
+  const prevSelectedCategoriesRef = useRef(selectedCategories);
+  useEffect(() => {
+    if (prevSelectedCategoriesRef.current === selectedCategories) return;
+    prevSelectedCategoriesRef.current = selectedCategories;
+    if (showMyStoresOnly || showFavoritesOnly) exitFilteredModes();
+  }, [selectedCategories, showMyStoresOnly, showFavoritesOnly, exitFilteredModes]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("tabPress", () => {
@@ -403,35 +415,29 @@ export default function HomeScreen({ navigation, route }) {
   );
 
   const handleToggleShowMyStores = () => {
-    setShowMyStoresOnly((prev) => {
-      const newState = !prev;
-
-      if (newState) {
-        setShowFavoritesOnly(false);
-        setStores([]);
-        loadMyStores(true);
-      } else {
-        // When switching back to All Categories, restore stores from context
-        setStores(filteredStores);
-      }
-
-      return newState;
-    });
+    if (showMyStoresOnly) {
+      exitFilteredModes();
+      // Back to the nearby list right away; the effect above keeps it fresh.
+      setStores(filteredStores);
+      return;
+    }
+    setShowFavoritesOnly(false);
+    setShowMyStoresOnly(true);
+    setStores([]);
+    loadMyStores(true);
   };
 
   const loadMyStores = useCallback(
     async (isRefreshing = false) => {
       if (!user || !user.id) return;
+      const requestId = ++myStoresRequestRef.current;
       setLoading(true);
       try {
-        const ownerId = await getOwnerId(user.id);
-        if (!ownerId) {
-          console.error("Impossible de récupérer l'owner_id.");
-          setStores([]);
-          return;
-        }
-
-        const storeQuery = getMerchantStoreQuery(ownerId, null);
+        // Stores carry owner_id = the users document's id field, which is
+        // what user.id already holds: no extra users read needed (and that
+        // read failed outright for legacy accounts whose document id is not
+        // their id field).
+        const storeQuery = getMerchantStoreQuery(user.id, null);
 
         if (!storeQuery) {
           console.error("storeQuery invalide :", storeQuery);
@@ -440,6 +446,8 @@ export default function HomeScreen({ navigation, route }) {
         }
 
         const { stores: newStores } = await fetchStores(storeQuery);
+        // My stores was left (or reloaded) while this was in flight.
+        if (requestId !== myStoresRequestRef.current) return;
 
         if (isRefreshing) {
           setStores(newStores);
@@ -458,30 +466,14 @@ export default function HomeScreen({ navigation, route }) {
           error,
         );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (requestId === myStoresRequestRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
-    [user, selectedCategories, categories, selectedCities, filteredStores],
+    [user],
   );
-
-  const getOwnerId = async (userId) => {
-    try {
-      const userRef = doc(firestore, "users", userId);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const ownerId = userSnap.data().id;
-        return ownerId;
-      } else {
-        console.error("Utilisateur introuvable dans Firestore.");
-        return null;
-      }
-    } catch (error) {
-      console.error("Erreur lors de la récupération de l'owner_id :", error);
-      return null;
-    }
-  };
 
   useEffect(() => {
     const fetchStoreByInternalId = async (store) => {
@@ -1188,15 +1180,12 @@ export default function HomeScreen({ navigation, route }) {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.noStoreIntegratedText}>
+                    <Text
+                      style={styles.noStoreIntegratedText}
+                      testID="home-empty-text"
+                    >
                       {t("city_waiting_for_shops") ||
-                        t("welcome_message") ||
-                        "Your city is still waiting for its shops on Shopisan."}
-                    </Text>
-                    <Text style={styles.noStoreSubText} testID="home-empty-subtext">
-                      {t("help_us_grow") ||
-                        t("welcome_description") ||
-                        "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by."}
+                        "Your favorite shops aren't on Shopisan here yet."}
                     </Text>
                     <View style={styles.welcomeButtonsContainer}>
                       {canAddStore && (
@@ -1237,7 +1226,7 @@ export default function HomeScreen({ navigation, route }) {
                           {loading
                             ? t("finding_location")
                             : t("or_search_another_city") ||
-                              "Or search for another city."}
+                              "Explore another city"}
                         </Text>
                       </TouchableOpacity>
                     </View>

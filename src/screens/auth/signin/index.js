@@ -24,7 +24,7 @@ import EyeOffIcon from "../../../../assets/icons/eye-off-icon";
 import ChevronLeft from "../../../../assets/icons/chevron-left";
 import i18n from "../../../translations/i18n";
 
-export default function SignIn({ navigation }) {
+export default function SignIn({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const locale = useSelector((state) => state.locale.currentLocale);
   const dispatch = useDispatch();
@@ -38,11 +38,25 @@ export default function SignIn({ navigation }) {
   const {
     control,
     handleSubmit,
+    resetField,
+    setValue,
     formState: { isValid, errors },
   } = useForm({
     mode: "all",
     resolver: yupResolver(SignInFormValidation),
   });
+
+  // Back from a successful password reset: this screen stayed mounted under
+  // ForgotPassword, so the password field still held whatever was typed before
+  // (the old, now invalid password). Clear it and keep the email the reset was
+  // sent to, so the person only has to type the new password.
+  const passwordResetEmail = route?.params?.passwordResetEmail;
+  useEffect(() => {
+    if (!passwordResetEmail) return;
+    resetField("password");
+    setValue("loginIdentifier", passwordResetEmail, { shouldValidate: true });
+    navigation?.setParams?.({ passwordResetEmail: undefined });
+  }, [passwordResetEmail, resetField, setValue, navigation]);
 
   const signinHandler = async (values) => {
     setLoading(true);
@@ -50,12 +64,38 @@ export default function SignIn({ navigation }) {
       await dispatch(signIn(values.loginIdentifier, values.password));
       // Navigation is handled by the auth state change in App.js
     } catch (error) {
-      Alert.alert(
-        i18n.t("error") || "Login Failed",
-        i18n.t("login_failed_message") ||
-          "Incorrect email or password. Please try again.",
-        [{ text: i18n.t("ok") }],
-      );
+      // Only credential errors are "wrong password"; a network cut, a
+      // locked account or a username instead of an email need their own
+      // wording, or people reset a password that was never wrong.
+      const code = error?.code || "";
+      const credentialCodes = [
+        "auth/invalid-credential",
+        "auth/wrong-password",
+        "auth/user-not-found",
+        "auth/invalid-email",
+        "auth/invalid-login-credentials",
+      ];
+      let message = i18n.t("login_failed_message");
+      if (code === "app/username-login-unsupported") {
+        message = i18n.t("login_use_email");
+      } else if (code === "auth/too-many-requests") {
+        message = i18n.t("login_too_many_attempts");
+      } else if (
+        code === "auth/network-request-failed" ||
+        code === "unavailable" ||
+        /offline/i.test(error?.message || "")
+      ) {
+        // Firestore "client is offline" (user document read) or the Auth
+        // request itself timing out: the password may well be right.
+        message = i18n.t("network_error");
+      } else if (code && !credentialCodes.includes(code)) {
+        // Unknown failure: keep the code visible so a screenshot from a
+        // client is enough to diagnose it.
+        message = `${i18n.t("login_failed_message")}\n(${code})`;
+      }
+      Alert.alert(i18n.t("error") || "Login Failed", message, [
+        { text: i18n.t("ok") },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -173,6 +213,8 @@ export default function SignIn({ navigation }) {
             placeholder={i18n.t("pwd_placeholder")}
             error={errors.password}
             secureTextEntry={passwordHide}
+            autoComplete="current-password"
+            textContentType="password"
             suffix={
               <TouchableOpacity onPress={() => setPasswordHide(!passwordHide)}>
                 {passwordHide ? (

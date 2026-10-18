@@ -71,7 +71,10 @@ export default {
     pwd_placeholder: "Enter your password",
     confirm_pwd_placeholder: "Enter your password again",
     email_placeholder: "Enter your email",
-    login_placeholder: "Enter your username or email",
+    login_placeholder: "Enter your email",
+    login_use_email: "Please sign in with your email address.",
+    login_too_many_attempts:
+      "Too many attempts. Wait a few minutes, then try again.",
     search_placeholder: "Search stores or cities",
 
     // Store Related
@@ -291,10 +294,8 @@ export default {
     // Welcome messages / No stores popup
     welcome_message: "Your city is still waiting for its shops on Shopisan.",
     welcome_description: "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by.",
-    city_waiting_for_shops:
-      "Your city is still waiting for its shops on Shopisan.",
-    help_us_grow: "Your favourite shop isn't here yet? Tell them about Shopisan next time you stop by.",
-    or_search_another_city: "Or search for another city.",
+    city_waiting_for_shops: "Your favorite shops aren't on Shopisan here yet.",
+    or_search_another_city: "Explore another city",
 
     // Email verification banner
     email_verification_required_title: "Email Verification Required",
@@ -518,7 +519,10 @@ export default {
     pwd_placeholder: "Entrez votre mot de passe",
     confirm_pwd_placeholder: "Confirmez votre mot de passe",
     email_placeholder: "Entrez votre email",
-    login_placeholder: "Entrez votre nom d'utilisateur ou email",
+    login_placeholder: "Entrez votre email",
+    login_use_email: "Veuillez vous connecter avec votre adresse email.",
+    login_too_many_attempts:
+      "Trop de tentatives. Patientez quelques minutes puis réessayez.",
     search_placeholder: "Rechercher des magasins ou villes",
 
     // Store Related
@@ -747,9 +751,8 @@ export default {
     welcome_message: "Votre ville attend encore ses commerces préférés.",
     welcome_description:
       "Votre boutique préférée n'est pas encore là ? Parlez-leur de Shopisan lors de votre prochain passage.",
-    city_waiting_for_shops: "Votre ville attend encore ses commerces préférés.",
-    help_us_grow: "Votre boutique préférée n'est pas encore là ? Parlez-leur de Shopisan lors de votre prochain passage.",
-    or_search_another_city: "Ou recherchez une autre ville.",
+    city_waiting_for_shops: "Vos boutiques préférées ne sont pas encore sur Shopisan ici.",
+    or_search_another_city: "Explorer une autre ville",
 
     // Email verification banner
     email_verification_required_title: "Vérification de l'email requise",

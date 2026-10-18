@@ -10,7 +10,7 @@ appId: com.ecomerce.shopisan
     timeout: 45000
 - takeScreenshot: ${OUT}/01-empty-city
 - copyTextFrom:
-    id: "home-empty-subtext"
+    id: "home-empty-text"
 - evalScript: ${output.emptySubtext = maestro.copiedText}
 - tapOn:
     id: "home-empty-search-other-city"

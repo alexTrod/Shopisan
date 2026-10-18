@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { initializeApp } from "firebase/app";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { initializeFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import {
   initializeAuth,
@@ -20,7 +20,14 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
+// Long polling instead of WebChannel streaming. On React Native the stream
+// can silently die (typically after the Auth token changes, e.g. right after
+// a sign-in) and the next read then waits ~25 s before failing as "client is
+// offline"; the sign-in screen reported that as a wrong password. Long
+// polling is the Firebase-documented transport for RN and has no such mode.
+const firestore = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 const functions = getFunctions(app);
 
 const auth = initializeAuth(app, {
