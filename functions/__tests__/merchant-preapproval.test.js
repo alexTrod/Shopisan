@@ -7,6 +7,7 @@
  *
  * - sendMerchantVerificationEmail: "request received" copy, pending badge
  * - sendAdminNotification: optional merchant details + subject
+ * - onStoreCreated: auto-publish for approved owners, admin "new store" mail
  * - onMerchantApproved: pending|rejected -> approved only, language, store name
  * - sendEmailChangeVerification / confirmEmailChange: account-takeover guards
  *
@@ -65,14 +66,18 @@ const mockFirestore = {
   batch: jest.fn(),
 };
 
-jest.mock("firebase-admin", () => ({
-  initializeApp: jest.fn(),
-  firestore: jest.fn(() => mockFirestore),
-  auth: jest.fn(() => ({
-    getUserByEmail: mockGetUserByEmail,
-    updateUser: mockUpdateUser,
-  })),
-}));
+jest.mock("firebase-admin", () => {
+  const firestore = jest.fn(() => mockFirestore);
+  firestore.FieldValue = { serverTimestamp: () => "SERVER_TIMESTAMP" };
+  return {
+    initializeApp: jest.fn(),
+    firestore,
+    auth: jest.fn(() => ({
+      getUserByEmail: mockGetUserByEmail,
+      updateUser: mockUpdateUser,
+    })),
+  };
+});
 
 // ---- firebase-functions mock: every builder returns the raw handler ---------
 
@@ -95,7 +100,7 @@ jest.mock("firebase-functions", () => {
       HttpsError,
     },
     firestore: {
-      document: () => ({ onUpdate: passThrough }),
+      document: () => ({ onUpdate: passThrough, onCreate: passThrough }),
     },
     pubsub: {
       schedule: () => scheduleBuilder,
@@ -122,28 +127,105 @@ describe("Merchant pre-approval Cloud Functions", () => {
     resetDocs();
   });
 
-  describe("sendStoreCreationEmail - extra store by an approved owner", () => {
-    it("emails only the admin, never the store owner", async () => {
-      await index.sendStoreCreationEmail(
-        {
-          storeName: "Zaza 2",
-          storeEmail: "owner@example.com",
-          city: "Namur",
-          categories: ["Mode"],
-          language: "fr",
-          username: "Laurence",
-        },
-        {},
+  describe("onStoreCreated - extra store by an approved owner", () => {
+    const ctx = { params: { storeId: "s2" } };
+    const baseStore = {
+      name: "Zaza 2",
+      owner_id: "owner-uid",
+      city: "Namur",
+      category: ["Mode"],
+      status: "pending",
+      managerFirstName: "Laurence",
+      managerLastName: "W",
+      email: "owner@example.com",
+    };
+    const snapFor = (store) => {
+      mockDocs["stores/s2"] = { ...store };
+      return makeDocSnap("stores", "s2");
+    };
+
+    it("publishes the store and emails only the admin when the owner is approved", async () => {
+      mockDocs["users/owner-uid"] = {
+        email: "owner@example.com",
+        userType: "owner",
+        merchantStatus: "approved",
+      };
+      await index.onStoreCreated(snapFor(baseStore), ctx);
+      expect(mockUpdate).toHaveBeenCalledWith(
+        "stores/s2",
+        expect.objectContaining({
+          status: "approved",
+          approved_by: "auto:owner-approved",
+        }),
       );
       expect(mockSendMail).toHaveBeenCalledTimes(1);
       const mail = lastMail();
       expect(mail.to).toBe("info@shopisan.com");
-      // The store waits for admin approval (client feedback 2026-10-10).
-      expect(mail.subject).toBe("New store to review: Zaza 2");
-      expect(mail.html).toContain("already approved store owner");
-      expect(mail.html).toContain("Laurence");
-      expect(mail.html).toContain("hidden from shoppers until you approve it");
-      expect(mail.html).not.toMatch(/is live/i);
+      expect(mail.subject).toBe("New store published: Zaza 2");
+      expect(mail.html).toContain("New store published");
+      expect(mail.html).toContain("live in the app now");
+      expect(mail.html).toContain("Laurence W");
+      expect(mail.html).toContain("Namur");
+      expect(mail.html).toContain("Mode");
+    });
+
+    it("treats a legacy owner without merchantStatus as approved", async () => {
+      mockDocs["users/owner-uid"] = { email: "owner@example.com", userType: "owner" };
+      await index.onStoreCreated(snapFor(baseStore), ctx);
+      expect(mockUpdate).toHaveBeenCalledWith(
+        "stores/s2",
+        expect.objectContaining({ status: "approved" }),
+      );
+      expect(lastMail().subject).toBe("New store published: Zaza 2");
+    });
+
+    it("finds the owner by the users-doc id field when the doc id differs", async () => {
+      mockDocs["users/legacy-doc"] = {
+        id: "owner-uid",
+        email: "owner@example.com",
+        userType: "owner",
+        merchantStatus: "approved",
+      };
+      await index.onStoreCreated(snapFor(baseStore), ctx);
+      expect(mockUpdate).toHaveBeenCalledWith(
+        "stores/s2",
+        expect.objectContaining({ status: "approved" }),
+      );
+    });
+
+    it("leaves the store pending and says so when the owner is still pending", async () => {
+      mockDocs["users/owner-uid"] = {
+        email: "owner@example.com",
+        userType: "owner",
+        merchantStatus: "pending",
+      };
+      await index.onStoreCreated(snapFor(baseStore), ctx);
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockDocs["stores/s2"].status).toBe("pending");
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      const mail = lastMail();
+      expect(mail.to).toBe("info@shopisan.com");
+      expect(mail.subject).toBe("New store waiting: Zaza 2");
+      expect(mail.html).toContain("still waiting for approval");
+      expect(mail.html).not.toMatch(/is live|live in the app/i);
+    });
+
+    it("does nothing for ownerless (catalog) stores", async () => {
+      await index.onStoreCreated(
+        snapFor({ ...baseStore, owner_id: undefined }),
+        ctx,
+      );
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it("sendStoreCreationEmail (old builds) no longer mails anyone", async () => {
+      const result = await index.sendStoreCreationEmail(
+        { storeName: "Zaza 2", storeEmail: "owner@example.com" },
+        {},
+      );
+      expect(result.success).toBe(true);
+      expect(mockSendMail).not.toHaveBeenCalled();
     });
   });
 

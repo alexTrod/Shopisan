@@ -701,7 +701,7 @@ const storeCreationAdminTemplate = `
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Store To Review</title>
+  <title>{{title}}</title>
   <style>
     body { font-family: Arial, sans-serif; }
     .container { max-width: 500px; margin: 0 auto; padding: 24px; }
@@ -713,7 +713,7 @@ const storeCreationAdminTemplate = `
 <body>
   <div class="container">
     <div class="header">
-      <h2>New Store To Review</h2>
+      <h2>{{title}}</h2>
     </div>
     <div class="content">
       <p><strong>Store Name:</strong> {{storeName}}</p>
@@ -724,9 +724,9 @@ const storeCreationAdminTemplate = `
       <p><strong>Date:</strong> {{registrationDate}}</p>
     </div>
     <div class="footer">
-      <p>This store was added by an already approved store owner. It stays hidden from shoppers until you approve it in the admin panel (Store owner requests, "New stores from approved owners"). No email was sent to the owner.</p>
-      <p>To grant the verification badge: node scripts/verify-store.js &lt;storeId&gt;</p>
-      <p>To take it down: node scripts/suspend-store.js &lt;storeId&gt; --reason="..."</p>
+      <p>{{footerNote}}</p>
+      <p>Store id: {{storeId}}</p>
+      <p>To take it down: open the admin panel (Stores) and move it to the trash, or node scripts/suspend-store.js {{storeId}} --reason="..."</p>
     </div>
   </div>
 </body>
@@ -853,54 +853,131 @@ const merchantVerificationEmailTemplate = {
 // The store waits for admin approval; the owner receives NO email (no welcome,
 // no validation notice): only the admin is told there is a store to review. The app still sends
 // `language`; it is ignored now that nothing owner-facing is rendered here.
+// Kept for app builds that still call it after adding a store. The admin
+// email now goes out from onStoreCreated (a Firestore trigger, so it also
+// covers stores written by older builds); sending here too would mail the
+// admin twice per store.
 exports.sendStoreCreationEmail = functions.https.onCall(
   async (data, _context) => {
-    try {
-      const { storeName, storeEmail, city, categories, username } = data;
-
-      if (!storeName || !storeEmail) {
-        throw new functions.https.HttpsError(
-          "invalid-argument",
-          "Missing required parameters",
-        );
-      }
-
-      // Send notification to admin
-      const adminTemplate = handlebars.compile(storeCreationAdminTemplate);
-      const adminHtmlContent = adminTemplate({
-        storeName,
-        city: city || "Not specified",
-        ownerName: username || "Not specified",
-        email: storeEmail,
-        categories: Array.isArray(categories)
-          ? categories.join(", ")
-          : categories || "Not specified",
-        registrationDate: new Date().toLocaleDateString(),
-      });
-
-      const adminMailOptions = {
-        from: `"Shopisan System" <${SENDER_EMAIL}>`,
-        to: ADMIN_EMAIL,
-        subject: `New store to review: ${storeName}`,
-        html: adminHtmlContent,
-      };
-
-      await transporter.sendMail(adminMailOptions);
-      console.log("Store creation notification sent to admin");
-
-      return {
-        success: true,
-        message: "Store creation admin notification sent successfully",
-      };
-    } catch (error) {
-      console.error("Error sending store creation email:", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Failed to send store creation email",
-      );
-    }
+    console.log(
+      `sendStoreCreationEmail called for "${data?.storeName}" - admin mail is sent by onStoreCreated`,
+    );
+    return {
+      success: true,
+      message: "Admin notification is sent by onStoreCreated",
+    };
   },
 );
+
+/**
+ * Store added by an already approved owner -> live right away.
+ *
+ * Owners can only create stores as status 'pending' (firestore.rules). The
+ * client confirmed (2026-10-18) that stores added by an owner whose account
+ * is already approved publish automatically; they moderate afterwards from
+ * the admin panel. An owner still pending keeps the store pending: approving
+ * the owner from the admin panel approves their stores in the same batch.
+ *
+ * Same "approved" rule as src/utils/userTypes.js getMerchantStatus(): owners
+ * created before merchantStatus existed carry no field and read as approved.
+ *
+ * Also the single place that emails the admin about a new store, whether it
+ * went live or is waiting on its owner.
+ */
+exports.onStoreCreated = functions.firestore
+  .document("stores/{storeId}")
+  .onCreate(async (snap, context) => {
+    const store = snap.data() || {};
+    const storeId = context.params.storeId;
+    if (store.deleted_at) {
+      return null;
+    }
+    // Catalog imports and seed scripts write ownerless stores in bulk; they
+    // are not owner submissions and must not mail the admin per document.
+    if (!store.owner_id) {
+      console.log(`Store ${storeId} created without owner_id - no admin mail`);
+      return null;
+    }
+
+    let owner = null;
+    if (store.owner_id) {
+      const usersRef = admin.firestore().collection("users");
+      const byId = await usersRef.doc(store.owner_id).get();
+      if (byId.exists) {
+        owner = byId.data();
+      } else {
+        const byField = await usersRef
+          .where("id", "==", store.owner_id)
+          .limit(1)
+          .get();
+        owner = byField.empty ? null : byField.docs[0].data();
+      }
+    }
+    const ownerGated =
+      !!owner &&
+      (owner.merchantStatus === "pending" ||
+        owner.merchantStatus === "rejected");
+
+    let published = false;
+    if (store.status === "pending" && owner && !ownerGated) {
+      try {
+        await snap.ref.update({
+          status: "approved",
+          approved_at: admin.firestore.FieldValue.serverTimestamp(),
+          approved_by: "auto:owner-approved",
+        });
+        published = true;
+        console.log(
+          `Store ${storeId} published automatically (owner ${store.owner_id} approved)`,
+        );
+      } catch (error) {
+        console.error(`Could not auto-publish store ${storeId}:`, error);
+      }
+    } else if (!store.status || store.status === "approved") {
+      published = true;
+    }
+
+    try {
+      const ownerName =
+        [store.managerFirstName, store.managerLastName]
+          .filter(Boolean)
+          .join(" ") ||
+        (owner &&
+          ([owner.name, owner.surname].filter(Boolean).join(" ") ||
+            owner.username)) ||
+        "Not specified";
+      const title = published ? "New store published" : "New store waiting";
+      const footerNote = published
+        ? "This store was added by an already approved store owner, so it is live in the app now. Check it in the admin panel (Stores) and remove it if it does not comply."
+        : ownerGated
+          ? "The owner of this store is still waiting for approval. Approving the owner (Store owner requests) publishes the store."
+          : "The owner account of this store was not found. Review it in the admin panel (Stores, Orphans).";
+      const template = handlebars.compile(storeCreationAdminTemplate);
+      const html = template({
+        title,
+        footerNote,
+        storeId,
+        storeName: store.name || "Unnamed store",
+        city: store.city || "Not specified",
+        ownerName,
+        email: store.email || (owner && owner.email) || "Not specified",
+        categories: Array.isArray(store.category)
+          ? store.category.join(", ")
+          : store.category || "Not specified",
+        registrationDate: new Date().toLocaleDateString(),
+      });
+      await transporter.sendMail({
+        from: `"Shopisan System" <${SENDER_EMAIL}>`,
+        to: ADMIN_EMAIL,
+        subject: `${title}: ${store.name || storeId}`,
+        html,
+      });
+      console.log(`Admin notified of new store ${storeId} (${title})`);
+    } catch (error) {
+      console.error("Error sending new-store admin email:", error);
+    }
+    return null;
+  });
 
 // Function to send verification email (uses appropriate template based on userType)
 exports.sendVerificationEmail = functions.https.onCall(

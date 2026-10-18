@@ -158,69 +158,48 @@ describe("Email Consistency Tests", () => {
     });
   });
 
-  describe("sendStoreCreationEmail - Recipient Consistency", () => {
-    it("should require storeEmail parameter", () => {
-      const indexContent = require("fs").readFileSync(
+  describe("onStoreCreated - Recipient Consistency", () => {
+    const readIndex = () =>
+      require("fs").readFileSync(
         require("path").join(__dirname, "../index.js"),
         "utf8",
       );
-
-      // Check that sendStoreCreationEmail validates storeEmail
-      const hasValidation = indexContent.includes(
-        "if (!storeName || !storeEmail)",
+    const section = () => {
+      const m = readIndex().match(
+        /exports\.onStoreCreated[\s\S]*?\n {2}\}\);\n/,
       );
-      expect(hasValidation).toBe(true);
-    });
+      expect(m).toBeTruthy();
+      return m[0];
+    };
 
-    it("sendStoreCreationEmail should accept username parameter", () => {
-      const indexContent = require("fs").readFileSync(
-        require("path").join(__dirname, "../index.js"),
-        "utf8",
-      );
-
-      // Check that sendStoreCreationEmail accepts username in destructuring
-      const hasUsername = indexContent.match(
-        /sendStoreCreationEmail[\s\S]*?const \{[\s\S]*?username[\s\S]*?\} = data/,
-      );
-      expect(hasUsername).toBeTruthy();
-    });
-
-    it("sendStoreCreationEmail should not email the store owner (admin FYI only)", () => {
-      const indexContent = require("fs").readFileSync(
-        require("path").join(__dirname, "../index.js"),
-        "utf8",
-      );
-
+    it("emails only the admin, never the store owner (admin FYI only)", () => {
       // An approved owner adding another store gets no validation/welcome
       // email: the handler must not render any owner-facing template.
-      const section = indexContent.match(
-        /exports\.sendStoreCreationEmail[\s\S]*?\n\);\n/,
-      );
-      expect(section).toBeTruthy();
-      expect(section[0]).not.toContain("merchantEmailTemplate");
-      expect(section[0]).toContain("to: ADMIN_EMAIL");
-      expect(section[0]).not.toContain("to: storeEmail");
+      const body = section();
+      expect(body).not.toContain("merchantEmailTemplate");
+      expect(body).toContain("to: ADMIN_EMAIL");
+      expect(body).not.toContain("to: storeEmail");
+      expect(body).not.toContain("to: store.email");
 
+      const indexContent = readIndex();
       // Owner-facing copy says "store owner", not "merchant"/"commerçant"
       expect(indexContent).not.toContain("cher commerçant");
       expect(indexContent).not.toContain("valued merchant");
     });
 
-    it("sendStoreCreationEmail should have same email fallback logic as onStoreVerified", () => {
-      const indexContent = require("fs").readFileSync(
-        require("path").join(__dirname, "../index.js"),
-        "utf8",
+    it("sendStoreCreationEmail callable no longer sends mail (onStoreCreated does)", () => {
+      const m = readIndex().match(
+        /exports\.sendStoreCreationEmail[\s\S]*?\n\);\n/,
       );
+      expect(m).toBeTruthy();
+      expect(m[0]).not.toContain("sendMail(");
+    });
 
-      // onStoreVerified uses: after.storeEmail || after.email
-      const verifiedHasFallback = indexContent.includes(
-        "let storeEmail = after.storeEmail || after.email",
-      );
-      expect(verifiedHasFallback).toBe(true);
-
-      // sendStoreCreationEmail should also support fallback or document why not
-      // Currently it only uses storeEmail directly - this is the inconsistency
-      // After fix, sendStoreCreationEmail should also have owner email fallback
+    it("only auto-publishes stores whose owner is not gated", () => {
+      const body = section();
+      expect(body).toContain('owner.merchantStatus === "pending"');
+      expect(body).toContain('owner.merchantStatus === "rejected"');
+      expect(body).toContain('status: "approved"');
     });
   });
 

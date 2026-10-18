@@ -14,9 +14,10 @@ import { CAST } from "./seed/fixtures.mjs";
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // Expected status of a store added by an already approved owner. The client
-// said "we will manually validate them in the admin panel" (open question
-// 1 in the reply asks to confirm). Override with E2E_NEW_STORE_STATUS.
-const NEW_STORE_STATUS = process.env.E2E_NEW_STORE_STATUS || "pending";
+// confirmed (2026-10-18) that these publish automatically: the onStoreCreated
+// Cloud Function approves them and emails the admin. Override with
+// E2E_NEW_STORE_STATUS.
+const NEW_STORE_STATUS = process.env.E2E_NEW_STORE_STATUS || "approved";
 
 // Copy that claims a store is visible to shoppers.
 const LIVE_CLAIMS = [/déjà en ligne/i, /already live/i, /is live/i, /est en ligne/i];
@@ -178,11 +179,11 @@ export const FLOWS = [
         },
       },
       {
-        label: "The approved owner's new store is still waiting (only the owner was approved)",
+        label: `The approved owner's new store is "${NEW_STORE_STATUS}" (auto-published, not touched by the owner approval batch)`,
         point: "1",
         run: async () => {
           const s = (await db.doc("stores/store-approved-owner-new").get()).data();
-          return { ok: s.status === "pending", detail: `status=${s.status}` };
+          return { ok: s.status === NEW_STORE_STATUS, detail: `status=${s.status}` };
         },
       },
     ],
